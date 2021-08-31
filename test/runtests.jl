@@ -1,6 +1,6 @@
-using NonconvexInterface
+using NonconvexCore
 using Test
 
-@testset "NonconvexInterface.jl" begin
+@testset "NonconvexCore.jl" begin
     # Write your tests here.
 end
