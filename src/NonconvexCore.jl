@@ -6,6 +6,7 @@ const show_residuals = Ref(false)
 export  Model,
         DictModel,
         addvar!,
+        getobjective,
         set_objective!,
         add_ineq_constraint!,
         add_eq_constraint!,

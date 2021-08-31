@@ -238,17 +238,21 @@ Optimizes `model` using the algorithm `optimizer`, e.g. an instance of [`MMA87`]
 
  The details of the MMA optimization algorithms can be found in the original [1987 MMA paper](https://onlinelibrary.wiley.com/doi/abs/10.1002/nme.1620240207) and the [2002 paper](https://epubs.siam.org/doi/abs/10.1137/S1052623499362822).
 """
+function optimize(model::AbstractModel, optimizer::AbstractOptimizer, x0, args...; kwargs...)
+    _optimize_precheck(model, optimizer, x0, args...; kwargs...)
+    _model, _x0, unflatten = tovecmodel(model, x0)
+    r = optimize(_model, optimizer, _x0, args...; kwargs...)
+    return @set r.minimizer = unflatten(r.minimizer)
+end
+
 function _optimize_precheck(model::AbstractModel, optimizer::AbstractOptimizer, args...; options=nothing, kwargs...)
     if (length(model.sd_constraints.fs) != 0) && !(options isa SDPBarrierOptions)
         @warn "Input `sd_constraints` will be ignored due to not using `SDPBarrierOptions`. "
     end
 end
 
-function optimize(model::AbstractModel, optimizer::AbstractOptimizer, x0, args...; kwargs...)
-    _optimize_precheck(model, optimizer, x0, args...; kwargs...)
-    _model, _x0, unflatten = tovecmodel(model, x0)
-    r = optimize(_model, optimizer, _x0, args...; kwargs...)
-    return @set r.minimizer = unflatten(r.minimizer)
+function optimize!(::Workspace)
+    throw("Method not implemented for this type.")
 end
 
 """
