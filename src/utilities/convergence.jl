@@ -13,6 +13,11 @@ Returns true if `hasconverged(s.convstate)` is true.
 """
 hasconverged(s::Solution) = hasconverged(s.convstate)
 
+function assess_convergence!(w::Workspace)
+    assess_convergence!(w.solution, w.model, w.options.tol, w.convcriteria)
+    correctsolution!(w.solution, w.model, w.options)
+    return w
+end
 
 """
 ```

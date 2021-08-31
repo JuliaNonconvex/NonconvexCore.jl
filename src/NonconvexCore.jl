@@ -25,7 +25,7 @@ export  Model,
         FunctionWrapper,
         Tolerance
 
-using Parameters, Zygote, ChainRulesCore, ForwardDiff
+using Parameters, Zygote, ChainRulesCore, ForwardDiff, Requires
 using SparseArrays, Reexport
 using NamedTupleTools
 @reexport using LinearAlgebra, OrderedCollections
@@ -45,6 +45,8 @@ include("functions/value_jacobian.jl")
 include("functions/function_docs.jl")
 include("functions/counting_function.jl")
 include("common.jl")
+include("utilities/callbacks.jl")
+include("utilities/convergence.jl")
 
 # Models
 

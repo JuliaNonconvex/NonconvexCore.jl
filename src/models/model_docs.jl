@@ -1,11 +1,4 @@
 """
-    getparent(model::AbstractModel)
-
-Returns the parent model of `model`.
-"""
-getparent
-
-"""
     getobjectiveconstraints(model::AbstractModel)
 
 Returns an instance of `AbstractFunction` that when called with input `x` returns the objective and constraint values of `model` at `x` in a single vector.

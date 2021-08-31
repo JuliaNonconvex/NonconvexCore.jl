@@ -159,26 +159,6 @@ A struct that stores all the information about a solution. The following are the
     convstate::ConvergenceState
 end
 
-"""
-    Solution(dualmodel, λ)
-
-Construct an empty solution for the dual model `dualmodel` given a sample dual solution `λ`.
-"""
-function Solution(dualmodel, λ)
-    prevx = copy(getxk(dualmodel))
-    x = copy(prevx)
-    λ = copy(λ)
-    prevf = Inf
-    fg = getfk(dualmodel)
-    ∇fg = get∇fk(dualmodel)
-    f = fg[1]
-    g = fg[2:end]
-    ∇f = ∇fg[1, :]
-    ∇g = ∇fg[2:end, :]
-    convstate = ConvergenceState()
-    return Solution(prevx, x, λ, prevf, f, ∇f, g, ∇g, convstate)
-end
-
 """  
     AbstractResult
 
