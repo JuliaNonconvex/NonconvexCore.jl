@@ -1,6 +1,5 @@
-using NonconvexCore
-using Test
+using SafeTestsets, Test
 
-@testset "NonconvexCore.jl" begin
-    # Write your tests here.
-end
+@safetestset "Model" begin include("model.jl") end
+@safetestset "DictModel" begin include("dict_model.jl") end
+@safetestset "JuMP" begin include("jump.jl") end
