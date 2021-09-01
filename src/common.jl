@@ -5,6 +5,15 @@
 abstract type AbstractOptimizer end
 
 """
+    Trace
+
+A struct that stores the history of solutions.
+"""
+struct Trace
+    tr::Vector
+end
+
+"""
     Workspace
 
 Abstract Workspace, which is a struct that stores states and information needed for optimization process.
