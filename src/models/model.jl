@@ -82,7 +82,7 @@ getdim(m::AbstractModel) = (getnconstraints(m), getnvars(m))
 
 getmin(m::AbstractModel)= m.box_min
 getmin(m::AbstractModel, i) = getmin(m)[i]
-isinteger(m::AbstractModel, i) = m.integer[i]
+Base.isinteger(m::AbstractModel, i) = m.integer[i]
 
 getmax(m::AbstractModel) = m.box_max
 getmax(m::AbstractModel, i) = getmax(m)[i]
