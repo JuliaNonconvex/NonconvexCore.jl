@@ -225,9 +225,9 @@ function optimize(model::AbstractModel, optimizer::AbstractOptimizer, x0, args..
     return @set r.minimizer = unflatten(r.minimizer)
 end
 
-function _optimize_precheck(model::AbstractModel, optimizer::AbstractOptimizer, args...; options=nothing, kwargs...)
-    if (length(model.sd_constraints.fs) != 0) && !(options isa SDPBarrierOptions)
-        @warn "Input `sd_constraints` will be ignored due to not using `SDPBarrierOptions`. "
+function _optimize_precheck(model::AbstractModel, optimizer::AbstractOptimizer, args...; kwargs...)
+    if (length(model.sd_constraints.fs) != 0)
+        @warn "The solver used does not support semidefinite constraints so they will be ignored."
     end
 end
 
