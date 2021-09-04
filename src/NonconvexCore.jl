@@ -22,7 +22,11 @@ export  Model,
         KKTCriteria,
         IpoptCriteria,
         FunctionWrapper,
-        Tolerance
+        Tolerance,
+        GenericCriteria,
+        KKTCriteria,
+        ScaledKKTCriteria,
+        IpoptCriteria
 
 using Parameters, Zygote, ChainRulesCore, ForwardDiff, Requires
 using SparseArrays, Reexport
