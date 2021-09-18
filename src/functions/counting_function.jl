@@ -8,3 +8,4 @@ function (f::CountingFunction)(x)
     f.counter[] += 1
     return f.f(x)
 end
+getfunction(f::CountingFunction) = f.f

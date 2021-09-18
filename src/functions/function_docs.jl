@@ -10,4 +10,4 @@ function getdim(::AbstractFunction) end
 
 Returns any wrapped function inside the function `f`.
 """
-function getfunction end
+getfunction
