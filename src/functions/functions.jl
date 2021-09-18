@@ -96,11 +96,8 @@ function (f::VectorOfFunctions)(args...; kwargs...)
 end
 
 function getdim(c::VectorOfFunctions)
-    if length(c.fs) == 0
-        return 0
-    else
-        return sum(getdim, c.fs)
-    end
+    @assert length(c.fs) > 0
+    return sum(getdim, c.fs)
 end
 
 """
