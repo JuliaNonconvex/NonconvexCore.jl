@@ -22,7 +22,6 @@ end
     f2 = FunctionWrapper(exp, 1)
     fs = [f1, f2]
     f = VectorOfFunctions([f1, f2])
-    f == VectorOfFunctions(Any[f])
     for _ in 1:3
         x = rand()
         @test [log(x), exp(x)] == f(x)
@@ -31,6 +30,8 @@ end
     @test getfunctions(f) == fs
     @test getfunction(f, 1) == fs[1]
     @test getfunction(f, 2) == fs[2]
+    newf = VectorOfFunctions(Any[f, FunctionWrapper(exp, 1)])
+    @test getdim(newf) == 3
 end
 
 @testset "Objective" begin
