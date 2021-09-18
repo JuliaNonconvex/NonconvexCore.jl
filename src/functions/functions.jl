@@ -65,8 +65,6 @@ end
 
 Constructs an instance of `VectorOfFunctions` made of functions `fs`. `fs` can be a vector or tuple of instances of `AbstractFunction`. If a function in `fs` is a `VectorOfFunctions`, it will be unwrapped.
 """
-VectorOfFunctions(fs)
-
 function VectorOfFunctions(
     fs::Union{
         AbstractVector{>:VectorOfFunctions},
