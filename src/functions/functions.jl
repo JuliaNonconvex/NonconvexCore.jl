@@ -39,6 +39,20 @@ function (f::FunctionWrapper)(args...; kwargs...)
 end
 
 """
+    getdim(f::AbstractFunction)
+
+Returns the dimension of the function `f`, i.e. the number of outputs.
+"""
+getdim
+
+"""
+    getfunction(f::AbstractFunction)
+
+Returns any wrapped function inside the function `f`.
+"""
+getfunction
+
+"""
     getfunction(f::FunctionWrapper)
 
 Returns the function wrapped in `f`.
