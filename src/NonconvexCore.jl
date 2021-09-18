@@ -45,7 +45,6 @@ using JuMP: VariableRef, is_binary, is_integer, has_lower_bound,
 include("utilities/params.jl")
 include("functions/functions.jl")
 include("functions/value_jacobian.jl")
-include("functions/function_docs.jl")
 include("functions/counting_function.jl")
 include("common.jl")
 include("utilities/callbacks.jl")

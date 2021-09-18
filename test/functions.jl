@@ -21,13 +21,16 @@ end
     f1 = FunctionWrapper(log, 1)
     f2 = FunctionWrapper(exp, 1)
     fs = [f1, f2]
-    f = NonconvexCore.VectorOfFunctions([f1, f2])
+    f = VectorOfFunctions([f1, f2])
+    f == VectorOfFunctions(Any[f])
     for _ in 1:3
         x = rand()
         @test [log(x), exp(x)] == f(x)
     end
     @test getdim(f) == 2
     @test getfunctions(f) == fs
+    @test getfunction(f, 1) == fs[1]
+    @test getfunction(f, 2) == fs[2]
 end
 
 @testset "Objective" begin
