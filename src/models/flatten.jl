@@ -112,9 +112,17 @@ function flatten(d::AbstractDict, ks = collect(keys(d)))
     d_vec, unflatten = flatten(identity.(collect(values(_d))))
     function unflatten_to_Dict(v)
         v_vec_vec = unflatten(v)
-        return OrderedDict(key => v_vec_vec[n] for (n, key) in enumerate(keys(_d)))
+        return _build_ordered_dict(v_vec_vec, keys(_d))
     end
     return identity.(d_vec), unflatten_to_Dict
+end
+function _build_ordered_dict(vals, keys)
+    OrderedDict(key => vals[n] for (n, key) in enumerate(keys))
+end
+function ChainRulesCore.rrule(::typeof(_build_ordered_dict), vals, keys)
+    _build_ordered_dict(vals, keys), Δ -> begin
+        NoTangent(), values(Δ), NoTangent()
+    end
 end
 
 function flatten(x)
