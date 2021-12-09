@@ -25,7 +25,7 @@ mutable struct Model{Tv <: AbstractVector} <: AbstractModel
     box_min::Tv
     box_max::Tv
     init::Tv
-    integer::BitVector
+    integer::AbstractVector
 end
 
 """
@@ -34,7 +34,7 @@ end
 
 Constructs an empty model or a model with objective function `f`. The decision variables are assumed to be of type `Vector{Any}`.
 """
-Model(f::Union{Nothing, Function} = nothing) = Model(Any, f)
+Model(f::Union{Nothing, Function} = x -> 0.0) = Model(Any, f)
 
 """
     Model(::Type{T}, f::Union{Nothing, Function}) where {T}
@@ -48,7 +48,7 @@ function Model(::Type{T}, obj::Union{Nothing, Objective}) where {T}
     VectorOfFunctions(IneqConstraint[]), 
     VectorOfFunctions(SDConstraint[]), 
     T[], T[], T[], 
-    falses(0))
+    [])
 end
 
 getobjective(m::AbstractModel) = m.objective
