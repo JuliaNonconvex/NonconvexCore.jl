@@ -11,12 +11,13 @@ end
 function VecModel(
         objective::Union{Nothing, Objective}, 
         eq_constraints::VectorOfFunctions, 
-        ineq_constraints::VectorOfFunctions, 
+        ineq_constraints::VectorOfFunctions,
+        sd_constraints::VectorOfFunctions,
         box_min, 
         box_max, 
         init, 
         integer::BitVector)
-    return VecModel(objective, eq_constraints, ineq_constraints, VectorOfFunctions(SDConstraint[]), box_min, box_max, init, integer)
+    return VecModel(objective, eq_constraints, ineq_constraints, sd_constraints, box_min, box_max, init, integer)
 end
 
 function isfeasible(model::VecModel, x::AbstractVector; ctol = 1e-4)

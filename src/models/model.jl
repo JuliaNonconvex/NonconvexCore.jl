@@ -147,8 +147,8 @@ end
 Sets the objective of the moodel `m` to the function `f`. `f` must return a scalar.
 """
 function set_objective(m::AbstractModel, f::Function; kwargs...)
-    @set m.objective = Objective(f; kwargs...)
-    return m
+    newm = @set m.objective = Objective(f; kwargs...)
+    return newm
 end
 
 function set_objective!(m::AbstractModel, f::Function; kwargs...)
