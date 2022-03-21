@@ -147,22 +147,22 @@ function get_jump_problem(
         v = MOI.add_variable(moi_model)
         if integers[i]
             if xlb[i] > -1 && xub[i] < 2
-                MOI.add_constraint(moi_model, MOI.SingleVariable(v), MOI.ZeroOne())
+                MOI.add_constraint(moi_model, v, MOI.ZeroOne())
             else
-                MOI.add_constraint(moi_model, MOI.SingleVariable(v), MOI.Integer())
+                MOI.add_constraint(moi_model, v, MOI.Integer())
             end
         end
         if xub[i] != Inf
             MOI.add_constraint(
                 moi_model,
-                MOI.SingleVariable(v),
+                v,
                 MOI.LessThan(xub[i]),
             )
         end
         if xlb[i] != Inf
             MOI.add_constraint(
                 moi_model,
-                MOI.SingleVariable(v),
+                v,
                 MOI.GreaterThan(xlb[i]),
             )
         end
