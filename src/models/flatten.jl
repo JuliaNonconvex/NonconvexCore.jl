@@ -102,7 +102,7 @@ function flatten(x::NamedTuple)
     x_vec, unflatten = flatten(values(x))
     function unflatten_to_NamedTuple(v)
         v_vec_vec = unflatten(v)
-        return typeof(x)(v_vec_vec)
+        return NamedTuple{keys(x)}(v_vec_vec)
     end
     return identity.(x_vec), unflatten_to_NamedTuple
 end
@@ -202,7 +202,7 @@ function zygote_flatten(x1::NamedTuple, x2::NamedTuple)
     x_vec, unflatten = zygote_flatten(values(x1), values(x2))
     function unflatten_to_NamedTuple(v)
         v_vec_vec = unflatten(v)
-        return typeof(x)(v_vec_vec)
+        return NamedTuple{keys(x1)}(v_vec_vec)
     end
     return identity.(x_vec), unflatten_to_NamedTuple
 end
@@ -303,15 +303,15 @@ macro constructor(T, C)
     return flatten_expr(T, C)
 end
 flatten_expr(T, C) = quote
-    function flatten(x::$(esc(T)))
+    function NonconvexCore.flatten(x::$(esc(T)))
         v, un = flatten(ntfromstruct(x))
         return identity.(v), Unflatten(x, y -> structfromnt($(esc(C)), un(y)))
     end
-    function zygote_flatten(x1::$(esc(T)), x2::$(esc(T)))
+    function NonconvexCore.zygote_flatten(x1::$(esc(T)), x2::$(esc(T)))
         v, un = zygote_flatten(ntfromstruct(x1), ntfromstruct(x2))
         return identity.(v), Unflatten(x2, y -> structfromnt($(esc(C)), un(y)))
     end
-    _zero(x::$(esc(T))) = structfromnt($(esc(C)), _zero(ntfromstruct(x)))
+    NonconvexCore._zero(x::$(esc(T))) = structfromnt($(esc(C)), _zero(ntfromstruct(x)))
 end
 
 _cumsum(x) = cumsum(x)
