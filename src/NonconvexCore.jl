@@ -28,6 +28,7 @@ export  Model,
         ScaledKKTCriteria,
         IpoptCriteria
 
+using AbstractDifferentiation
 using Parameters, Zygote, ChainRulesCore, ForwardDiff, Requires
 using SparseArrays, Reexport
 using NamedTupleTools

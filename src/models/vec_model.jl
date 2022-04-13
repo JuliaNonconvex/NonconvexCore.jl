@@ -7,17 +7,7 @@ mutable struct VecModel{Tv <: AbstractVector} <: AbstractModel
     box_max::Tv
     init::Tv
     integer::BitVector
-end
-function VecModel(
-        objective::Union{Nothing, Objective}, 
-        eq_constraints::VectorOfFunctions, 
-        ineq_constraints::VectorOfFunctions,
-        sd_constraints::VectorOfFunctions,
-        box_min, 
-        box_max, 
-        init, 
-        integer::BitVector)
-    return VecModel(objective, eq_constraints, ineq_constraints, sd_constraints, box_min, box_max, init, integer)
+    adbackend::AD.AbstractBackend
 end
 
 function isfeasible(model::VecModel, x::AbstractVector; ctol = 1e-4)
@@ -82,23 +72,36 @@ function optimize(model::VecModel, optimizer::AbstractOptimizer, args...; kwargs
     return optimize!(workspace)
 end
 
+struct AbstractDiffFunction{F, B} <: Function
+    f::F
+    backend::B
+end
+(f::AbstractDiffFunction)(x) = f.f(x)
+function ChainRulesCore.rrule(f::AbstractDiffFunction, x::AbstractVector)
+    vpbf = AbstractDifferentiation.value_and_pullback_function(f.backend, f.f, x)
+    return vpbf(nothing)[1], Δ -> begin
+        (NoTangent(), vpbf(Δ)[2][1])
+    end
+end
+
 function tovecmodel(m::AbstractModel, x0 = getmin(m))
     v, _unflatten = flatten(x0)
     unflatten = Unflatten(x0, _unflatten)
+    toad(f) = AbstractDiffFunction(f, m.adbackend)
     return VecModel(
         # objective
-        Objective(x -> m.objective(unflatten(x)), flags = m.objective.flags),
+        Objective(toad(x -> m.objective(unflatten(x))), flags = m.objective.flags),
         # eq_constraints
         length(m.eq_constraints.fs) != 0 ? VectorOfFunctions(map(m.eq_constraints.fs) do c
-            EqConstraint(x -> maybeflatten(c.f(unflatten(x)))[1], maybeflatten(c.rhs)[1], c.dim, c.flags)
+            EqConstraint(toad(x -> maybeflatten(c.f(unflatten(x)))[1]), maybeflatten(c.rhs)[1], c.dim, c.flags)
         end) : VectorOfFunctions(EqConstraint[]),
         # ineq_constraints
         length(m.ineq_constraints.fs) != 0 ? VectorOfFunctions(map(m.ineq_constraints.fs) do c
-            IneqConstraint(x -> maybeflatten(c.f(unflatten(x)))[1], maybeflatten(c.rhs)[1], c.dim, c.flags)
+            IneqConstraint(toad(x -> maybeflatten(c.f(unflatten(x)))[1]), maybeflatten(c.rhs)[1], c.dim, c.flags)
         end) : VectorOfFunctions(IneqConstraint[]),
         # sd_constraints
         length(m.sd_constraints.fs) != 0 ? VectorOfFunctions(map(m.sd_constraints.fs) do c
-            SDConstraint(x -> c.f(unflatten(x)), c.dim)
+            SDConstraint(toad(x -> c.f(unflatten(x))), c.dim)
         end) : VectorOfFunctions(SDConstraint[]),
         # box_min
         float.(flatten(m.box_min)[1]),
@@ -108,6 +111,6 @@ function tovecmodel(m::AbstractModel, x0 = getmin(m))
         float.(flatten(m.init)[1]),
         # integer
         convert(BitVector, flatten(m.integer)[1]),
+        m.adbackend,
     ), float.(v), unflatten
 end
-

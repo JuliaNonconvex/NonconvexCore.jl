@@ -7,15 +7,16 @@ mutable struct DictModel <: AbstractModel
     box_max::OrderedDict
     init::OrderedDict
     integer::OrderedDict
+    adbackend::AD.AbstractBackend
 end
 
-function DictModel(f = nothing)
+function DictModel(f = nothing; adbackend = AD.ZygoteBackend())
     return DictModel(
         Objective(f), VectorOfFunctions(EqConstraint[]),
         VectorOfFunctions(IneqConstraint[]),
         VectorOfFunctions(SDConstraint[]),
         OrderedDict(), OrderedDict(),
-        OrderedDict(), OrderedDict()
+        OrderedDict(), OrderedDict(), adbackend,
     )
 end
 

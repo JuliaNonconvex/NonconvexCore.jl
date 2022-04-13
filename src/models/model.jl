@@ -26,6 +26,7 @@ mutable struct Model{Tv <: AbstractVector} <: AbstractModel
     box_max::Tv
     init::Tv
     integer::AbstractVector
+    adbackend::AD.AbstractBackend
 end
 
 """
@@ -34,21 +35,25 @@ end
 
 Constructs an empty model or a model with objective function `f`. The decision variables are assumed to be of type `Vector{Any}`.
 """
-Model(f::Union{Nothing, Function} = x -> 0.0) = Model(Any, f)
+function Model(f::Union{Nothing, Function} = x -> 0.0; adbackend = AD.ZygoteBackend())
+    return Model(Any, f, adbackend)
+end
 
 """
     Model(::Type{T}, f::Union{Nothing, Function}) where {T}
 
 Constructs an empty model with objective function `f` and decision variable value type `Vector{T}`. `f` can be an instance of `Base.Function` but must return a number,  or it can be an intance of [`Objective`](@ref). `f` can also be `nothing` in which case, the objective function can be defined later using [`set_objective!`](@ref).
 """
-Model(::Type{T}, f::Function) where {T} = Model(T, Objective(f))
-function Model(::Type{T}, obj::Union{Nothing, Objective}) where {T}
+function Model(::Type{T}, f::Function, adbackend::AD.AbstractBackend) where {T}
+    return Model(T, Objective(f), adbackend)
+end
+function Model(::Type{T}, obj::Union{Nothing, Objective}, adbackend::AD.AbstractBackend) where {T}
     return Model(obj, 
     VectorOfFunctions(EqConstraint[]), 
     VectorOfFunctions(IneqConstraint[]), 
     VectorOfFunctions(SDConstraint[]), 
     T[], T[], T[], 
-    [])
+    [], adbackend)
 end
 
 getobjective(m::AbstractModel) = m.objective

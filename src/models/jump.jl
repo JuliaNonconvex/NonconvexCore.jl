@@ -197,13 +197,13 @@ function get_objective_info(model::JuMP.Model, nvars)
     return c
 end
 
-function DictModel(model::JuMP.Model)
+function DictModel(model::JuMP.Model; adbackend = AD.ZygoteBackend())
     lb, ub, inits, integer = get_variable_info(model)
     nvars = length(flatten(lb)[1])
     Aineq, bineq, Aeq, beq = get_constraint_info(model, nvars)
     c = get_objective_info(model, nvars)
     ks = collect(keys(inits))
-    dict_model = DictModel()
+    dict_model = DictModel(; adbackend)
     for k in ks
         addvar!(dict_model, k, lb[k], ub[k], init = inits[k], integer = integer[k])
     end
