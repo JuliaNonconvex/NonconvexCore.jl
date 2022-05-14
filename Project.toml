@@ -1,7 +1,7 @@
 name = "NonconvexCore"
 uuid = "035190e5-69f1-488f-aaab-becca2889735"
 authors = ["Mohamed Tarek <mohamed82008@gmail.com> and contributors"]
-version = "1.0.5"
+version = "1.0.6"
 
 [deps]
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
