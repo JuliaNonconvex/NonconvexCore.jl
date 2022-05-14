@@ -1,23 +1,12 @@
-mutable struct VecModel{Tv <: AbstractVector} <: AbstractModel
-    objective::Union{Nothing, Objective}
-    eq_constraints::VectorOfFunctions
-    ineq_constraints::VectorOfFunctions
-    sd_constraints::VectorOfFunctions
-    box_min::Tv
-    box_max::Tv
-    init::Tv
+mutable struct VecModel{TO <: Union{Nothing, Objective}, TE <: VectorOfFunctions, TI <: VectorOfFunctions, TS <: VectorOfFunctions, Tv1 <: AbstractVector, Tv2 <: AbstractVector, Tv3 <: AbstractVector} <: AbstractModel
+    objective::TO
+    eq_constraints::TE
+    ineq_constraints::TI
+    sd_constraints::TS
+    box_min::Tv1
+    box_max::Tv2
+    init::Tv3
     integer::BitVector
-end
-function VecModel(
-        objective::Union{Nothing, Objective}, 
-        eq_constraints::VectorOfFunctions, 
-        ineq_constraints::VectorOfFunctions,
-        sd_constraints::VectorOfFunctions,
-        box_min, 
-        box_max, 
-        init, 
-        integer::BitVector)
-    return VecModel(objective, eq_constraints, ineq_constraints, sd_constraints, box_min, box_max, init, integer)
 end
 
 function isfeasible(model::VecModel, x::AbstractVector; ctol = 1e-4)
@@ -82,7 +71,7 @@ function optimize(model::VecModel, optimizer::AbstractOptimizer, args...; kwargs
     return optimize!(workspace)
 end
 
-function tovecmodel(m::AbstractModel, x0 = getmin(m))
+function tovecmodel(m::AbstractModel, x0 = deepcopy(getmin(m)))
     v, _unflatten = flatten(x0)
     unflatten = Unflatten(x0, _unflatten)
     return VecModel(
