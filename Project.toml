@@ -31,7 +31,7 @@ OrderedCollections = "1.4"
 Parameters = "0.12"
 Reexport = "1"
 Requires = "1"
-Setfield = "0.7, 0.8"
+Setfield = "0.7, 0.8, 1"
 Zygote = "0.6"
 julia = "1"
 
