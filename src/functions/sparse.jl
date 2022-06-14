@@ -5,7 +5,7 @@ function sparse_jacobian(f, x)
     M, N = length(val), length(x)
     T = eltype(val)
     return copy(mapreduce(hcat, 1:M, init = spzeros(T, N, 0)) do i
-        pb(I(M)[:, i])[1]
+        sparse(pb(sparsevec([i], [true], N))[1])
     end')
 end
 function sparse_hessian(f, x)
@@ -18,7 +18,7 @@ function sparse_fd_jacobian(f, x)
     init = pf(I(M)[:, 1])[1]
     M = length(init)
     return mapreduce(hcat, 2:N; init) do i
-        pf(I(M)[:, i])[1]
+        sparse(pf(sparsevec([i], [true], M))[1])
     end
 end
 
