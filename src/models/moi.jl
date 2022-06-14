@@ -222,6 +222,15 @@ nvalues(::Nothing) = 0
 nvalues(J::Matrix) = length(J)
 nvalues(H::LowerTriangular{<:Real, <:Matrix}) = (size(H, 1) + 1) * size(H, 1) ÷ 2
 nvalues(H::SparseMatrixCSC) = length(H.nzval)
+function nvalues(HL::LowerTriangular{<:Real, <:SparseMatrixCSC})
+    nvalues = 0
+    H = HL.data
+    for col in 1:length(H.colptr)-1
+        indices = [i for i in H.colptr[col]:H.colptr[col+1]-1 if H.rowval[i] >= col]
+        nvalues += length(indices)
+    end
+    return nvalues
+end
 
 # Implement these for sparse matrices
 function fill_indices!(rows, cols, J0::Matrix; offset = 0, row_offset = 0)
@@ -252,6 +261,17 @@ function fill_indices!(rows, cols, HL::SparseMatrixCSC; offset = 0, row_offset =
     end
     return rows, cols
 end
+function fill_indices!(rows, cols, HL::LowerTriangular{<:Real, <:SparseMatrixCSC}; offset = 0, row_offset = 0)
+    H = HL.data
+    for col in 1:length(H.colptr)-1
+        indices = [i for i in H.colptr[col]:H.colptr[col+1]-1 if H.rowval[i] >= col]
+        nvars = length(indices)
+        cols[offset + 1 : offset + nvars] .= col
+        rows[offset + 1 : offset + nvars] = row_offset .+ H.rowval[indices]
+        offset += nvars
+    end
+    return rows, cols
+end
 
 function add_values!(values, J::Matrix; offset = 0)
     nvars = length(J)
@@ -269,6 +289,16 @@ end
 function add_values!(values, HL::SparseMatrixCSC; factor = 1, offset = 0)
     nvars = length(HL.nzval)
     values[offset+1:offset+nvars] .= HL.nzval .* factor
+    return values
+end
+function add_values!(values, HL::LowerTriangular{<:Real, <:SparseMatrixCSC}; factor = 1, offset = 0)
+    H = HL.data
+    for col in 1:length(H.colptr)-1
+        indices = [i for i in H.colptr[col]:H.colptr[col+1]-1 if H.rowval[i] >= col]
+        nvars = length(indices)
+        values[offset + 1 : offset + nvars] .= H.nzval[indices] .* factor
+        offset += nvars
+    end
     return values
 end
 
