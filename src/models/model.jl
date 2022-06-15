@@ -57,19 +57,29 @@ getineqconstraints(m::AbstractModel) = m.ineq_constraints
 
 geteqconstraints(m::AbstractModel) = m.eq_constraints
 
-function getobjectiveconstraints(m::AbstractModel)
-    return VectorOfFunctions((getobjective(m), getineqconstraints(m), geteqconstraints(m)))
+getsdconstraints(m::AbstractModel) = m.sd_constraints
+
+function getobjectiveconstraints(m::AbstractModel; sd =  false)
+    if sd
+        return VectorOfFunctions((getobjective(m), getineqconstraints(m), geteqconstraints(m), getsdconstraints(m)))
+    else
+        return VectorOfFunctions((getobjective(m), getineqconstraints(m), geteqconstraints(m)))
+    end
 end
 
 getineqconstraint(m::AbstractModel, i::Integer) = getineqconstraints(m).fs[i]
 
 geteqconstraint(m::AbstractModel, i::Integer) = geteqconstraints(m).fs[i]
-
+    
 getnineqconstraints(m::AbstractModel) = length(getineqconstraints(m))
 
 getneqconstraints(m::AbstractModel) = length(geteqconstraints(m))
 
-getnconstraints(m::AbstractModel) = getnineqconstraints(m) + getneqconstraints(m)
+getnsdconstraints(m::AbstractModel) = length(getsdconstraints(m))
+
+function getnconstraints(m::AbstractModel)
+    getnineqconstraints(m) + getneqconstraints(m) + getnsdconstraints(m)
+end
 
 getnvars(m::AbstractModel) = length(getmin(m))
 
