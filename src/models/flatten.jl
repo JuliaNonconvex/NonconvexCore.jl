@@ -253,9 +253,12 @@ _zero(x::NamedTuple) = map(_zero, x)
 _zero(x::Tuple) = map(_zero, x)
 _zero(x) = structfromnt(typeof(x), _zero(ntfromstruct(x)))
 
-function _merge(d1, d2::AbstractDict)
-    _d = OrderedDict(k => _zero(v) for (k, v) in d1)
-    return sort!(merge(_d, OrderedDict(d2)))
+function _merge(d1::AbstractDict{K, V}, d2::AbstractDict) where {K, V}
+    _d = OrderedDict{K, V}(k => _zero(v) for (k, v) in d1)
+    return sort!(merge(_d, OrderedDict{K, V}(d2)))
+end
+function _merge(d1::Tuple, d2::Tangent)
+    return _merge.(d1, d2.backing)
 end
 _merge(::Any, d2) = d2
 

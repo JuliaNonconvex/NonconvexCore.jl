@@ -58,7 +58,7 @@ function _sparse_reshape(v::SparseVector, m, n)
     N = length(v.nzval)
     I = zeros(Int, N)
     J = zeros(Int, N)
-    for ind in v.nzind
+    for (i, ind) in enumerate(v.nzind)
         _col, _row = divrem(ind, m)
         if _row == 0
             col = _col
@@ -67,8 +67,8 @@ function _sparse_reshape(v::SparseVector, m, n)
             col = _col + 1
             row = _row
         end
-        I[ind] = row
-        J[ind] = col
+        I[i] = row
+        J[i] = col
     end
     return sparse(I, J, copy(v.nzval), m, n)
 end
