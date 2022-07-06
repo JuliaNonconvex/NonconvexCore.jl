@@ -95,7 +95,6 @@ function tovecmodel(m::AbstractModel, _x0 = deepcopy(getmin(m)))
     else
         x0 = _x0
     end
-    x0 = identity.(_x0)
     v, _unflatten = flatten(x0)
     unflatten = Unflatten(x0, _unflatten)
     return VecModel(
