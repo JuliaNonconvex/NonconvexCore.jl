@@ -89,7 +89,13 @@ function tovecfunc(f, x...; flatteny = true)
     end
 end
 
-function tovecmodel(m::AbstractModel, x0 = deepcopy(getmin(m)))
+function tovecmodel(m::AbstractModel, _x0 = deepcopy(getmin(m)))
+    if _x0 isa Vector
+        x0 = identity.(_x0)
+    else
+        x0 = _x0
+    end
+    x0 = identity.(_x0)
     v, _unflatten = flatten(x0)
     unflatten = Unflatten(x0, _unflatten)
     return VecModel(
