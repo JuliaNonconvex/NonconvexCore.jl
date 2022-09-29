@@ -1,7 +1,7 @@
 name = "NonconvexCore"
 uuid = "035190e5-69f1-488f-aaab-becca2889735"
 authors = ["Mohamed Tarek <mohamed82008@gmail.com> and contributors"]
-version = "1.1.2"
+version = "1.2.0"
 
 [deps]
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
@@ -17,6 +17,7 @@ Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 Requires = "ae029012-a4dd-5104-9daa-d747884805df"
 Setfield = "efcf1570-3423-57d1-acb7-fd33fddbac46"
+SolverCore = "ff4d7338-4cf1-434d-91df-b86cb86fb843"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
@@ -32,6 +33,7 @@ Parameters = "0.12"
 Reexport = "1"
 Requires = "1"
 Setfield = "0.7, 0.8, 1"
+SolverCore = "0.2, 0.3"
 Zygote = "0.6"
 julia = "1"
 

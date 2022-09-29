@@ -92,8 +92,14 @@ end
 function tovecmodel(m::AbstractModel, _x0 = deepcopy(getmin(m)))
     if _x0 isa Vector
         x0 = identity.(_x0)
+        box_min = identity.(m.box_min)
+        box_max = identity.(m.box_max)
+        init = identity.(m.init)
     else
         x0 = _x0
+        box_min = m.box_min
+        box_max = m.box_max
+        init = m.init
     end
     v, _unflatten = flatten(x0)
     unflatten = Unflatten(x0, _unflatten)
@@ -113,11 +119,11 @@ function tovecmodel(m::AbstractModel, _x0 = deepcopy(getmin(m)))
             SDConstraint(tovecfunc(c.f, x0; flatteny = false)[1], c.dim)
         end) : VectorOfFunctions(SDConstraint[]),
         # box_min
-        float.(flatten(m.box_min)[1]),
+        float.(flatten(box_min)[1]),
         # box_max
-        float.(flatten(m.box_max)[1]),
+        float.(flatten(box_max)[1]),
         # init
-        float.(flatten(m.init)[1]),
+        float.(flatten(init)[1]),
         # integer
         convert(BitVector, flatten(m.integer)[1]),
     ), float.(v), unflatten

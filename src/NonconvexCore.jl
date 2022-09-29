@@ -35,6 +35,7 @@ using NamedTupleTools
 using Reexport, Setfield
 import JuMP, MathOptInterface
 const MOI = MathOptInterface
+using SolverCore: log_header, log_row
 using JuMP: VariableRef, is_binary, is_integer, has_lower_bound,
             has_upper_bound, lower_bound, upper_bound,
             start_value, ConstraintRef, constraint_object,

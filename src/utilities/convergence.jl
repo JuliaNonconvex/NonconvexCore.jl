@@ -14,7 +14,7 @@ Returns true if `hasconverged(s.convstate)` is true.
 hasconverged(s::Solution) = hasconverged(s.convstate)
 
 function assess_convergence!(w::Workspace)
-    assess_convergence!(w.solution, w.model, w.options.tol, w.convcriteria)
+    assess_convergence!(w.solution, w.model, w.options.tol, w.options.convcriteria, w.options.verbose, w.iter)
     correctsolution!(w.solution, w.model, w.options)
     return w
 end
@@ -26,6 +26,8 @@ assess_convergence!(
     model::AbstractModel,
     tol::Tolerance,
     criteria::ConvergenceCriteria,
+    verbose::Bool,
+    iter::Int
 )
 ```
 
@@ -38,15 +40,14 @@ function assess_convergence!(
     model::AbstractModel,
     tol::Tolerance,
     criteria::ConvergenceCriteria,
+    verbose::Bool,
+    iter::Int,
 )
     xtol, fabstol, freltol, kkttol, infeastol = tol.x, tol.fabs, tol.frel, tol.kkt, tol.infeas
-    Δx, Δf, infeas = getresiduals(solution, model, GenericCriteria())
-    relΔf = Δf / (abs(solution.f) + freltol)
-    kkt_residual, infeas = getresiduals(solution, model, KKTCriteria())
-    ipopt_residual, infeas = getresiduals(solution, model, IpoptCriteria())
-    if show_residuals[]
-        @show kkt_residual, ipopt_residual, kkttol
-    end
+    Δx, Δf, infeas, f = getresiduals(solution, model, GenericCriteria())
+    relΔf = Δf / (abs(f) + freltol)
+    _, kkt_residual, infeas, _ = getresiduals(solution, model, KKTCriteria())
+    _, ipopt_residual, infeas, _ = getresiduals(solution, model, IpoptCriteria())
 
     x_converged = Δx < xtol
     fabs_converged = Δf < fabstol
@@ -56,22 +57,45 @@ function assess_convergence!(
             #@show get_objective_multiple(model)
         end
         m = get_objective_multiple(model)
-        kkt_residual = kkt_residual / max(m, 1/m)
+        scaled_kkt_residual = kkt_residual / max(m, 1/m)
+    else
+        scaled_kkt_residual = kkt_residual
     end
+
+    get_kkt_residual(::ScaledKKTCriteria) = scaled_kkt_residual
+    get_kkt_residual(::IpoptCriteria) = ipopt_residual
+    get_kkt_residual(::Any) = kkt_residual
+
+    if iter == 0 && verbose
+        @info log_header(
+            [:iter, :obj, :Δobj, :violation, :kkt_residual],
+            [Int, Float64, Float64, Float64, Float64],
+        )
+    end
+    if verbose
+        @info log_row(
+            Any[iter, f, Δf, infeas, get_kkt_residual(criteria)]
+        )
+    end
+
     kkt_converged = kkt_residual < kkttol
+    scaled_kkt_converged = scaled_kkt_residual < kkttol
     ipopt_converged = ipopt_residual < kkttol
     infeas_converged = infeas <= infeastol
     f_increased = solution.f > solution.prevf
 
     if criteria isa GenericCriteria
         converged = (x_converged || fabs_converged || frel_converged) && infeas_converged
-    elseif criteria isa KKTCriteria || criteria isa ScaledKKTCriteria
+    elseif criteria isa KKTCriteria
         converged = kkt_converged && infeas_converged
+    elseif criteria isa ScaledKKTCriteria
+        converged = scaled_kkt_converged && infeas_converged
     elseif criteria isa IpoptCriteria
         converged = ipopt_converged && infeas_converged
     else
         throw("Unsupported convergence criteria for MMA.")
     end
+    kkt_converged = kkt_converged || scaled_kkt_converged
     @pack! solution.convstate = x_converged,
                                 fabs_converged,
                                 frel_converged,
@@ -94,10 +118,10 @@ function getresiduals(solution::Solution, ::AbstractModel, ::GenericCriteria)
     Δx = maximum(abs(x[j] - prevx[j]) for j in 1:length(x))
     Δf = abs(f - prevf)
     infeas = length(g) == 0 ? zero(eltype(g)) : max(0, maximum(g))
-    return Δx, Δf, infeas
+    return Δx, Δf, infeas, f
 end
 function getresiduals(solution::Solution, model::AbstractModel, ::KKTCriteria)
-    @unpack ∇f, g, ∇g, λ, x = solution
+    @unpack ∇f, g, ∇g, λ, x, f = solution
     xmin, xmax = getmin(model), getmax(model)
     T = eltype(x)
     res = maximum(1:length(x)) do j
@@ -120,10 +144,10 @@ function getresiduals(solution::Solution, model::AbstractModel, ::KKTCriteria)
         @show maximum(x)
     end
     infeas = length(g) == 0 ? zero(eltype(g)) : max(maximum(g), 0)
-    return res, infeas
+    return missing, res, infeas, f
 end
 function getresiduals(solution::Solution, model::AbstractModel, ::IpoptCriteria)
-    @unpack ∇f, g, ∇g, λ, x = solution
+    @unpack ∇f, g, ∇g, λ, x, f = solution
     xmin, xmax = getmin(model), getmax(model)
     T = eltype(x)
     n, m, s = length(x), length(λ), zero(T)
@@ -148,5 +172,5 @@ function getresiduals(solution::Solution, model::AbstractModel, ::IpoptCriteria)
     if debugging[]
         println("Agg infeas = ", infeas)
     end
-    return res, infeas
+    return missing, res, infeas, f
 end
