@@ -4,4 +4,3 @@ using SafeTestsets, Test
 @safetestset "DictModel" begin include("dict_model.jl") end
 @safetestset "JuMP" begin include("jump.jl") end
 @safetestset "Functions" begin include("functions.jl") end
-@safetestset "Flatten" begin include("flatten.jl") end

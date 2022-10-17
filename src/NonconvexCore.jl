@@ -28,9 +28,8 @@ export  Model,
         ScaledKKTCriteria,
         IpoptCriteria
 
-using Parameters, Zygote, ChainRulesCore, ForwardDiff, Requires
-using SparseArrays, Reexport
-using NamedTupleTools
+using Parameters, Zygote, ChainRulesCore, ForwardDiff
+using SparseArrays, Reexport, Requires
 @reexport using LinearAlgebra, OrderedCollections
 using Reexport, Setfield
 import JuMP, MathOptInterface
@@ -40,6 +39,7 @@ using JuMP: VariableRef, is_binary, is_integer, has_lower_bound,
             has_upper_bound, lower_bound, upper_bound,
             start_value, ConstraintRef, constraint_object,
             AffExpr, objective_function, objective_sense
+using DifferentiableFlatten: flatten, maybeflatten, Unflatten
 
 # General
 
@@ -54,7 +54,6 @@ include("utilities/convergence.jl")
 
 # Models
 
-include("models/flatten.jl")
 include("models/model.jl")
 include("models/vec_model.jl")
 include("models/dict_model.jl")
