@@ -5,6 +5,7 @@ version = "1.2.0"
 
 [deps]
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
+DifferentiableFlatten = "c78775a3-ee38-4681-b694-0504db4f5dc7"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 IntervalArithmetic = "d1acc4aa-44c8-5952-acd4-ba5d80a2a253"
 JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
@@ -23,6 +24,7 @@ Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
 ChainRulesCore = "0.10, 0.9, 1"
+DifferentiableFlatten = "0.1.0"
 ForwardDiff = "0.10"
 IntervalArithmetic = "0.17, 0.18, 0.19, 0.20"
 JuMP = "0.22, 0.23, 1"
