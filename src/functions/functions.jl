@@ -101,9 +101,9 @@ end
 Calls the wrapped functions in `f` with arguments `args` and keyword arguments `kwargs` and returns the concatenated output.
 """
 function (f::VectorOfFunctions)(args...; kwargs...)
+    length(f.fs) == 0 && return Union{}[]
     ys = map(f.fs) do f
-        out = f(args...; kwargs...)
-        length(out) == 0 ? Union{}[] : out
+        return f(args...; kwargs...)
     end
     return vcat(ys...)
 end
@@ -282,7 +282,6 @@ Returns the function wrapped in `f`.
 """
 getfunction(f::EqConstraint) = f.f
 
-
 """
 
 Used in semidefinite programming
@@ -294,8 +293,6 @@ end
 
 function (c::SDConstraint)(args...; kwargs...)
     out = c.f(args...; kwargs...)
-    # println(length(out))
-    # println(getdim(c))
     @assert length(out) == getdim(c)^2
     return out
 end
