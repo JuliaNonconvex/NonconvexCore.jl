@@ -120,7 +120,7 @@ function tovecfunc(f, x...; flatteny = true)
     end
 end
 
-function tovecmodel(m::AbstractModel, _x0 = deepcopy(getmin(m)))
+function tovecmodel(m::AbstractModel, _x0 = m.init)
     if _x0 isa Vector
         x0 = identity.(_x0)
         box_min = identity.(m.box_min)
