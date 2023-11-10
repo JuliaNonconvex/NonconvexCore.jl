@@ -20,11 +20,8 @@ import JuMP
     @test getmin(dict_model) == OrderedDict(:x => 0.0, :y => 0.0)
     @test getmax(dict_model) == OrderedDict(:x => Inf, :y => 3.0)
     @test obj(x) == 20 * x[:y]
-    @test ineq(x) == [
-        100 - 6 * x[:x] - 8 * x[:y],
-        120 - 7 * x[:x] - 12 * x[:y],
-        x[:x] + x[:y] - 50,
-    ]
+    @test ineq(x) ==
+          [100 - 6 * x[:x] - 8 * x[:y], 120 - 7 * x[:x] - 12 * x[:y], x[:x] + x[:y] - 50]
     @test eq(x) == [x[:x] + x[:y] - 25]
 
     vec_model, _, _ = NonconvexCore.tovecmodel(dict_model)
@@ -42,7 +39,7 @@ import JuMP
     @test val2 == eq(x)
 
     @test grad0 == [0, 20]
-    @test jac1 == [-6 -8; -7 -12; 1 1;]
+    @test jac1 == [-6 -8; -7 -12; 1 1]
     @test jac2 == [1 1;]
 end
 
@@ -50,7 +47,7 @@ end
     model = JuMP.Model()
     lbs = [0.0, 0.0]
     ubs = [Inf, 3.0]
-    JuMP.@variable(model, x[i=1:2], lower_bound = lbs[i], upper_bound = ubs[i])
+    JuMP.@variable(model, x[i = 1:2], lower_bound = lbs[i], upper_bound = ubs[i])
     JuMP.@objective(model, Min, 12x[1])
     JuMP.@constraint(model, c1, 6x[1] + 8x[2] >= 100)
     JuMP.@constraint(model, c2, 7x[1] + 12x[2] >= 120)
@@ -88,7 +85,7 @@ end
     @test val2 == eq(x)
 
     @test grad0 == [12, 0]
-    @test jac1 == [-6 -8; -7 -12; 1 1;]
+    @test jac1 == [-6 -8; -7 -12; 1 1]
     @test jac2 == [1 1;]
 end
 
@@ -96,7 +93,7 @@ end
     model = JuMP.Model()
     lbs = [0.0, 0.0]
     ubs = [Inf, 3.0]
-    JuMP.@variable(model, x[i=2:-1:1], lower_bound = lbs[i], upper_bound = ubs[i])
+    JuMP.@variable(model, x[i = 2:-1:1], lower_bound = lbs[i], upper_bound = ubs[i])
     JuMP.@objective(model, Min, 12x[1])
     JuMP.@constraint(model, c1, 6x[1] + 8x[2] >= 100)
     JuMP.@constraint(model, c2, 7x[1] + 12x[2] >= 120)
@@ -109,8 +106,10 @@ end
     eq = NonconvexCore.geteqconstraints(dict_model)
     x = NonconvexCore.getinit(dict_model)
 
-    @test getmin(dict_model) == OrderedDict(:x => JuMP.Containers.DenseAxisArray(lbs[end:-1:1], 2:-1:1))
-    @test getmax(dict_model) == OrderedDict(:x => JuMP.Containers.DenseAxisArray(ubs[end:-1:1], 2:-1:1))
+    @test getmin(dict_model) ==
+          OrderedDict(:x => JuMP.Containers.DenseAxisArray(lbs[end:-1:1], 2:-1:1))
+    @test getmax(dict_model) ==
+          OrderedDict(:x => JuMP.Containers.DenseAxisArray(ubs[end:-1:1], 2:-1:1))
     @test obj(x) == 12 * x[:x][1]
     @test ineq(x) == [
         100 - 6 * x[:x][1] - 8 * x[:x][2],
@@ -134,7 +133,7 @@ end
     @test val2 == eq(x)
 
     @test grad0 == [0, 12]
-    @test jac1 == [-8 -6; -12 -7; 1 1;]
+    @test jac1 == [-8 -6; -12 -7; 1 1]
     @test jac2 == [1 1;]
 end
 
@@ -142,13 +141,18 @@ end
     model = JuMP.Model()
     lbs = [0.0, 0.0]
     ubs = [Inf, 3.0]
-    inds = [(1,1), (2,1)]
-    JuMP.@variable(model, x[ind = inds], lower_bound = lbs[ind[1]], upper_bound = ubs[ind[1]])
-    JuMP.@objective(model, Min, 12x[(1,1)] + 20x[(2,1)])
-    JuMP.@constraint(model, c1, 6x[(1,1)] + 8x[(2,1)] >= 100)
-    JuMP.@constraint(model, c2, 7x[(1,1)] + 12x[(2,1)] >= 120)
-    JuMP.@constraint(model, c3, x[(1,1)] + x[(2,1)] == 25)
-    JuMP.@constraint(model, c4, x[(1,1)] + x[(2,1)] <= 50)
+    inds = [(1, 1), (2, 1)]
+    JuMP.@variable(
+        model,
+        x[ind = inds],
+        lower_bound = lbs[ind[1]],
+        upper_bound = ubs[ind[1]]
+    )
+    JuMP.@objective(model, Min, 12x[(1, 1)] + 20x[(2, 1)])
+    JuMP.@constraint(model, c1, 6x[(1, 1)] + 8x[(2, 1)] >= 100)
+    JuMP.@constraint(model, c2, 7x[(1, 1)] + 12x[(2, 1)] >= 120)
+    JuMP.@constraint(model, c3, x[(1, 1)] + x[(2, 1)] == 25)
+    JuMP.@constraint(model, c4, x[(1, 1)] + x[(2, 1)] <= 50)
 
     dict_model = DictModel(model)
     obj = NonconvexCore.getobjective(dict_model)
@@ -156,8 +160,10 @@ end
     eq = NonconvexCore.geteqconstraints(dict_model)
     x = NonconvexCore.getinit(dict_model)
 
-    @test getmin(dict_model) == OrderedDict(:x => JuMP.Containers.DenseAxisArray(lbs, [(1, 1), (2, 1)]))
-    @test getmax(dict_model) == OrderedDict(:x => JuMP.Containers.DenseAxisArray(ubs, [(1, 1), (2, 1)]))
+    @test getmin(dict_model) ==
+          OrderedDict(:x => JuMP.Containers.DenseAxisArray(lbs, [(1, 1), (2, 1)]))
+    @test getmax(dict_model) ==
+          OrderedDict(:x => JuMP.Containers.DenseAxisArray(ubs, [(1, 1), (2, 1)]))
     @test obj(x) == 12 * x[:x][(1, 1)] + 20 * x[:x][(2, 1)]
     @test ineq(x) == [
         100 - 6 * x[:x][(1, 1)] - 8 * x[:x][(2, 1)],
@@ -181,6 +187,6 @@ end
     @test val2 == eq(x)
 
     @test grad0 == [12, 20]
-    @test jac1 == [-6 -8; -7 -12; 1 1;]
+    @test jac1 == [-6 -8; -7 -12; 1 1]
     @test jac2 == [1 1;]
 end

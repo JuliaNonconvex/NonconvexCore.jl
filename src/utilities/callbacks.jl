@@ -7,7 +7,7 @@ A callback function that plots a number of convergence metrics using [Convergenc
 - `iter`: the number of times the callback was called.
 """
 mutable struct PlottingCallback <: Function
-    plot
+    plot::Any
     n::Int
     iter::Int
 end
@@ -24,13 +24,14 @@ A callback function that plots a number of convergence metrics using [Convergenc
 - `iter`: the number of times the callback was called.
 """
 mutable struct LazyPlottingCallback <: Function
-    plot
+    plot::Any
     n::Int
     iter::Int
     show_plot::Bool
-    save_plot::Union{Nothing, String}
+    save_plot::Union{Nothing,String}
 end
-LazyPlottingCallback(n = 10^10; show_plot = true, save_plot = nothing) = LazyPlottingCallback(nothing, n, 0, show_plot, save_plot)
+LazyPlottingCallback(n = 10^10; show_plot = true, save_plot = nothing) =
+    LazyPlottingCallback(nothing, n, 0, show_plot, save_plot)
 
 (callback::LazyPlottingCallback)(solution::Solution; update = false) = nothing
 
@@ -39,10 +40,10 @@ struct NoCallback <: Function end
 
 @require ConvergencePlots = "e9c76d45-d282-4a42-92e1-2fa9292d7569" @eval begin
     using .ConvergencePlots
-    
+
     """
     (callback::PlottingCallback)(solution::Solution)
-    
+
     Updates the convergence plots using the current solution.
     """
     function (callback::PlottingCallback)(solution::Solution)

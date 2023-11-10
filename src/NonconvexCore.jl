@@ -3,30 +3,30 @@ module NonconvexCore
 const debugging = Ref(false)
 const show_residuals = Ref(false)
 
-export  Model,
-        DictModel,
-        addvar!,
-        getobjective,
-        set_objective!,
-        add_ineq_constraint!,
-        add_eq_constraint!,
-        add_sd_constraint!,
-        decompress_symmetric,
-        getmin,
-        getmax,
-        setmin!,
-        setmax!,
-        setinteger!,
-        optimize,
-        Workspace,
-        KKTCriteria,
-        IpoptCriteria,
-        FunctionWrapper,
-        Tolerance,
-        GenericCriteria,
-        KKTCriteria,
-        ScaledKKTCriteria,
-        IpoptCriteria
+export Model,
+    DictModel,
+    addvar!,
+    getobjective,
+    set_objective!,
+    add_ineq_constraint!,
+    add_eq_constraint!,
+    add_sd_constraint!,
+    decompress_symmetric,
+    getmin,
+    getmax,
+    setmin!,
+    setmax!,
+    setinteger!,
+    optimize,
+    Workspace,
+    KKTCriteria,
+    IpoptCriteria,
+    FunctionWrapper,
+    Tolerance,
+    GenericCriteria,
+    KKTCriteria,
+    ScaledKKTCriteria,
+    IpoptCriteria
 
 using Parameters, Zygote, ChainRulesCore, ForwardDiff
 using SparseArrays, Reexport, Requires
@@ -35,10 +35,20 @@ using Reexport, Setfield
 import JuMP, MathOptInterface
 const MOI = MathOptInterface
 using SolverCore: log_header, log_row
-using JuMP: VariableRef, is_binary, is_integer, has_lower_bound,
-            has_upper_bound, lower_bound, upper_bound,
-            start_value, ConstraintRef, constraint_object,
-            AffExpr, objective_function, objective_sense
+using JuMP:
+    VariableRef,
+    is_binary,
+    is_integer,
+    has_lower_bound,
+    has_upper_bound,
+    lower_bound,
+    upper_bound,
+    start_value,
+    ConstraintRef,
+    constraint_object,
+    AffExpr,
+    objective_function,
+    objective_sense
 using DifferentiableFlatten: flatten, maybeflatten, Unflatten
 
 # General

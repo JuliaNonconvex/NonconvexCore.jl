@@ -1,10 +1,10 @@
-struct JuMPProblem{E, M, V}
+struct JuMPProblem{E,M,V}
     evaluator::E
     model::M
     vars::V
 end
 
-struct JuMPEvaluator{XL, XU, X, CL, CU, O, C, G, J, JS, H, HS} <: MOI.AbstractNLPEvaluator
+struct JuMPEvaluator{XL,XU,X,CL,CU,O,C,G,J,JS,H,HS} <: MOI.AbstractNLPEvaluator
     nvars::Int
     xlb::XL
     xub::XU
@@ -24,8 +24,11 @@ struct JuMPEvaluator{XL, XU, X, CL, CU, O, C, G, J, JS, H, HS} <: MOI.AbstractNL
 end
 
 function get_jump_problem(
-    model::VecModel, x0 = getinit(model);
-    optimizer, first_order, kwargs...,
+    model::VecModel,
+    x0 = getinit(model);
+    optimizer,
+    first_order,
+    kwargs...,
 )
     integers = model.integer
     eq = if length(model.eq_constraints.fs) == 0
@@ -40,13 +43,28 @@ function get_jump_problem(
     end
     obj = CountingFunction(getobjective(model))
     return get_jump_problem(
-        obj, ineq, eq, x0, integers, getmin(model),
-        getmax(model), first_order, optimizer,
-    ), obj.counter
+        obj,
+        ineq,
+        eq,
+        x0,
+        integers,
+        getmin(model),
+        getmax(model),
+        first_order,
+        optimizer,
+    ),
+    obj.counter
 end
 function get_jump_problem(
-    obj, ineq_constr, eq_constr, x0, integers,
-    xlb, xub, first_order, optimizer,
+    obj,
+    ineq_constr,
+    eq_constr,
+    x0,
+    integers,
+    xlb,
+    xub,
+    first_order,
+    optimizer,
 )
     nvars = 0
     if ineq_constr !== nothing
@@ -67,11 +85,12 @@ function get_jump_problem(
     end
     njacvals = nvalues(ineqJ0) + nvalues(eqJ0)
     @assert nvars > 0
-    lag(factor, y) = x -> begin
-        factor * obj(x) + 
-            _dot(ineq_constr, x, @view(y[1:ineq_nconstr])) + 
+    lag(factor, y) =
+        x -> begin
+            factor * obj(x) +
+            _dot(ineq_constr, x, @view(y[1:ineq_nconstr])) +
             _dot(eq_constr, x, @view(y[ineq_nconstr+1:end]))
-    end
+        end
     clb = [fill(-Inf, ineq_nconstr); zeros(eq_nconstr)]
     cub = zeros(ineq_nconstr + eq_nconstr)
 
@@ -91,7 +110,8 @@ function get_jump_problem(
         rows = fill(0, njacvals)
         cols = fill(0, njacvals)
         ineqJ0 === nothing || fill_indices!(rows, cols, ineqJ0)
-        eqJ0 === nothing || fill_indices!(rows, cols, eqJ0, offset = Joffset, row_offset = ineq_nconstr)
+        eqJ0 === nothing ||
+            fill_indices!(rows, cols, eqJ0, offset = Joffset, row_offset = ineq_nconstr)
         return tuple.(rows, cols)
     end
     function eval_jac_g(x::AbstractVector{Float64}, values::AbstractVector{Float64})
@@ -112,12 +132,7 @@ function get_jump_problem(
         lag_hess_structure = () -> Tuple{Int,Int}[]
         Hnvalues = 0
     else
-        HL0 = LowerTriangular(
-            Zygote.hessian(
-                lag(1.0, ones(ineq_nconstr + eq_nconstr)),
-                x0,
-            ),
-        )
+        HL0 = LowerTriangular(Zygote.hessian(lag(1.0, ones(ineq_nconstr + eq_nconstr)), x0))
         Hnvalues = nvalues(HL0)
         lag_hess_structure = function ()
             rows = fill(0, Hnvalues)
@@ -125,10 +140,13 @@ function get_jump_problem(
             fill_indices!(rows, cols, HL0)
             return tuple.(rows, cols)
         end
-        eval_h = function (x::AbstractVector{Float64}, obj_factor::Float64, lambda::AbstractVector{Float64}, values::AbstractVector{Float64})
-            HL = LowerTriangular(
-                Zygote.hessian(lag(obj_factor, lambda), x),
-            )
+        eval_h = function (
+            x::AbstractVector{Float64},
+            obj_factor::Float64,
+            lambda::AbstractVector{Float64},
+            values::AbstractVector{Float64},
+        )
+            HL = LowerTriangular(Zygote.hessian(lag(obj_factor, lambda), x))
             values .= 0
             add_values!(values, HL)
             return values
@@ -136,9 +154,22 @@ function get_jump_problem(
     end
 
     evaluator = JuMPEvaluator(
-        nvars, xlb, xub, x0, ineq_nconstr + eq_nconstr, clb, cub,
-        njacvals, Hnvalues, obj, eval_g, eval_grad_f, eval_jac_g,
-        jac_structure, eval_h, lag_hess_structure,
+        nvars,
+        xlb,
+        xub,
+        x0,
+        ineq_nconstr + eq_nconstr,
+        clb,
+        cub,
+        njacvals,
+        Hnvalues,
+        obj,
+        eval_g,
+        eval_grad_f,
+        eval_jac_g,
+        jac_structure,
+        eval_h,
+        lag_hess_structure,
     )
     jump_model = JuMP.Model(optimizer)
     moi_model = JuMP.backend(jump_model)
@@ -153,18 +184,10 @@ function get_jump_problem(
             end
         end
         if xub[i] != Inf
-            MOI.add_constraint(
-                moi_model,
-                v,
-                MOI.LessThan(xub[i]),
-            )
+            MOI.add_constraint(moi_model, v, MOI.LessThan(xub[i]))
         end
         if xlb[i] != Inf
-            MOI.add_constraint(
-                moi_model,
-                v,
-                MOI.GreaterThan(xlb[i]),
-            )
+            MOI.add_constraint(moi_model, v, MOI.GreaterThan(xlb[i]))
         end
         MOI.set(moi_model, MOI.VariablePrimalStart(), v, x0[i])
         return v
@@ -215,18 +238,18 @@ end
 
 function MOI.eval_hessian_lagrangian(d::JuMPEvaluator, H, x, σ, μ)
     d.eval_h(x, σ, μ, H)
-   return
+    return
 end
 
 nvalues(::Nothing) = 0
 nvalues(J::Matrix) = length(J)
-nvalues(H::LowerTriangular{<:Real, <:Matrix}) = (size(H, 1) + 1) * size(H, 1) ÷ 2
+nvalues(H::LowerTriangular{<:Real,<:Matrix}) = (size(H, 1) + 1) * size(H, 1) ÷ 2
 nvalues(H::SparseMatrixCSC) = length(H.nzval)
-function nvalues(HL::LowerTriangular{<:Real, <:SparseMatrixCSC})
+function nvalues(HL::LowerTriangular{<:Real,<:SparseMatrixCSC})
     nvalues = 0
     H = HL.data
-    for col in 1:length(H.colptr)-1
-        indices = [i for i in H.colptr[col]:H.colptr[col+1]-1 if H.rowval[i] >= col]
+    for col = 1:length(H.colptr)-1
+        indices = [i for i = H.colptr[col]:H.colptr[col+1]-1 if H.rowval[i] >= col]
         nvalues += length(indices)
     end
     return nvalues
@@ -235,39 +258,51 @@ end
 # Implement these for sparse matrices
 function fill_indices!(rows, cols, J0::Matrix; offset = 0, row_offset = 0)
     nconstr, nvars = size(J0)
-    for j in 1:nvars
-        cols[offset + 1 : offset + nconstr] .= j
-        rows[offset + 1 : offset + nconstr] .= row_offset+1:row_offset+nconstr
+    for j = 1:nvars
+        cols[offset+1:offset+nconstr] .= j
+        rows[offset+1:offset+nconstr] .= row_offset+1:row_offset+nconstr
         offset += nconstr
     end
     return rows, cols
 end
-function fill_indices!(rows, cols, HL::LowerTriangular{<:Real, <:Matrix}; offset = 0, row_offset = 0)
+function fill_indices!(
+    rows,
+    cols,
+    HL::LowerTriangular{<:Real,<:Matrix};
+    offset = 0,
+    row_offset = 0,
+)
     nvars = size(HL, 1)
-    for j in 1:nvars
-        cols[offset + 1 : offset + nvars - j + 1] .= j
-        rows[offset + 1 : offset + nvars - j + 1] .= row_offset + j : row_offset + nvars
+    for j = 1:nvars
+        cols[offset+1:offset+nvars-j+1] .= j
+        rows[offset+1:offset+nvars-j+1] .= row_offset+j:row_offset+nvars
         offset += nvars - j + 1
     end
     return rows, cols
 end
 function fill_indices!(rows, cols, HL::SparseMatrixCSC; offset = 0, row_offset = 0)
-    for col in 1:length(HL.colptr)-1
+    for col = 1:length(HL.colptr)-1
         indices = HL.colptr[col]:HL.colptr[col+1]-1
         nvars = length(indices)
-        cols[offset + 1 : offset + nvars] .= col
-        rows[offset + 1 : offset + nvars] = row_offset .+ HL.rowval[indices]
+        cols[offset+1:offset+nvars] .= col
+        rows[offset+1:offset+nvars] = row_offset .+ HL.rowval[indices]
         offset += nvars
     end
     return rows, cols
 end
-function fill_indices!(rows, cols, HL::LowerTriangular{<:Real, <:SparseMatrixCSC}; offset = 0, row_offset = 0)
+function fill_indices!(
+    rows,
+    cols,
+    HL::LowerTriangular{<:Real,<:SparseMatrixCSC};
+    offset = 0,
+    row_offset = 0,
+)
     H = HL.data
-    for col in 1:length(H.colptr)-1
-        indices = [i for i in H.colptr[col]:H.colptr[col+1]-1 if H.rowval[i] >= col]
+    for col = 1:length(H.colptr)-1
+        indices = [i for i = H.colptr[col]:H.colptr[col+1]-1 if H.rowval[i] >= col]
         nvars = length(indices)
-        cols[offset + 1 : offset + nvars] .= col
-        rows[offset + 1 : offset + nvars] = row_offset .+ H.rowval[indices]
+        cols[offset+1:offset+nvars] .= col
+        rows[offset+1:offset+nvars] = row_offset .+ H.rowval[indices]
         offset += nvars
     end
     return rows, cols
@@ -278,10 +313,10 @@ function add_values!(values, J::Matrix; offset = 0)
     values[offset+1:offset+nvars] .+= vec(J)
     return values
 end
-function add_values!(values, HL::LowerTriangular{<:Real, <:Matrix}; factor = 1, offset = 0)
+function add_values!(values, HL::LowerTriangular{<:Real,<:Matrix}; factor = 1, offset = 0)
     nvars = size(HL, 1)
-    for j in 1:nvars
-        values[offset + 1 : offset + nvars - j + 1] .+= HL[j:nvars, j] .* factor
+    for j = 1:nvars
+        values[offset+1:offset+nvars-j+1] .+= HL[j:nvars, j] .* factor
         offset += nvars - j + 1
     end
     return values
@@ -291,12 +326,17 @@ function add_values!(values, HL::SparseMatrixCSC; factor = 1, offset = 0)
     values[offset+1:offset+nvars] .= HL.nzval .* factor
     return values
 end
-function add_values!(values, HL::LowerTriangular{<:Real, <:SparseMatrixCSC}; factor = 1, offset = 0)
+function add_values!(
+    values,
+    HL::LowerTriangular{<:Real,<:SparseMatrixCSC};
+    factor = 1,
+    offset = 0,
+)
     H = HL.data
-    for col in 1:length(H.colptr)-1
-        indices = [i for i in H.colptr[col]:H.colptr[col+1]-1 if H.rowval[i] >= col]
+    for col = 1:length(H.colptr)-1
+        indices = [i for i = H.colptr[col]:H.colptr[col+1]-1 if H.rowval[i] >= col]
         nvars = length(indices)
-        values[offset + 1 : offset + nvars] .= H.nzval[indices] .* factor
+        values[offset+1:offset+nvars] .= H.nzval[indices] .* factor
         offset += nvars
     end
     return values

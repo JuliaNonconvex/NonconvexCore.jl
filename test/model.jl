@@ -1,7 +1,7 @@
 using NonconvexCore, LinearAlgebra, Test, Zygote
 
 f(x::AbstractVector) = sqrt(x[2])
-g(x::AbstractVector, a, b) = (a*x[1] + b)^3 - x[2]
+g(x::AbstractVector, a, b) = (a * x[1] + b)^3 - x[2]
 
 m = Model(f)
 addvar!(m, [0.0, 0.0], [10.0, 10.0])

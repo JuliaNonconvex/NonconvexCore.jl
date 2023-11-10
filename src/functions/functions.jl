@@ -22,8 +22,8 @@ end
 
 A function wrapper type that wraps the function `f` where the function `f` is declared to return an output of dimension `dim`.
 """
-@params struct FunctionWrapper <: AbstractFunction
-    f::Function
+struct FunctionWrapper{F} <: AbstractFunction
+    f::F
     dim::Int
 end
 
@@ -70,8 +70,10 @@ end
 
 A struct for a collection of instances of `AbstractFunction`. The dimension of this function is the sum of the dimensions of the individual functions and the outputs are concatenated in a vector.
 """
-@params struct VectorOfFunctions <: AbstractFunction
-    fs::Union{AbstractVector{<:AbstractFunction}, Tuple{Vararg{AbstractFunction}}}
+struct VectorOfFunctions{
+    F<:Union{AbstractVector{<:AbstractFunction},Tuple{Vararg{AbstractFunction}}},
+} <: AbstractFunction
+    fs::F
 end
 
 """
@@ -80,10 +82,7 @@ end
 Constructs an instance of `VectorOfFunctions` made of functions `fs`. `fs` can be a vector or tuple of instances of `AbstractFunction`. If a function in `fs` is a `VectorOfFunctions`, it will be unwrapped.
 """
 function VectorOfFunctions(
-    fs::Union{
-        AbstractVector{>:VectorOfFunctions},
-        Tuple{Vararg{>:VectorOfFunctions}},
-    },
+    fs::Union{AbstractVector{>:VectorOfFunctions},Tuple{Vararg{>:VectorOfFunctions}}},
 )
     @assert length(fs) > 0
     new_fs = mapreduce(vcat, fs) do f
@@ -146,9 +145,9 @@ end
 
 The objective function to be optimized. The objective is always assumed to be of dimension 1. `multiple` is of type `Ref{<:Number}`. When an instance of `Objective` is called, its output will be scaled by a multiplier `multiple[]`. This is 1 by default.
 """
-@params struct Objective <: AbstractFunction
-    f
-    multiple::Base.RefValue
+struct Objective{F,M<:Base.RefValue} <: AbstractFunction
+    f::F
+    multiple::M
     flags::Set{Symbol}
 end
 
@@ -193,9 +192,9 @@ end
 
 A struct for an inequality constraint of the form `f(x) .- rhs .<= 0`. The dimension of the constraint is `dim`. Calling the struct will return `f(x) .- rhs`.
 """
-@params struct IneqConstraint <: AbstractConstraint
-    f::Function
-    rhs
+struct IneqConstraint{F,R} <: AbstractConstraint
+    f::F
+    rhs::R
     dim::Int
     flags::Set{Symbol}
 end
@@ -244,9 +243,9 @@ end
 
 A struct for an equality constraint of the form `f(x) .- rhs .== 0`. The dimension of the constraint is `dim`. Calling the struct will return `f(x) .- rhs`.
 """
-@params struct EqConstraint <: AbstractConstraint
-    f::Function
-    rhs
+struct EqConstraint{F,R} <: AbstractConstraint
+    f::F
+    rhs::R
     dim::Int
     flags::Set{Symbol}
 end
@@ -288,8 +287,8 @@ getfunction(f::EqConstraint) = f.f
 
 Used in semidefinite programming
 """
-@params struct SDConstraint <: AbstractConstraint
-    f::Function
+struct SDConstraint{F} <: AbstractConstraint
+    f::F
     dim::Int
 end
 

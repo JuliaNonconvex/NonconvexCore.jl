@@ -76,20 +76,17 @@ A struct specifying the different tolerances used to assess the convergence of t
 
 For more on convergence criteria, see [`GenericCriteria`](@ref), [`KKTCriteria`](@ref), [`ScaledKKTCriteria`](@ref) and [`IpoptCriteria`](@ref).
 """
-struct Tolerance{Tx, Tf, Tkkt, Tinfeas}
+struct Tolerance{Tx,Tf,Tkkt,Tinfeas}
     x::Tx
     fabs::Tf
     frel::Tf
     kkt::Tkkt
     infeas::Tinfeas
 end
-function Tolerance(;
-    x = 0.0, f = 1e-5, fabs = f, frel = f,
-    kkt = 1e-5, infeas = 1e-5,
-)
+function Tolerance(; x = 0.0, f = 1e-5, fabs = f, frel = f, kkt = 1e-5, infeas = 1e-5)
     Tolerance(x, fabs, frel, kkt, infeas)
 end
-function (tol::Tolerance{<:Function, <:Function, <:Function})(i)
+function (tol::Tolerance{<:Function,<:Function,<:Function})(i)
     return Tolerance(tol.x(i), tol.fabs(i), tol.frel(i), tol.kkt(i), tol.infeas)
 end
 
@@ -156,16 +153,16 @@ A struct that stores all the information about a solution. The following are the
  - `∇g`: the Jacobian of the constraint functions at `x`
  - `convstate`: the convergence state of the solution
 """
-@params mutable struct Solution
-    prevx
-    x
-    λ
-    prevf
-    f
-    ∇f
-    g
-    ∇g
-    convstate::ConvergenceState
+mutable struct Solution{X1,X2,L,P,F,D1,G,D2,C<:ConvergenceState}
+    prevx::X1
+    x::X2
+    λ::L
+    prevf::P
+    f::F
+    ∇f::D1
+    g::G
+    ∇g::D2
+    convstate::C
 end
 
 """  
@@ -189,15 +186,22 @@ A summary result struct returned by [`optimize`](@ref), including following fiel
  - `convstate`: an instance of [`ConvergenceCriteria`](@ref) that summarizes the convergence state of the best solution found
  - `fcalls`: the number of times the objective and constraint functions were called during the optimization
 """
-@params mutable struct GenericResult <: AbstractResult
-    optimizer
-    initial_x
-    minimizer
-    minimum::Real
+mutable struct GenericResult{
+    O,
+    I,
+    M1,
+    M2<:Real,
+    T<:Tolerance,
+    C<:Union{ConvergenceState,Nothing},
+} <: AbstractResult
+    optimizer::O
+    initial_x::I
+    minimizer::M1
+    minimum::M2
     iter::Int
     maxiter_reached::Bool
-    tol::Tolerance
-    convstate::Union{ConvergenceState, Nothing}
+    tol::T
+    convstate::C
     fcalls::Int
 end
 
@@ -227,14 +231,25 @@ Optimizes `model` using the algorithm `optimizer`, e.g. an instance of [`MMA87`]
 
  The details of the MMA optimization algorithms can be found in the original [1987 MMA paper](https://onlinelibrary.wiley.com/doi/abs/10.1002/nme.1620240207) and the [2002 paper](https://epubs.siam.org/doi/abs/10.1137/S1052623499362822).
 """
-function optimize(model::AbstractModel, optimizer::AbstractOptimizer, x0, args...; kwargs...)
+function optimize(
+    model::AbstractModel,
+    optimizer::AbstractOptimizer,
+    x0,
+    args...;
+    kwargs...,
+)
     _optimize_precheck(model, optimizer, x0, args...; kwargs...)
     _model, _x0, unflatten = tovecmodel(model, x0)
     r = optimize(_model, optimizer, _x0, args...; kwargs...)
     return @set r.minimizer = unflatten(r.minimizer)
 end
 
-function _optimize_precheck(model::AbstractModel, optimizer::AbstractOptimizer, args...; kwargs...)
+function _optimize_precheck(
+    model::AbstractModel,
+    optimizer::AbstractOptimizer,
+    args...;
+    kwargs...,
+)
     if (length(model.sd_constraints.fs) != 0)
         @warn "The solver used does not support semidefinite constraints so they will be ignored."
     end
@@ -247,7 +262,7 @@ end
 """
  optimize without x0
 """
- function optimize(model::AbstractModel, optimizer::AbstractOptimizer, args...; kwargs...)
+function optimize(model::AbstractModel, optimizer::AbstractOptimizer, args...; kwargs...)
     _optimize_precheck(model, optimizer, args...; kwargs...)
     _model, _, unflatten = tovecmodel(model)
     r = optimize(_model, optimizer, args...; kwargs...)

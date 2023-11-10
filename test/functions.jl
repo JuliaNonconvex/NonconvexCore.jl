@@ -1,12 +1,20 @@
 using NonconvexCore
-using NonconvexCore: VectorOfFunctions, FunctionWrapper, CountingFunction, 
-                     getdim, getfunction, getfunctions, Objective, IneqConstraint,
-                     EqConstraint, SDConstraint
+using NonconvexCore:
+    VectorOfFunctions,
+    FunctionWrapper,
+    CountingFunction,
+    getdim,
+    getfunction,
+    getfunctions,
+    Objective,
+    IneqConstraint,
+    EqConstraint,
+    SDConstraint
 using Test
 
 @testset "CountingFunction" begin
     f = CountingFunction(FunctionWrapper(log, 1))
-    for i in 1:3
+    for i = 1:3
         x = rand()
         @test log(x) == f(x)
         @test f.counter[] == i
@@ -22,7 +30,7 @@ end
     f2 = FunctionWrapper(exp, 1)
     fs = [f1, f2]
     f = VectorOfFunctions([f1, f2])
-    for _ in 1:3
+    for _ = 1:3
         x = rand()
         @test [log(x), exp(x)] == f(x)
     end
@@ -37,7 +45,7 @@ end
 @testset "Objective" begin
     f = Objective(log)
     @test getdim(f) == 1
-    for _ in 1:3
+    for _ = 1:3
         x = rand()
         @test f(x) == log(x)
     end
@@ -46,7 +54,7 @@ end
 
 @testset "IneqConstraint" begin
     f = IneqConstraint(log, 1.0)
-    for _ in 1:3
+    for _ = 1:3
         x = rand()
         @test f(x) == log(x) - 1
     end
@@ -56,7 +64,7 @@ end
 
 @testset "EqConstraint" begin
     f = EqConstraint(log, 1.0)
-    for _ in 1:3
+    for _ = 1:3
         x = rand()
         @test f(x) == log(x) - 1
     end
@@ -66,7 +74,7 @@ end
 
 @testset "SDConstraint" begin
     f = SDConstraint(exp, 1)
-    for _ in 1:3
+    for _ = 1:3
         x = rand()
         @test f(x) == exp(x)
     end
@@ -74,7 +82,7 @@ end
     @test getfunction(f) === exp
 
     f = SDConstraint(exp, 2)
-    for _ in 1:3
+    for _ = 1:3
         x = rand(2, 2)
         @test f(x) == exp(x)
     end

@@ -1,4 +1,12 @@
-mutable struct VecModel{TO <: Union{Nothing, Objective}, TE <: VectorOfFunctions, TI <: VectorOfFunctions, TS <: VectorOfFunctions, Tv1 <: AbstractVector, Tv2 <: AbstractVector, Tv3 <: AbstractVector} <: AbstractModel
+mutable struct VecModel{
+    TO<:Union{Nothing,Objective},
+    TE<:VectorOfFunctions,
+    TI<:VectorOfFunctions,
+    TS<:VectorOfFunctions,
+    Tv1<:AbstractVector,
+    Tv2<:AbstractVector,
+    Tv3<:AbstractVector,
+} <: AbstractModel
     objective::TO
     eq_constraints::TE
     ineq_constraints::TI
@@ -11,8 +19,8 @@ end
 
 function isfeasible(model::VecModel, x::AbstractVector; ctol = 1e-4)
     return all(getmin(model) .<= x .<= getmax(model)) &&
-        all(getineqconstraints(model)(x) .<= ctol) &&
-        all(-ctol .<= geteqconstraints(model)(x) .<= ctol)
+           all(getineqconstraints(model)(x) .<= ctol) &&
+           all(-ctol .<= geteqconstraints(model)(x) .<= ctol)
 end
 
 function addvar!(m::VecModel, lb::Real, ub::Real; init::Real = lb, integer = false)
@@ -22,7 +30,13 @@ function addvar!(m::VecModel, lb::Real, ub::Real; init::Real = lb, integer = fal
     push!(m.integer, integer)
     return m
 end
-function addvar!(m::VecModel, lb::Vector{<:Real}, ub::Vector{<:Real}; init::Vector{<:Real} = copy(lb), integer = falses(length(lb)))
+function addvar!(
+    m::VecModel,
+    lb::Vector{<:Real},
+    ub::Vector{<:Real};
+    init::Vector{<:Real} = copy(lb),
+    integer = falses(length(lb)),
+)
     append!(getmin(m), lb)
     append!(getmax(m), ub)
     append!(m.init, init)
@@ -71,6 +85,23 @@ function optimize(model::VecModel, optimizer::AbstractOptimizer, args...; kwargs
     return optimize!(workspace)
 end
 
+function tovecfunc(f, x::AbstractVector{<:Real}; flatteny = true)
+    vx = float.(x)
+    y = f(x)
+    if y isa Real || y isa AbstractVector{<:Real}
+        _flatteny = false
+    else
+        _flatteny = flatteny
+    end
+    if _flatteny
+        tmp = maybeflatten(y)
+        unflatteny = Unflatten(y, tmp[2])
+        return first ∘ maybeflatten ∘ f, vx, unflatteny
+    else
+        return f, vx, identity
+    end
+end
+
 function tovecfunc(f, x...; flatteny = true)
     vx, _unflattenx = flatten(x)
     unflattenx = Unflatten(x, _unflattenx)
@@ -107,17 +138,31 @@ function tovecmodel(m::AbstractModel, _x0 = deepcopy(getmin(m)))
         # objective
         Objective(tovecfunc(m.objective.f, x0)[1], m.objective.multiple, m.objective.flags),
         # eq_constraints
-        length(m.eq_constraints.fs) != 0 ? VectorOfFunctions(map(m.eq_constraints.fs) do c
-            EqConstraint(tovecfunc(c.f, x0)[1], maybeflatten(c.rhs)[1], c.dim, c.flags)
-        end) : VectorOfFunctions(EqConstraint[]),
+        length(m.eq_constraints.fs) != 0 ?
+        VectorOfFunctions(
+            map(m.eq_constraints.fs) do c
+                EqConstraint(tovecfunc(c.f, x0)[1], maybeflatten(c.rhs)[1], c.dim, c.flags)
+            end,
+        ) : VectorOfFunctions(EqConstraint[]),
         # ineq_constraints
-        length(m.ineq_constraints.fs) != 0 ? VectorOfFunctions(map(m.ineq_constraints.fs) do c
-            IneqConstraint(tovecfunc(c.f, x0)[1], maybeflatten(c.rhs)[1], c.dim, c.flags)
-        end) : VectorOfFunctions(IneqConstraint[]),
+        length(m.ineq_constraints.fs) != 0 ?
+        VectorOfFunctions(
+            map(m.ineq_constraints.fs) do c
+                IneqConstraint(
+                    tovecfunc(c.f, x0)[1],
+                    maybeflatten(c.rhs)[1],
+                    c.dim,
+                    c.flags,
+                )
+            end,
+        ) : VectorOfFunctions(IneqConstraint[]),
         # sd_constraints
-        length(m.sd_constraints.fs) != 0 ? VectorOfFunctions(map(m.sd_constraints.fs) do c
-            SDConstraint(tovecfunc(c.f, x0; flatteny = false)[1], c.dim)
-        end) : VectorOfFunctions(SDConstraint[]),
+        length(m.sd_constraints.fs) != 0 ?
+        VectorOfFunctions(
+            map(m.sd_constraints.fs) do c
+                SDConstraint(tovecfunc(c.f, x0; flatteny = false)[1], c.dim)
+            end,
+        ) : VectorOfFunctions(SDConstraint[]),
         # box_min
         float.(flatten(box_min)[1]),
         # box_max
@@ -126,5 +171,7 @@ function tovecmodel(m::AbstractModel, _x0 = deepcopy(getmin(m)))
         float.(flatten(init)[1]),
         # integer
         convert(BitVector, flatten(m.integer)[1]),
-    ), float.(v), unflatten
+    ),
+    float.(v),
+    unflatten
 end

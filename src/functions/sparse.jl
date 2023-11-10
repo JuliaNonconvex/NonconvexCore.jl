@@ -6,14 +6,14 @@ end
 function sparse_jacobian(f, x)
     val, pb = Zygote.pullback(f, x)
     M = length(val)
-    vecs = [sparsevec([i], [true], M) for i in 1:M]
+    vecs = [sparsevec([i], [true], M) for i = 1:M]
     Jt = reduce(hcat, first.(pb.(vecs)))
     return copy(Jt')
 end
 function sparse_fd_jacobian(f, x)
     pf = pushforward_function(f, x)
     M = length(x)
-    vecs = [sparsevec([i], [true], M) for i in 1:M]
+    vecs = [sparsevec([i], [true], M) for i = 1:M]
     # assumes there will be no structural non-zeros that have value 0
     return reduce(hcat, sparse.(pf.(vecs)))
 end
@@ -31,15 +31,15 @@ _sparsevec(x::Real) = [x]
 _sparsevec(x::Vector) = copy(x)
 _sparsevec(x::Matrix) = copy(vec(x))
 _sparsevec(x::SparseVector) = x
-function _sparsevec(x::Adjoint{<:Real, <:AbstractMatrix})
+function _sparsevec(x::Adjoint{<:Real,<:AbstractMatrix})
     return _sparsevec(copy(x))
 end
 function _sparsevec(x::SparseMatrixCSC)
     m, n = size(x)
     linear_inds = zeros(Int, length(x.nzval))
     count = 1
-    for colind in 1:length(x.colptr)-1
-        for ind in x.colptr[colind]:x.colptr[colind+1]-1
+    for colind = 1:length(x.colptr)-1
+        for ind = x.colptr[colind]:x.colptr[colind+1]-1
             rowind = x.rowval[ind]
             val = x.nzval[ind]
             linear_inds[count] = rowind + (colind - 1) * m

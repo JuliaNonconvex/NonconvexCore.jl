@@ -13,7 +13,7 @@ function value_jacobian(f::Function, x::AbstractVector)
     else
         dim = getdim(f)
         jact = mapreduce(hcat, 1:dim; init = zeros(length(x), 0)) do i
-            pullback(I(dim)[:,i])[1]
+            pullback(I(dim)[:, i])[1]
         end
         return out, jact'
     end
