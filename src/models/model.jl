@@ -111,8 +111,7 @@ getmax(m::AbstractModel) = m.box_max
 getmax(m::AbstractModel, i) = getmax(m)[i]
 
 function getinit(model::AbstractModel)
-    _model, _, unflatten = tovecmodel(model, model.init)
-    return unflatten(getinit(_model))
+    return model.init
 end
 
 function setmin!(m::AbstractModel, min)

@@ -140,14 +140,14 @@ function tovecmodel(m::AbstractModel, _x0 = m.init)
         # eq_constraints
         length(m.eq_constraints.fs) != 0 ?
         VectorOfFunctions(
-            map(m.eq_constraints.fs) do c
+            map(Tuple(m.eq_constraints.fs)) do c
                 EqConstraint(tovecfunc(c.f, x0)[1], maybeflatten(c.rhs)[1], c.dim, c.flags)
             end,
-        ) : VectorOfFunctions(EqConstraint[]),
+        ) : VectorOfFunctions(()),
         # ineq_constraints
         length(m.ineq_constraints.fs) != 0 ?
         VectorOfFunctions(
-            map(m.ineq_constraints.fs) do c
+            map(Tuple(m.ineq_constraints.fs)) do c
                 IneqConstraint(
                     tovecfunc(c.f, x0)[1],
                     maybeflatten(c.rhs)[1],
@@ -155,14 +155,14 @@ function tovecmodel(m::AbstractModel, _x0 = m.init)
                     c.flags,
                 )
             end,
-        ) : VectorOfFunctions(IneqConstraint[]),
+        ) : VectorOfFunctions(()),
         # sd_constraints
         length(m.sd_constraints.fs) != 0 ?
         VectorOfFunctions(
-            map(m.sd_constraints.fs) do c
+            map(Tuple(m.sd_constraints.fs)) do c
                 SDConstraint(tovecfunc(c.f, x0; flatteny = false)[1], c.dim)
             end,
-        ) : VectorOfFunctions(SDConstraint[]),
+        ) : VectorOfFunctions(()),
         # box_min
         float.(flatten(box_min)[1]),
         # box_max
