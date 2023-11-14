@@ -111,7 +111,7 @@ getmax(m::AbstractModel) = m.box_max
 getmax(m::AbstractModel, i) = getmax(m)[i]
 
 function getinit(model::AbstractModel)
-    return model.init
+    return identity.(model.init)
 end
 
 function setmin!(m::AbstractModel, min)
