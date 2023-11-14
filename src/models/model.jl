@@ -103,6 +103,14 @@ Returns a 2-tuple of the number of constraints and the number of variables in th
 """
 getdim(m::AbstractModel) = (getnconstraints(m), getnvars(m))
 
+function reduce_type(d::AbstractVector)
+    return reduce_type.(d)
+end
+function reduce_type(d::OrderedDict)
+    OrderedDict(identity.(keys(d)) .=> reduce_type.(values(d)))
+end
+reduce_type(d) = d
+
 getmin(m::AbstractModel) = m.box_min
 getmin(m::AbstractModel, i) = getmin(m)[i]
 Base.isinteger(m::AbstractModel, i) = m.integer[i]
@@ -110,9 +118,7 @@ Base.isinteger(m::AbstractModel, i) = m.integer[i]
 getmax(m::AbstractModel) = m.box_max
 getmax(m::AbstractModel, i) = getmax(m)[i]
 
-function getinit(model::AbstractModel)
-    return identity.(model.init)
-end
+getinit(model::AbstractModel) = model.init
 
 function setmin!(m::AbstractModel, min)
     getmin(m) .= min

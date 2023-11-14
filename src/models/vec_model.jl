@@ -120,18 +120,11 @@ function tovecfunc(f, x...; flatteny = true)
     end
 end
 
-function tovecmodel(m::AbstractModel, _x0 = m.init)
-    if _x0 isa Vector
-        x0 = identity.(_x0)
-        box_min = identity.(m.box_min)
-        box_max = identity.(m.box_max)
-        init = identity.(m.init)
-    else
-        x0 = _x0
-        box_min = m.box_min
-        box_max = m.box_max
-        init = m.init
-    end
+function tovecmodel(m::AbstractModel, _x0 = getinit(m))
+    x0 = reduce_type(_x0)
+    box_min = reduce_type(m.box_min)
+    box_max = reduce_type(m.box_max)
+    init = reduce_type(m.init)
     v, _unflatten = flatten(x0)
     unflatten = Unflatten(x0, _unflatten)
     return VecModel(
