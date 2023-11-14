@@ -28,10 +28,11 @@ jobs:
         package:
           - {user: JuliaNonconvex, repo: NonconvexMMA.jl}
           - {user: JuliaNonconvex, repo: NonconvexIpopt.jl}
-          # - {user: JuliaNonconvex, repo: NonconvexSemidefinite.jl}
+          - {user: JuliaNonconvex, repo: NonconvexNLopt.jl}
+          - {user: JuliaNonconvex, repo: NonconvexSemidefinite.jl}
           - {user: JuliaNonconvex, repo: NonconvexJuniper.jl}
           - {user: JuliaNonconvex, repo: NonconvexPercival.jl}
-          # - {user: JuliaNonconvex, repo: NonconvexBayesian.jl}
+          - {user: JuliaNonconvex, repo: NonconvexBayesian.jl}
 
     steps:
       - uses: actions/checkout@v2
