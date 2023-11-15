@@ -194,7 +194,7 @@ function add_ineq_constraint!(
     m::AbstractModel,
     f::Function,
     s = 0.0;
-    dim = length(flatten(f(getinit(m)))[1]),
+    dim = length(flatten(f(reduce_type(getinit(m))))[1]),
     kwargs...,
 )
     return add_ineq_constraint!(m, FunctionWrapper(f, dim), s; kwargs...)
@@ -215,7 +215,7 @@ function add_eq_constraint!(
     m::AbstractModel,
     f::Function,
     s = 0.0;
-    dim = length(flatten(f(getinit(m)))[1]),
+    dim = length(flatten(f(reduce_type(getinit(m))))[1]),
     kwargs...,
 )
     return add_eq_constraint!(m, FunctionWrapper(f, dim), s; kwargs...)
@@ -232,7 +232,7 @@ function add_eq_constraint!(m::AbstractModel, fs::Vector{<:EqConstraint})
     return m
 end
 
-function add_sd_constraint!(m::AbstractModel, f::Function, dim = size(f(getinit(m)), 1))
+function add_sd_constraint!(m::AbstractModel, f::Function, dim = size(f(reduce_type(getinit(m))), 1))
     return add_sd_constraint!(m, SDConstraint(f, dim))
 end
 function add_sd_constraint!(m::AbstractModel, sd_constraint::AbstractFunction)
