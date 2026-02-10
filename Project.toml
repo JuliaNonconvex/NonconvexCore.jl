@@ -1,6 +1,6 @@
 name = "NonconvexCore"
 uuid = "035190e5-69f1-488f-aaab-becca2889735"
-authors = ["Mohamed Tarek <mohamed82008@gmail.com> and contributors"]
+authors = ["Mohamed Tarek <mohdibntarek@gmail.com> and contributors"]
 version = "1.5.0"
 
 [deps]
