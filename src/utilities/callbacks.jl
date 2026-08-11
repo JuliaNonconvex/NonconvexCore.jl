@@ -1,7 +1,7 @@
 """
 PlottingCallback
 
-A callback function that plots a number of convergence metrics using [ConvergencePlots.jl](https://github.com/mohamed82008/ConvergencePlots.jl). The following are the fields of the struct:
+A callback function that plots a number of convergence metrics using [ConvergencePlots.jl](https://github.com/mohdibntarek/ConvergencePlots.jl). The following are the fields of the struct:
 - `plot`: an instance of `ConvergencePlots.ConvergencePlot`.
 - `n`: the number of history points to keep track of.
 - `iter`: the number of times the callback was called.
@@ -18,7 +18,7 @@ PlottingCallback(n = 1000) = PlottingCallback(nothing, n, 0)
 """
     LazyPlottingCallback
 
-A callback function that plots a number of convergence metrics using [ConvergencePlots.jl](https://github.com/mohamed82008/ConvergencePlots.jl) only when `show` is called. The following are the fields of the struct:
+A callback function that plots a number of convergence metrics using [ConvergencePlots.jl](https://github.com/mohdibntarek/ConvergencePlots.jl) only when `show` is called. The following are the fields of the struct:
 - `plot`: an instance of `ConvergencePlots.ConvergencePlot`.
 - `n`: the number of history points to keep track of.
 - `iter`: the number of times the callback was called.
