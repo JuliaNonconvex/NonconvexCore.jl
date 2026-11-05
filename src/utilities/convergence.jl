@@ -27,6 +27,15 @@ function assess_convergence!(w::Workspace)
 end
 
 """
+    correctsolution!(solution, model, options)
+
+Default no-op fallback: solvers may specialize this to undo any scaling applied to
+the model during the optimization, e.g. to correct `solution.f` by the objective
+multiple before reporting the result.
+"""
+correctsolution!(solution::Solution, ::AbstractModel, options) = solution
+
+"""
 ```
 assess_convergence!(
     solution::Solution,
@@ -54,8 +63,13 @@ function assess_convergence!(
         tol.x, tol.fabs, tol.frel, tol.kkt, tol.infeas
     Δx, Δf, infeas, f = getresiduals(solution, model, GenericCriteria())
     relΔf = Δf / (abs(f) + freltol)
-    _, kkt_residual, infeas, _ = getresiduals(solution, model, KKTCriteria())
-    _, ipopt_residual, infeas, _ = getresiduals(solution, model, IpoptCriteria())
+    if criteria isa IpoptCriteria
+        _, ipopt_residual, infeas, _ = getresiduals(solution, model, IpoptCriteria())
+        kkt_residual = ipopt_residual
+    else
+        _, kkt_residual, infeas, _ = getresiduals(solution, model, KKTCriteria())
+        ipopt_residual = kkt_residual
+    end
 
     x_converged = Δx < xtol
     fabs_converged = Δf < fabstol
@@ -65,7 +79,7 @@ function assess_convergence!(
             #@show get_objective_multiple(model)
         end
         m = get_objective_multiple(model)
-        scaled_kkt_residual = kkt_residual / max(m, 1 / m)
+        scaled_kkt_residual = kkt_residual / max(abs(m), inv(abs(m)))
     else
         scaled_kkt_residual = kkt_residual
     end
@@ -123,7 +137,7 @@ function getresiduals(solution::Solution, ::AbstractModel, ::GenericCriteria)
     @unpack prevx, x, prevf, f, g = solution
     Δx = maximum(abs(x[j] - prevx[j]) for j = 1:length(x))
     Δf = abs(f - prevf)
-    infeas = length(g) == 0 ? zero(eltype(g)) : max(0, maximum(g))
+    infeas = isempty(g) ? 0.0 : max(0, maximum(g))
     return Δx, Δf, infeas, f
 end
 function getresiduals(solution::Solution, model::AbstractModel, ::KKTCriteria)
@@ -143,13 +157,13 @@ function getresiduals(solution::Solution, model::AbstractModel, ::KKTCriteria)
     if debugging[]
         @show λ, g
     end
-    res = length(g) == 0 ? res : max(res, maximum(abs.(λ .* g)))
+    res = isempty(g) ? res : max(res, maximum(abs.(λ .* g)))
     if debugging[]
         @show maximum(abs, g)
         @show maximum(abs, λ)
         @show maximum(x)
     end
-    infeas = length(g) == 0 ? zero(eltype(g)) : max(maximum(g), 0)
+    infeas = isempty(g) ? 0.0 : max(maximum(g), 0)
     return missing, res, infeas, f
 end
 function getresiduals(solution::Solution, model::AbstractModel, ::IpoptCriteria)
@@ -172,9 +186,9 @@ function getresiduals(solution::Solution, model::AbstractModel, ::IpoptCriteria)
         end
     end
     sd = max(100, (sum(abs, λ) + s) / (n + m)) / 100
-    res = length(g) == 0 ? res : max(res, maximum(abs.(λ .* g)))
+    res = isempty(g) ? res : max(res, maximum(abs.(λ .* g)))
     res = res / sd
-    infeas = length(g) == 0 ? zero(eltype(g)) : max(maximum(g), 0)
+    infeas = isempty(g) ? 0.0 : max(maximum(g), 0)
     if debugging[]
         println("Agg infeas = ", infeas)
     end

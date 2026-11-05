@@ -5,15 +5,23 @@
 
 Returns the value and Jacobian of the function `f` at the point `x`. The automatic differentiation package, Zygote, is used by default. To define a custom adjoint rule for a function to be used in a constraint or objective, use [`ChainRulesCore.jl`](https://github.com/JuliaDiff/ChainRulesCore.jl). The Jacobian is returned as an instance of `Adjoint` for cache efficiency in the optimizer.
 """
+# Extract the cotangent of `x` from a pullback seed application in a way that works
+# across Zygote versions (older versions return the cotangent directly for
+# single-argument functions while newer versions wrap it in a 1-tuple).
+@inline function _pullback_cotangent(pb, seed)
+    Δ = pb(seed)
+    return Δ isa Tuple ? Δ[1] : Δ
+end
+
 function value_jacobian(f::Function, x::AbstractVector)
     out, pullback = Zygote.pullback(f, x)
     if out isa Number
-        grad = pullback(1.0)[1]
+        grad = _pullback_cotangent(pullback, 1.0)
         return out, grad'
     else
-        dim = getdim(f)
+        dim = f isa AbstractFunction ? getdim(f) : length(out)
         jact = mapreduce(hcat, 1:dim; init = zeros(length(x), 0)) do i
-            pullback(I(dim)[:, i])[1]
+            _pullback_cotangent(pullback, I(dim)[:, i])
         end
         return out, jact'
     end

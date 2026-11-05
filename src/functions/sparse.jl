@@ -1,13 +1,13 @@
 # workaround Zygote.jacobian and ForwardDiff.jacobian not supporting sparse jacobians
 function sparse_gradient(f, x)
     _, pb = Zygote.pullback(f, x)
-    return _sparsevec(pb(1.0)[1])
+    return _sparsevec(_pullback_cotangent(pb, 1.0))
 end
 function sparse_jacobian(f, x)
     val, pb = Zygote.pullback(f, x)
     M = length(val)
     vecs = [sparsevec([i], [true], M) for i = 1:M]
-    Jt = reduce(hcat, first.(pb.(vecs)))
+    Jt = reduce(hcat, (_pullback_cotangent(pb, v) for v in vecs))
     return copy(Jt')
 end
 function sparse_fd_jacobian(f, x)

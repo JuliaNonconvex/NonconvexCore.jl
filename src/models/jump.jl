@@ -31,7 +31,7 @@ function get_variable_info(model::JuMP.Model)
             elseif ub[k] == Inf
                 lb[k] + 1.0
             elseif lb[k] == -Inf
-                lb[k] - 1.0
+                ub[k] - 1.0
             else
                 (ub[k] + lb[k]) / 2
             end
@@ -72,7 +72,7 @@ function get_variable_info(model::JuMP.Model)
                 elseif ub[k][ind] == Inf
                     lb[k][ind] + 1.0
                 elseif lb[k][ind] == -Inf
-                    lb[k][ind] - 1.0
+                    ub[k][ind] - 1.0
                 else
                     (ub[k][ind] + lb[k][ind]) / 2
                 end
