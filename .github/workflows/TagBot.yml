@@ -20,9 +20,11 @@ permissions:
   repository-projects: read
   security-events: read
   statuses: read
+  schedule:
+    - cron: 0 0 * * *
 jobs:
   TagBot:
-    if: github.event_name == 'workflow_dispatch' || github.actor == 'JuliaTagBot'
+    if: github.event_name == 'workflow_dispatch' || github.actor == 'JuliaTagBot' || github.event_name == 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: JuliaRegistries/TagBot@v1
