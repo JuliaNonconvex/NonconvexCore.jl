@@ -45,8 +45,8 @@ macro params(struct_expr)
             fields[i] = :($var::$T)
         end
     end
-    if header isa Symbol && length(params) > 0
-        struct_expr.args[2] = :($header{$(params...)})
+    if header isa Symbol
+        isempty(params) || (struct_expr.args[2] = :($header{$(params...)}))
     elseif header.head == :curly
         append!(struct_expr.args[2].args, params)
     elseif header.head == :<:

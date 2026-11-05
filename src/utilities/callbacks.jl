@@ -61,19 +61,18 @@ struct NoCallback <: Function end
                     "Infeasibility" => (color = "red",),
                 ),
             )
-        else
-            @unpack plot = callback
-            addpoint!(
-                plot,
-                Dict(
-                    "KKT residual" => convstate.kkt_residual,
-                    #"IPOPT residual" => convstate.ipopt_residual,
-                    "|Δf|" => convstate.Δf,
-                    "|Δx|_∞" => convstate.Δx,
-                    "Infeasibility" => convstate.infeas,
-                ),
-            )
         end
+        @unpack plot = callback
+        addpoint!(
+            plot,
+            Dict(
+                "KKT residual" => convstate.kkt_residual,
+                #"IPOPT residual" => convstate.ipopt_residual,
+                "|Δf|" => convstate.Δf,
+                "|Δx|_∞" => convstate.Δx,
+                "Infeasibility" => convstate.infeas,
+            ),
+        )
         callback.iter += 1
     end
 
@@ -98,22 +97,21 @@ struct NoCallback <: Function end
                 ),
                 show = update && callback.show_plot,
             )
-        else
-            @unpack plot = callback
-            addpoint!(
-                plot,
-                Dict(
-                    "KKT residual" => convstate.kkt_residual,
-                    #"IPOPT residual" => convstate.ipopt_residual,
-                    "|Δf|" => convstate.Δf,
-                    "|Δx|_∞" => convstate.Δx,
-                    "Infeasibility" => convstate.infeas,
-                ),
-                show = callback.show_plot,
-                update = update,
-                filename = callback.save_plot,
-            )
         end
+        @unpack plot = callback
+        addpoint!(
+            plot,
+            Dict(
+                "KKT residual" => convstate.kkt_residual,
+                #"IPOPT residual" => convstate.ipopt_residual,
+                "|Δf|" => convstate.Δf,
+                "|Δx|_∞" => convstate.Δx,
+                "Infeasibility" => convstate.infeas,
+            ),
+            show = callback.show_plot,
+            update = update,
+            filename = callback.save_plot,
+        )
         callback.iter += 1
     end
 end

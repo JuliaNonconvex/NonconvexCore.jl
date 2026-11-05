@@ -66,10 +66,10 @@ function get_jump_problem(
     first_order,
     optimizer,
 )
-    nvars = 0
+    nvars = length(x0)
     if ineq_constr !== nothing
         ineqJ0 = Zygote.jacobian(ineq_constr, x0)[1]
-        ineq_nconstr, nvars = size(ineqJ0)
+        ineq_nconstr = size(ineqJ0, 1)
         Joffset = nvalues(ineqJ0)
     else
         ineqJ0 = nothing
@@ -78,7 +78,7 @@ function get_jump_problem(
     end
     if eq_constr !== nothing
         eqJ0 = Zygote.jacobian(eq_constr, x0)[1]
-        eq_nconstr, nvars = size(eqJ0)
+        eq_nconstr = size(eqJ0, 1)
     else
         eqJ0 = nothing
         eq_nconstr = 0
@@ -186,7 +186,7 @@ function get_jump_problem(
         if xub[i] != Inf
             MOI.add_constraint(moi_model, v, MOI.LessThan(xub[i]))
         end
-        if xlb[i] != Inf
+        if xlb[i] != -Inf
             MOI.add_constraint(moi_model, v, MOI.GreaterThan(xlb[i]))
         end
         MOI.set(moi_model, MOI.VariablePrimalStart(), v, x0[i])

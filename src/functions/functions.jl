@@ -81,10 +81,8 @@ end
 
 Constructs an instance of `VectorOfFunctions` made of functions `fs`. `fs` can be a vector or tuple of instances of `AbstractFunction`. If a function in `fs` is a `VectorOfFunctions`, it will be unwrapped.
 """
-function VectorOfFunctions(
-    fs::Union{AbstractVector{>:VectorOfFunctions},Tuple{Vararg{>:VectorOfFunctions}}},
-)
-    @assert length(fs) > 0
+function VectorOfFunctions(fs::Union{AbstractVector,Tuple})
+    isempty(fs) && return VectorOfFunctions{typeof(fs)}(fs)
     new_fs = mapreduce(vcat, fs) do f
         if f isa VectorOfFunctions
             f.fs
@@ -101,10 +99,12 @@ end
 Calls the wrapped functions in `f` with arguments `args` and keyword arguments `kwargs` and returns the concatenated output.
 """
 function (f::VectorOfFunctions)(args...; kwargs...)
-    length(f.fs) == 0 && return Union{}[]
+    length(f.fs) == 0 && return Float64[]
     ys = map(f.fs) do f
         return f(args...; kwargs...)
     end
+    # Note: `vcat` (not `reduce(vcat, ...)`) so that a single scalar output is
+    # still returned as a 1-element vector.
     return vcat(ys...)
 end
 
