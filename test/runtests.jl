@@ -12,3 +12,6 @@ end
 @safetestset "Functions" begin
     include("functions.jl")
 end
+@safetestset "Regressions" begin
+    include("regressions.jl")
+end
