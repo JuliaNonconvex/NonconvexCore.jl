@@ -1,7 +1,7 @@
 name = "NonconvexCore"
 uuid = "035190e5-69f1-488f-aaab-becca2889735"
 authors = ["Mohamed Tarek <mohdibntarek@gmail.com> and contributors"]
-version = "1.6.1"
+version = "1.6.2"
 
 [deps]
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
@@ -30,7 +30,7 @@ IntervalArithmetic = "0.17, 0.18, 0.19, 0.20, 0.21, 0.22, 0.23, 1"
 JuMP = "0.22, 0.23, 1"
 MathOptInterface = "0.10, 1"
 NamedTupleTools = "0.13, 0.14"
-OrderedCollections = "1.4"
+OrderedCollections = "1.4, 2"
 Parameters = "0.12, 0.13"
 Random = "1"
 Reexport = "1"
