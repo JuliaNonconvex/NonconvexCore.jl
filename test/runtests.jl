@@ -9,8 +9,14 @@ end
 @safetestset "JuMP" begin
     include("jump.jl")
 end
+@safetestset "MOI" begin
+    include("moi.jl")
+end
 @safetestset "Functions" begin
     include("functions.jl")
+end
+@safetestset "Convergence" begin
+    include("convergence.jl")
 end
 @safetestset "Regressions" begin
     include("regressions.jl")
