@@ -128,4 +128,21 @@ end
     addvar!(m3, [-10.0], [10.0])
     NonconvexCore.check_finite_start!(m3, ([0.0],))
     NonconvexCore.check_finite_start!(m3, ())
+
+    # A non-finite equality constraint is reported by name.
+    m4 = Model(x -> x[1])
+    addvar!(m4, [-10.0], [10.0])
+    add_eq_constraint!(m4, x -> x[1] < 0.0 ? NaN : 0.0)
+    err3 = try
+        optimize(m4, FiniteCheckDummyOptimizer(), [-1.0])
+        nothing
+    catch e
+        e
+    end
+    @test err3 isa ErrorException
+    @test occursin("equality constraint #1", sprint(showerror, err3))
+
+    # Models without an objective skip the objective check.
+    empty_model = DictModel()
+    NonconvexCore.check_finite_start!(empty_model, ())
 end
