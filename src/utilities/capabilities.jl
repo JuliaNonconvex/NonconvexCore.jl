@@ -122,17 +122,20 @@ function checksubproblem!(
         :box => any(isfinite, model.box_min) || any(isfinite, model.box_max),
         :integer => any(!iszero, model.integer),
     )
+    featurenames = Dict{Symbol,String}(
+        :eq => "equality constraints",
+        :ineq => "inequality constraints",
+        :sd => "semidefinite constraints",
+        :box => "bounds on variables",
+        :integer => "integer/binary variables",
+    )
     for f in fieldnames(ConstraintCapabilities)
         features[f] || continue
         v = caps === nothing ? missing : getfield(caps, f)
         v === true && continue
         solvername = string(nameof(typeof(optimizer)))
         msg = "The solver $solvername cannot solve $context which has " *
-              string(f) * " " * (
-            f === :box ? "bounds on variables" :
-            f === :integer ? "integer/binary variables" :
-            "$f constraints"
-        ) * "."
+              featurenames[f] * "."
         if v === false
             msg *= " $solvername does not support this feature."
         else
