@@ -250,8 +250,13 @@ function _optimize_precheck(
     args...;
     kwargs...,
 )
-    if (length(model.sd_constraints.fs) != 0)
-        @warn "The solver used does not support semidefinite constraints so they will be ignored."
+    if length(model.sd_constraints.fs) != 0
+        error(
+            "The selected algorithm does not support semidefinite constraints, but the " *
+            "model has $(length(model.sd_constraints.fs)) semidefinite constraint(s). " *
+            "Remove the semidefinite constraints or use SDPBarrierAlg from " *
+            "NonconvexSemidefinite.jl (Nonconvex.@load Semidefinite).",
+        )
     end
 end
 
