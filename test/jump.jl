@@ -217,3 +217,17 @@ end
     obj = NonconvexCore.getobjective(dict_model)
     @test obj(OrderedDict(:x => 3.0)) == -(9.0 + 6.0)
 end
+
+@testset "Unsupported objective type" begin
+    model = JuMP.Model()
+    JuMP.@variable(model, x >= 0)
+    JuMP.@objective(model, Min, x^3)
+    err = try
+        DictModel(model)
+        nothing
+    catch e
+        e
+    end
+    @test err isa ErrorException
+    @test occursin("Unsupported objective", sprint(showerror, err))
+end
