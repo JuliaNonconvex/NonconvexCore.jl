@@ -36,3 +36,18 @@ function addvar!(
     m.integer[k] = integer
     return m
 end
+
+"""
+    tovecmodel(m::DictModel, x0::AbstractVector)
+
+A `DictModel` stores variables keyed by name, so an initial solution must be a
+dict-like structure with the variable names as keys. This method throws a
+descriptive error instead of failing deep inside the flattening machinery.
+"""
+function tovecmodel(m::DictModel, x0::AbstractVector)
+    error(
+        "The initial solution of a DictModel must be a dict-like structure with the " *
+        "variable names as keys. Got an AbstractVector of length $(length(x0)); use " *
+        "Model instead of DictModel for vector-valued variables.",
+    )
+end
