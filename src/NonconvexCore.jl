@@ -47,6 +47,7 @@ using JuMP:
     ConstraintRef,
     constraint_object,
     AffExpr,
+    QuadExpr,
     objective_function,
     objective_sense
 using DifferentiableFlatten: flatten, maybeflatten, Unflatten
