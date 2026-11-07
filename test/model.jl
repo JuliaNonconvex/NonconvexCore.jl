@@ -97,6 +97,7 @@ end
     r = optimize(m, StubNoFieldOptimizer(), x0)
     @test r.minimizer == x0
     @test !hasproperty(r, :initial_x)
+end
 
 @testset "Non-finite initial point" begin
     struct FiniteCheckDummyOptimizer <: NonconvexCore.AbstractOptimizer end
