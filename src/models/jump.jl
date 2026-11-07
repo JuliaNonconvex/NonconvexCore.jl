@@ -181,35 +181,73 @@ end
 
 function get_objective_info(model::JuMP.Model, nvars)
     obj = objective_function(model)
-    @assert obj isa AffExpr
     sense = objective_sense(model)
+    if obj isa AffExpr
+        c, Q = _affine_objective(obj, nvars)
+    elseif obj isa QuadExpr
+        c, Q = _quadratic_objective(obj, nvars)
+    else
+        error(
+            "Unsupported objective function of type $(typeof(obj)). Only affine and " *
+            "quadratic objectives can be converted to a DictModel.",
+        )
+    end
+    if sense == MathOptInterface.MAX_SENSE
+        return -c, -Q
+    else
+        return c, Q
+    end
+end
+
+function _affine_objective(obj::AffExpr, nvars)
     I = Int[]
     V = Float64[]
     for (var, val) in obj.terms
         push!(I, var.index.value)
-        if sense == MathOptInterface.MIN_SENSE
-            push!(V, val)
-        elseif sense == MathOptInterface.MAX_SENSE
-            push!(V, -val)
+        push!(V, val)
+    end
+    return sparsevec(I, V, nvars), spzeros(nvars, nvars)
+end
+
+function _quadratic_objective(obj::QuadExpr, nvars)
+    c, _ = _affine_objective(obj.aff, nvars)
+    II = Int[]
+    JJ = Int[]
+    V = Float64[]
+    for (pair, coef) in obj.terms
+        i, j = pair.a.index.value, pair.b.index.value
+        if i == j
+            push!(II, i)
+            push!(JJ, j)
+            push!(V, coef)
+        else
+            # Split the cross term so Q is symmetric and x'Qx reproduces
+            # sum(coef * x[i] * x[j]) over the unordered pairs.
+            push!(II, i)
+            push!(JJ, j)
+            push!(V, coef / 2)
+            push!(II, j)
+            push!(JJ, i)
+            push!(V, coef / 2)
         end
     end
-    c = sparsevec(I, V, nvars)
-    return c
+    return c, sparse(II, JJ, V, nvars, nvars)
 end
 
 function DictModel(model::JuMP.Model)
     lb, ub, inits, integer = get_variable_info(model)
     nvars = length(flatten(lb)[1])
     Aineq, bineq, Aeq, beq = get_constraint_info(model, nvars)
-    c = get_objective_info(model, nvars)
+    c, Q = get_objective_info(model, nvars)
     ks = collect(keys(inits))
     dict_model = DictModel()
     for k in ks
         addvar!(dict_model, k, lb[k], ub[k], init = inits[k], integer = integer[k])
     end
-    if length(c) > 0
-        set_objective!(dict_model, x -> dot(c, flatten(x, ks)[1]))
-    end
+    set_objective!(dict_model, x -> begin
+        xv = flatten(x, ks)[1]
+        return dot(c, xv) + dot(xv, Q * xv)
+    end)
     if length(bineq) > 0
         add_ineq_constraint!(dict_model, x -> Aineq * flatten(x, ks)[1] - bineq)
     end

@@ -190,3 +190,44 @@ end
     @test jac1 == [-6 -8; -7 -12; 1 1]
     @test jac2 == [1 1;]
 end
+
+@testset "Quadratic objective" begin
+    model = JuMP.Model()
+    JuMP.@variable(model, x >= 0)
+    JuMP.@variable(model, y >= 0)
+    JuMP.@objective(model, Min, x^2 + 2x * y + 3y^2 + x + 2y)
+
+    dict_model = DictModel(model)
+    obj = NonconvexCore.getobjective(dict_model)
+    p = OrderedDict(:x => 1.0, :y => 2.0)
+    @test obj(p) == 1.0 + 2 * 1.0 * 2.0 + 3 * 4.0 + 1.0 + 4.0
+
+    vec_model, _, _ = NonconvexCore.tovecmodel(dict_model)
+    vec_obj = NonconvexCore.getobjective(vec_model)
+    val, grad = NonconvexCore.value_gradient(vec_obj, [1.0, 2.0])
+    @test val == 22.0
+    @test grad == [2 * 1.0 + 2 * 2.0 + 1.0, 2 * 1.0 + 6 * 2.0 + 2.0]
+end
+
+@testset "Quadratic objective with max sense" begin
+    model = JuMP.Model()
+    JuMP.@variable(model, x >= 0)
+    JuMP.@objective(model, Max, x^2 + 2x)
+    dict_model = DictModel(model)
+    obj = NonconvexCore.getobjective(dict_model)
+    @test obj(OrderedDict(:x => 3.0)) == -(9.0 + 6.0)
+end
+
+@testset "Unsupported objective type" begin
+    model = JuMP.Model()
+    JuMP.@variable(model, x >= 0)
+    JuMP.@objective(model, Min, x^3)
+    err = try
+        DictModel(model)
+        nothing
+    catch e
+        e
+    end
+    @test err isa ErrorException
+    @test occursin("Unsupported objective", sprint(showerror, err))
+end
