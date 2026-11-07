@@ -241,7 +241,14 @@ function optimize(
     _optimize_precheck(model, optimizer, x0, args...; kwargs...)
     _model, _x0, unflatten = tovecmodel(model, x0)
     r = optimize(_model, optimizer, _x0, args...; kwargs...)
-    return @set r.minimizer = unflatten(r.minimizer)
+    r = @set r.minimizer = unflatten(r.minimizer)
+    # Wrapper results (IpoptResult, NLoptResult, ...) have no initial_x
+    # field, so only restore it for result types that carry it.
+    if hasproperty(r, :initial_x)
+        return @set r.initial_x = unflatten(r.initial_x)
+    else
+        return r
+    end
 end
 
 function _optimize_precheck(
@@ -266,7 +273,12 @@ function optimize(model::AbstractModel, optimizer::AbstractOptimizer, args...; k
     _optimize_precheck(model, optimizer, args...; kwargs...)
     _model, _, unflatten = tovecmodel(model)
     r = optimize(_model, optimizer, args...; kwargs...)
-    return @set r.minimizer = unflatten(r.minimizer)
+    r = @set r.minimizer = unflatten(r.minimizer)
+    if hasproperty(r, :initial_x)
+        return @set r.initial_x = unflatten(r.initial_x)
+    else
+        return r
+    end
 end
 
 
