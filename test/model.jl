@@ -36,3 +36,35 @@ vals, jac = NonconvexCore.value_jacobian(NonconvexCore.getineqconstraints(m), p)
 vals, jac = NonconvexCore.value_jacobian(NonconvexCore.getobjectiveconstraints(m), p)
 @test [val0, val1, val2] == vals
 @test [grad0 grad1 grad2]' == jac
+
+@testset "Non-finite initial point" begin
+    struct FiniteCheckDummyOptimizer <: NonconvexCore.AbstractOptimizer end
+    m = Model(x -> x[1] < 0.0 ? NaN : x[1])
+    addvar!(m, [-10.0], [10.0])
+    err = try
+        optimize(m, FiniteCheckDummyOptimizer(), [-1.0])
+        nothing
+    catch e
+        e
+    end
+    @test err isa ErrorException
+    @test occursin("non-finite", sprint(showerror, err))
+
+    m2 = Model(x -> x[1])
+    addvar!(m2, [-10.0], [10.0])
+    add_ineq_constraint!(m2, x -> x[1] < -5.0 ? NaN : x[1])
+    err2 = try
+        optimize(m2, FiniteCheckDummyOptimizer(), [-6.0])
+        nothing
+    catch e
+        e
+    end
+    @test err2 isa ErrorException
+    @test occursin("inequality constraint #1", sprint(showerror, err2))
+
+    # A finite start passes the check (explicit point and model init).
+    m3 = Model(x -> x[1])
+    addvar!(m3, [-10.0], [10.0])
+    NonconvexCore.check_finite_start!(m3, ([0.0],))
+    NonconvexCore.check_finite_start!(m3, ())
+end

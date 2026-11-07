@@ -253,6 +253,42 @@ function _optimize_precheck(
     if (length(model.sd_constraints.fs) != 0)
         @warn "The solver used does not support semidefinite constraints so they will be ignored."
     end
+    check_finite_start!(model, args)
+end
+
+"""
+    check_finite_start!(model, args)
+
+Throws a descriptive error when the objective or any constraint returns a
+non-finite value at the initial point. `args` carries the initial point when
+`optimize` was called with one; the model's `init` is used otherwise.
+"""
+function check_finite_start!(model::AbstractModel, args)
+    x = length(args) >= 1 ? args[1] : getinit(model)
+    obj = model.objective
+    if obj !== nothing && obj.f !== nothing
+        val = obj(x)
+        if !isfinite(val)
+            error(
+                "The objective function returned a non-finite value ($val) at the " *
+                "initial point. Check the function definition and the box bounds.",
+            )
+        end
+    end
+    for (kind, fs) in (
+        ("inequality", getineqconstraints(model)),
+        ("equality", geteqconstraints(model)),
+    )
+        vals = fs(x)
+        for (i, v) in enumerate(vals)
+            if !isfinite(v)
+                error(
+                    "The $kind constraint #$i returned a non-finite value ($v) at the " *
+                    "initial point. Check the constraint definition and the box bounds.",
+                )
+            end
+        end
+    end
 end
 
 function optimize!(::Workspace)
