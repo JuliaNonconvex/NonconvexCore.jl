@@ -36,3 +36,21 @@ vals, jac = NonconvexCore.value_jacobian(NonconvexCore.getineqconstraints(m), p)
 vals, jac = NonconvexCore.value_jacobian(NonconvexCore.getobjectiveconstraints(m), p)
 @test [val0, val1, val2] == vals
 @test [grad0 grad1 grad2]' == jac
+
+# Semidefinite constraints are not supported by most algorithms; optimize must
+# fail fast instead of silently dropping them.
+@testset "Semidefinite constraint precheck" begin
+    struct DummyOptimizer <: NonconvexCore.AbstractOptimizer end
+    m = Model(x -> x[1]^2)
+    addvar!(m, [-1.0], [1.0])
+    add_sd_constraint!(m, x -> [x[1]^2 + 1.0;;])
+    err = try
+        optimize(m, DummyOptimizer(), [0.0])
+        nothing
+    catch e
+        e
+    end
+    @test err isa ErrorException
+    @test occursin("semidefinite", sprint(showerror, err))
+    @test occursin("SDPBarrierAlg", sprint(showerror, err))
+end
