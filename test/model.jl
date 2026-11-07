@@ -40,6 +40,13 @@ vals, jac = NonconvexCore.value_jacobian(NonconvexCore.getobjectiveconstraints(m
 # A stub optimizer that reports the initial point as the solution. Used to
 # test that `optimize` unflattens the result for structured variables.
 struct StubOptimizer <: NonconvexCore.AbstractOptimizer end
+NonconvexCore.solver_capabilities(::StubOptimizer) = NonconvexCore.ConstraintCapabilities(
+    eq = true,
+    ineq = true,
+    sd = true,
+    box = true,
+    integer = true,
+)
 mutable struct StubWorkspace <: NonconvexCore.Workspace
     model::NonconvexCore.VecModel
     optimizer::StubOptimizer
@@ -75,6 +82,13 @@ end
 # initial_x field; optimize must not try to restore a field that does not
 # exist.
 struct StubNoFieldOptimizer <: NonconvexCore.AbstractOptimizer end
+NonconvexCore.solver_capabilities(::StubNoFieldOptimizer) = NonconvexCore.ConstraintCapabilities(
+    eq = true,
+    ineq = true,
+    sd = true,
+    box = true,
+    integer = true,
+)
 mutable struct StubNoFieldWorkspace <: NonconvexCore.Workspace
     model::NonconvexCore.VecModel
     optimizer::StubNoFieldOptimizer

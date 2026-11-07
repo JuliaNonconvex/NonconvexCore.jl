@@ -26,7 +26,11 @@ export Model,
     GenericCriteria,
     KKTCriteria,
     ScaledKKTCriteria,
-    IpoptCriteria
+    IpoptCriteria,
+    ConstraintCapabilities,
+    merge_capabilities,
+    solver_capabilities,
+    checksubproblem!
 
 using Parameters, Zygote, ChainRulesCore, ForwardDiff
 using SparseArrays, Reexport, Requires
@@ -71,5 +75,9 @@ include("models/dict_model.jl")
 include("models/model_docs.jl")
 include("models/jump.jl")
 include("models/moi.jl")
+
+# Utilities that depend on the model layer
+
+include("utilities/capabilities.jl")
 
 end

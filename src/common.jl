@@ -240,6 +240,7 @@ function optimize(
 )
     _optimize_precheck(model, optimizer, x0, args...; kwargs...)
     _model, _x0, unflatten = tovecmodel(model, x0)
+    checksubproblem!(_model, optimizer)
     r = optimize(_model, optimizer, _x0, args...; kwargs...)
     r = @set r.minimizer = unflatten(r.minimizer)
     # Wrapper results (IpoptResult, NLoptResult, ...) have no initial_x
@@ -257,9 +258,8 @@ function _optimize_precheck(
     args...;
     kwargs...,
 )
-    if (length(model.sd_constraints.fs) != 0)
-        @warn "The solver used does not support semidefinite constraints so they will be ignored."
-    end
+    # Constraint support is validated strictly by `checksubproblem!` in
+    # `optimize` against the solver's `solver_capabilities` declaration.
     check_finite_start!(model, args)
 end
 
@@ -308,6 +308,7 @@ end
 function optimize(model::AbstractModel, optimizer::AbstractOptimizer, args...; kwargs...)
     _optimize_precheck(model, optimizer, args...; kwargs...)
     _model, _, unflatten = tovecmodel(model)
+    checksubproblem!(_model, optimizer)
     r = optimize(_model, optimizer, args...; kwargs...)
     r = @set r.minimizer = unflatten(r.minimizer)
     if hasproperty(r, :initial_x)
