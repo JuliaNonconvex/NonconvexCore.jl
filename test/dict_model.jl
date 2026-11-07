@@ -87,3 +87,18 @@ end
     @test [val0, val1, val2] == vals
     @test [grad0 grad1 grad2]' == jac
 end
+
+@testset "Vector initial solution error" begin
+    m = DictModel(x -> x[:a])
+    addvar!(m, :a, 0.0, 1.0)
+    err = try
+        NonconvexCore.tovecmodel(m, [0.5])
+        nothing
+    catch e
+        e
+    end
+    @test err isa ErrorException
+    msg = sprint(showerror, err)
+    @test occursin("DictModel", msg)
+    @test occursin("Model instead of DictModel", msg)
+end
