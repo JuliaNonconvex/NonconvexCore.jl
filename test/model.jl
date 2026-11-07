@@ -36,3 +36,37 @@ vals, jac = NonconvexCore.value_jacobian(NonconvexCore.getineqconstraints(m), p)
 vals, jac = NonconvexCore.value_jacobian(NonconvexCore.getobjectiveconstraints(m), p)
 @test [val0, val1, val2] == vals
 @test [grad0 grad1 grad2]' == jac
+
+# A stub optimizer that reports the initial point as the solution. Used to
+# test that `optimize` unflattens the result for structured variables.
+struct StubOptimizer <: NonconvexCore.AbstractOptimizer end
+mutable struct StubWorkspace <: NonconvexCore.Workspace
+    model::NonconvexCore.VecModel
+    optimizer::StubOptimizer
+    x0::AbstractVector
+end
+function NonconvexCore.Workspace(model::NonconvexCore.VecModel, optimizer::StubOptimizer, x0; kwargs...)
+    return StubWorkspace(model, optimizer, copy(x0))
+end
+function NonconvexCore.optimize!(w::StubWorkspace)
+    return NonconvexCore.GenericResult(
+        w.optimizer,
+        w.x0,
+        w.x0,
+        0.0,
+        0,
+        false,
+        Tolerance(),
+        nothing,
+        0,
+    )
+end
+
+@testset "Structured initial_x in result" begin
+    m = Model(x -> x.a + sum(x.b))
+    addvar!(m, (a = 0.0, b = [0.0, 0.0]), (a = 1.0, b = [1.0, 1.0]))
+    x0 = (a = 0.3, b = [0.4, 0.6])
+    r = optimize(m, StubOptimizer(), x0)
+    @test r.initial_x == x0
+    @test r.minimizer == x0
+end
