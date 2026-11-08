@@ -1,0 +1,74 @@
+using NonconvexCore, LinearAlgebra, Test, Zygote, ForwardDiff, SparseArrays
+import ADTypes
+import DifferentiationInterface as DI
+
+const f = x -> sum(abs2, x)
+const g = x -> [x[1] + x[2], x[3]^2, x[4] * x[5]]
+const x = [0.3, -0.7, 1.2, 0.5, -0.4]
+
+@testset "AD backends - value and derivatives" begin
+    v0, g0 = NonconvexCore.value_gradient(f, x)
+    @test v0 == f(x)
+    @test g0 ≈ Zygote.gradient(f, x)[1]
+    vf, gf = NonconvexCore.value_gradient(f, x, ADTypes.AutoForwardDiff())
+    @test vf == v0
+    @test gf ≈ g0
+
+    val, jac = NonconvexCore.value_jacobian(f, x)
+    @test val == f(x)
+    @test jac isa Adjoint
+    @test jac ≈ Zygote.jacobian(f, x)[1]
+    valf, jacf = NonconvexCore.value_jacobian(f, x, ADTypes.AutoForwardDiff())
+    @test valf == val
+    @test jacf ≈ jac
+
+    m = Model(f)
+    addvar!(m, -ones(5), ones(5))
+    add_ineq_constraint!(m, g)
+    vm, xv, _ = NonconvexCore.tovecmodel(m)
+    c = vm.ineq_constraints
+    vc, jc = NonconvexCore.value_jacobian(c, xv)
+    @test vc == g(xv)
+    @test jc isa Adjoint
+    @test jc ≈ Zygote.jacobian(g, xv)[1]
+    vcf, jcf = NonconvexCore.value_jacobian(c, xv, ADTypes.AutoForwardDiff())
+    @test vcf ≈ vc
+    @test jcf ≈ jc
+
+    empty_c = NonconvexCore.VectorOfFunctions(())
+    ve, je = NonconvexCore.value_jacobian(empty_c, xv)
+    @test isempty(ve)
+    @test size(je) == (0, 5)
+
+    vt, gt = NonconvexCore.value_jacobian_transpose(f, x)
+    @test vt == f(x)
+    @test gt ≈ g0
+end
+
+@testset "AD backends - sparse derivatives" begin
+    m = Model(f)
+    addvar!(m, -ones(5), ones(5))
+    add_ineq_constraint!(m, g)
+    vm, xv, _ = NonconvexCore.tovecmodel(m)
+    c = vm.ineq_constraints
+
+    J = NonconvexCore.sparse_jacobian(c, xv)
+    @test J isa SparseMatrixCSC
+    @test J ≈ Zygote.jacobian(g, xv)[1]
+    Jf = NonconvexCore.sparse_jacobian(c, xv, ADTypes.AutoForwardDiff())
+    @test Jf ≈ J
+
+    Hs = NonconvexCore.sparse_hessian(f, xv)
+    @test Hs isa SparseMatrixCSC
+    @test Hs ≈ Zygote.hessian(f, xv)
+end
+
+@testset "AD backends - default backend" begin
+    old = get_ad_backend()
+    set_ad_backend!(ADTypes.AutoForwardDiff())
+    @test get_ad_backend() isa ADTypes.AutoForwardDiff
+    v, grad = NonconvexCore.value_gradient(f, x)
+    @test grad ≈ Zygote.gradient(f, x)[1]
+    set_ad_backend!(old)
+    @test get_ad_backend() === old
+end

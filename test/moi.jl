@@ -44,10 +44,10 @@ end
     @test J ≈ [1.0, 1.0, 2.0, -1.0]
 
     hess_structure = MOI.hessian_lagrangian_structure(evaluator)
-    @test hess_structure == [(1, 1), (2, 1), (2, 2)]
-    H = zeros(3)
+    @test hess_structure == [(1, 1), (2, 2)]
+    H = zeros(2)
     MOI.eval_hessian_lagrangian(evaluator, H, x0, 1.5, [2.0, 3.0])
-    @test H ≈ [3.0, 0.0, 3.0]
+    @test H ≈ [3.0, 3.0]
 
     @test length(problem.vars) == 2
     @test MOI.get(JuMP.backend(problem.model), MOI.NumberOfVariables()) == 2

@@ -1,15 +1,51 @@
-# workaround Zygote.jacobian and ForwardDiff.jacobian not supporting sparse jacobians
-function sparse_gradient(f, x)
-    _, pb = Zygote.pullback(f, x)
-    return _sparsevec(_pullback_cotangent(pb, 1.0))
+# Sparse Jacobians and Hessians. SparseConnectivityTracer detects the
+# structural sparsity pattern; the values are computed densely with the
+# automatic differentiation backend `backend` and masked by the pattern.
+
+"""
+    sparse_gradient(f, x, [backend::ADTypes.AbstractADType])
+
+Returns the gradient of the scalar-valued function `f` at `x` computed with the
+automatic differentiation backend `backend` (defaults to the package-wide
+backend, see [`get_ad_backend`](@ref)).
+"""
+function sparse_gradient(f, x, backend::AbstractADType = DEFAULT_AD_BACKEND[])
+    _, g = DI.value_and_gradient(f, backend, x)
+    return _sparsevec(g)
 end
-function sparse_jacobian(f, x)
-    val, pb = Zygote.pullback(f, x)
-    M = length(val)
-    vecs = [sparsevec([i], [true], M) for i = 1:M]
-    Jt = reduce(hcat, (_pullback_cotangent(pb, v) for v in vecs))
-    return copy(Jt')
+
+"""
+    sparse_jacobian(f, x, [backend::ADTypes.AbstractADType])
+
+Returns the structurally sparse Jacobian of `f` at `x` as a
+`SparseMatrixCSC`. The sparsity pattern is detected with
+SparseConnectivityTracer and the entries are computed with the automatic
+differentiation backend `backend` (defaults to the package-wide backend, see
+[`get_ad_backend`](@ref)).
+"""
+function sparse_jacobian(f, x, backend::AbstractADType = DEFAULT_AD_BACKEND[])
+    J = Matrix(value_jacobian(f, x, backend)[2])
+    y = f(x)
+    f_ = y isa Number ? (z -> [f(z)]) : f
+    pattern = jacobian_sparsity(f_, x, TracerSparsityDetector())
+    return J .* pattern
 end
+
+"""
+    sparse_hessian(f, x, [backend::ADTypes.AbstractADType])
+
+Returns the structurally sparse Hessian of the scalar-valued function `f` at
+`x` as a `SparseMatrixCSC`. The sparsity pattern is detected with
+SparseConnectivityTracer and the entries are computed with the automatic
+differentiation backend `backend` (defaults to the package-wide backend, see
+[`get_ad_backend`](@ref)).
+"""
+function sparse_hessian(f, x, backend::AbstractADType = DEFAULT_AD_BACKEND[])
+    H = DI.hessian(f, backend, x)
+    pattern = hessian_sparsity(f, x, TracerSparsityDetector())
+    return H .* pattern
+end
+
 function sparse_fd_jacobian(f, x)
     pf = pushforward_function(f, x)
     M = length(x)
@@ -21,10 +57,6 @@ function pushforward_function(f, x)
     return v -> begin
         return ForwardDiff.derivative(h -> f(x + h * v), 0)
     end
-end
-
-function sparse_hessian(f, x)
-    return sparse_fd_jacobian(x -> sparse_gradient(f, x), x)
 end
 
 _sparsevec(x::Real) = [x]

@@ -4,8 +4,10 @@ authors = ["Mohamed Tarek <mohdibntarek@gmail.com> and contributors"]
 version = "1.6.2"
 
 [deps]
+ADTypes = "47edcb42-4c32-4615-8424-f2b9edc5f35b"
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 DifferentiableFlatten = "c78775a3-ee38-4681-b694-0504db4f5dc7"
+DifferentiationInterface = "a0c0ee7d-e4b9-4e03-894e-1c5f64a51d63"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 IntervalArithmetic = "d1acc4aa-44c8-5952-acd4-ba5d80a2a253"
 JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
@@ -20,10 +22,13 @@ Requires = "ae029012-a4dd-5104-9daa-d747884805df"
 Setfield = "efcf1570-3423-57d1-acb7-fd33fddbac46"
 SolverCore = "ff4d7338-4cf1-434d-91df-b86cb86fb843"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+SparseConnectivityTracer = "9f842d2f-2579-4b1d-911e-f412cf18a3f5"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
+ADTypes = "1"
 ChainRulesCore = "0.10, 1"
+DifferentiationInterface = "0.7"
 DifferentiableFlatten = "0.1.0, 0.2"
 ForwardDiff = "0.10, 1"
 IntervalArithmetic = "0.17, 0.18, 0.19, 0.20, 0.21, 0.22, 0.23, 1"
@@ -37,6 +42,7 @@ Reexport = "1"
 Requires = "1"
 Setfield = "0.7, 0.8, 1"
 SolverCore = "0.2, 0.3"
+SparseConnectivityTracer = "1"
 Zygote = "0.6, 0.7"
 julia = "1.10"
 

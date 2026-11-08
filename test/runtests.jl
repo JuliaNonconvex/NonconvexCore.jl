@@ -12,6 +12,9 @@ end
 @safetestset "MOI" begin
     include("moi.jl")
 end
+@safetestset "AD backends" begin
+    include("ad_backends.jl")
+end
 @safetestset "Functions" begin
     include("functions.jl")
 end

@@ -1,34 +1,35 @@
-# Simultaneous function and Jacobian evaluation 
+# Simultaneous function and Jacobian evaluation
 
 """
-    value_jacobian(f::Function, x::AbstractVector)
+    value_jacobian(f::Function, x::AbstractVector, [backend::ADTypes.AbstractADType])
 
-Returns the value and Jacobian of the function `f` at the point `x`. The automatic differentiation package, Zygote, is used by default. To define a custom adjoint rule for a function to be used in a constraint or objective, use [`ChainRulesCore.jl`](https://github.com/JuliaDiff/ChainRulesCore.jl). The Jacobian is returned as an instance of `Adjoint` for cache efficiency in the optimizer.
+Returns the value and Jacobian of the function `f` at the point `x`. The
+automatic differentiation backend is `backend`, an instance of
+`ADTypes.AbstractADType` such as `AutoZygote()`, `AutoForwardDiff()`,
+`AutoEnzyme()` or `AutoMooncake()`; it defaults to the package-wide backend
+returned by [`get_ad_backend`](@ref). Custom adjoint rules for any backend can
+be defined with
+[`ChainRulesCore.jl`](https://github.com/JuliaDiff/ChainRulesCore.jl). The
+Jacobian is returned as an instance of `Adjoint` for cache efficiency in the
+optimizer.
 """
-# Extract the cotangent of `x` from a pullback seed application in a way that works
-# across Zygote versions (older versions return the cotangent directly for
-# single-argument functions while newer versions wrap it in a 1-tuple).
-@inline function _pullback_cotangent(pb, seed)
-    Δ = pb(seed)
-    return Δ isa Tuple ? Δ[1] : Δ
-end
-
-function value_jacobian(f::Function, x::AbstractVector)
-    out, pullback = Zygote.pullback(f, x)
-    if out isa Number
-        grad = _pullback_cotangent(pullback, 1.0)
-        return out, grad'
+function value_jacobian(f::Function, x::AbstractVector, backend::AbstractADType = DEFAULT_AD_BACKEND[])
+    y = f(x)
+    if y isa Number
+        _, g = DI.value_and_gradient(f, backend, x)
+        return y, g'
     else
-        dim = f isa AbstractFunction ? getdim(f) : length(out)
-        jact = mapreduce(hcat, 1:dim; init = zeros(length(x), 0)) do i
-            _pullback_cotangent(pullback, I(dim)[:, i])
-        end
-        return out, jact'
+        _, J = DI.value_and_jacobian(f, backend, x)
+        return y, Adjoint(Matrix(transpose(J)))
     end
 end
-function value_jacobian(c::VectorOfFunctions, x::AbstractVector)
+function value_jacobian(c::VectorOfFunctions, x::AbstractVector, backend::AbstractADType = DEFAULT_AD_BACKEND[])
+    isempty(c.fs) && return (c(x), adjoint(zeros(length(x), 0)))
+    # Differentiate each function in the collection separately: differentiating
+    # the concatenated call `c(x)` as a whole is not reliable for every backend
+    # (e.g. Zygote's pullback of `vcat` over scalar outputs).
     vals_jacs = map(c.fs) do f
-        value_jacobian(f, x)
+        value_jacobian(f, x, backend)
     end
     vals = mapreduce(vcat, vals_jacs; init = zeros(0)) do val_jac
         val_jac[1]
@@ -40,20 +41,28 @@ function value_jacobian(c::VectorOfFunctions, x::AbstractVector)
 end
 
 """
-    value_jacobian_transpose(f::Function, x::AbstractVector)
+    value_jacobian_transpose(f::Function, x::AbstractVector, [backend::ADTypes.AbstractADType])
 
 Returns the value and transpose of the Jacobian of `f` at the point `x`. This calls [`value_jacobian`](@ref) and transposes the Jacobian.
 """
-function value_jacobian_transpose(f::Function, x::AbstractVector)
-    val, jac = value_jacobian(f, x)
+function value_jacobian_transpose(f::Function, x::AbstractVector, backend::AbstractADType = DEFAULT_AD_BACKEND[])
+    val, jac = value_jacobian(f, x, backend)
     return val, jac'
 end
 
 """
-    value_gradient(f::Function, x::AbstractVector)
+    value_gradient(f::Function, x::AbstractVector, [backend::ADTypes.AbstractADType])
 
-Returns the value and gradient of the scalar-valued function `f` at the point `x`. This is a convenience function for scalar-valued functions that simply calls [`value_jacobian_transpose`](@ref) on `f` and `x`.
+Returns the value and gradient of the scalar-valued function `f` at the point `x`, computed with the automatic differentiation backend `backend` (defaults to the package-wide backend returned by [`get_ad_backend`](@ref)).
 """
-function value_gradient(f::Function, x::AbstractVector)
-    return value_jacobian_transpose(f, x)
+function value_gradient(f::Function, x::AbstractVector, backend::AbstractADType = DEFAULT_AD_BACKEND[])
+    return DI.value_and_gradient(f, backend, x)
 end
+
+"""
+    value_hessian(f::Function, x::AbstractVector, [backend::ADTypes.AbstractADType])
+
+Returns the Hessian of the scalar-valued function `f` at the point `x`, computed with the automatic differentiation backend `backend` (defaults to the package-wide backend returned by [`get_ad_backend`](@ref)).
+"""
+value_hessian(f::Function, x::AbstractVector, backend::AbstractADType = DEFAULT_AD_BACKEND[]) =
+    DI.hessian(f, backend, x)

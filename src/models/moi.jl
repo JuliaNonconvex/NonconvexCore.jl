@@ -28,6 +28,7 @@ function get_jump_problem(
     x0 = getinit(model);
     optimizer,
     first_order,
+    backend::AbstractADType = DEFAULT_AD_BACKEND[],
     kwargs...,
 )
     integers = model.integer
@@ -52,6 +53,7 @@ function get_jump_problem(
         getmax(model),
         first_order,
         optimizer,
+        backend,
     ),
     obj.counter
 end
@@ -65,10 +67,11 @@ function get_jump_problem(
     xub,
     first_order,
     optimizer,
+    backend::AbstractADType = DEFAULT_AD_BACKEND[],
 )
     nvars = length(x0)
     if ineq_constr !== nothing
-        ineqJ0 = Zygote.jacobian(ineq_constr, x0)[1]
+        ineqJ0 = sparse_jacobian(ineq_constr, x0, backend)
         ineq_nconstr = size(ineqJ0, 1)
         Joffset = nvalues(ineqJ0)
     else
@@ -77,7 +80,7 @@ function get_jump_problem(
         Joffset = 0
     end
     if eq_constr !== nothing
-        eqJ0 = Zygote.jacobian(eq_constr, x0)[1]
+        eqJ0 = sparse_jacobian(eq_constr, x0, backend)
         eq_nconstr = size(eqJ0, 1)
     else
         eqJ0 = nothing
@@ -85,6 +88,14 @@ function get_jump_problem(
     end
     njacvals = nvalues(ineqJ0) + nvalues(eqJ0)
     @assert nvars > 0
+    # The Jacobian structure is detected once at `x0` with
+    # SparseConnectivityTracer and stays fixed for the whole solve.
+    jac_rows = zeros(Int, njacvals)
+    jac_cols = zeros(Int, njacvals)
+    ineqJ0 === nothing || fill_indices!(jac_rows, jac_cols, ineqJ0)
+    eqJ0 === nothing ||
+        fill_indices!(jac_rows, jac_cols, eqJ0, offset = Joffset, row_offset = ineq_nconstr)
+    jac_structure_data = tuple.(jac_rows, jac_cols)
     lag(factor, y) =
         x -> begin
             factor * obj(x) +
@@ -104,25 +115,21 @@ function get_jump_problem(
         return g
     end
     function eval_grad_f(x::AbstractVector{Float64}, grad_f::AbstractVector{Float64})
-        grad_f .= Zygote.gradient(obj, x)[1]
+        grad_f .= DI.gradient(obj, backend, x)
     end
-    function jac_structure()
-        rows = fill(0, njacvals)
-        cols = fill(0, njacvals)
-        ineqJ0 === nothing || fill_indices!(rows, cols, ineqJ0)
-        eqJ0 === nothing ||
-            fill_indices!(rows, cols, eqJ0, offset = Joffset, row_offset = ineq_nconstr)
-        return tuple.(rows, cols)
-    end
+    jac_structure() = jac_structure_data
     function eval_jac_g(x::AbstractVector{Float64}, values::AbstractVector{Float64})
-        values .= 0
         if ineq_constr !== nothing
-            ineqJ = Zygote.jacobian(ineq_constr, x)[1]
-            add_values!(values, ineqJ)
+            J = Matrix(value_jacobian(ineq_constr, x, backend)[2])
+            for k = 1:Joffset
+                values[k] = J[jac_rows[k], jac_cols[k]]
+            end
         end
         if eq_constr !== nothing
-            eqJ = Zygote.jacobian(eq_constr, x)[1]
-            add_values!(values, eqJ, offset = Joffset)
+            J = Matrix(value_jacobian(eq_constr, x, backend)[2])
+            for k = (Joffset+1):njacvals
+                values[k] = J[jac_rows[k]-ineq_nconstr, jac_cols[k]]
+            end
         end
         return values
     end
@@ -132,23 +139,25 @@ function get_jump_problem(
         lag_hess_structure = () -> Tuple{Int,Int}[]
         Hnvalues = 0
     else
-        HL0 = LowerTriangular(Zygote.hessian(lag(1.0, ones(ineq_nconstr + eq_nconstr)), x0))
+        # The Hessian structure is detected once at `x0` with all constraint
+        # multipliers active so that it contains every possible entry.
+        HL0 = LowerTriangular(sparse_hessian(lag(1.0, ones(ineq_nconstr + eq_nconstr)), x0, backend))
         Hnvalues = nvalues(HL0)
-        lag_hess_structure = function ()
-            rows = fill(0, Hnvalues)
-            cols = fill(0, Hnvalues)
-            fill_indices!(rows, cols, HL0)
-            return tuple.(rows, cols)
-        end
+        h_rows = zeros(Int, Hnvalues)
+        h_cols = zeros(Int, Hnvalues)
+        fill_indices!(h_rows, h_cols, HL0)
+        lag_hess_structure_data = tuple.(h_rows, h_cols)
+        lag_hess_structure = () -> lag_hess_structure_data
         eval_h = function (
             x::AbstractVector{Float64},
             obj_factor::Float64,
             lambda::AbstractVector{Float64},
             values::AbstractVector{Float64},
         )
-            HL = LowerTriangular(Zygote.hessian(lag(obj_factor, lambda), x))
-            values .= 0
-            add_values!(values, HL)
+            H = DI.hessian(lag(obj_factor, lambda), backend, x)
+            for k = 1:Hnvalues
+                values[k] = H[h_rows[k], h_cols[k]]
+            end
             return values
         end
     end
@@ -344,3 +353,15 @@ end
 
 _dot(f, x, y) = dot(f(x), y)
 _dot(::Nothing, ::Any, ::Any) = 0.0
+function _dot(f::VectorOfFunctions, x, y)
+    # Accumulate one term per function instead of calling `f(x)` as a whole so
+    # that reverse-mode backends differentiate each function separately.
+    s = 0.0
+    offset = 0
+    for fi in f.fs
+        dim = getdim(fi)
+        s += dot(fi(x), @view(y[offset+1:offset+dim]))
+        offset += dim
+    end
+    return s
+end
