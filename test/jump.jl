@@ -143,6 +143,7 @@ end
     JuMP.@objective(model, Min, x[1]^2 + sin(x[2]))
     JuMP.@constraint(model, sin(x[1]) + x[2]^3 >= 1)
     JuMP.@constraint(model, x[1] + cos(x[2]) == 2)
+    JuMP.@constraint(model, -2 <= sin(x[1]) + x[2] <= 3)
 
     dict_model = DictModel(model)
     obj = NonconvexCore.getobjective(dict_model)
@@ -150,7 +151,11 @@ end
     eq = NonconvexCore.geteqconstraints(dict_model)
     x0 = NonconvexCore.getinit(dict_model)
     @test obj(x0) == x0[:x][1]^2 + sin(x0[:x][2])
-    @test ineq(x0) == [sin(x0[:x][1]) + x0[:x][2]^3 - 1]
+    @test ineq(x0) == [
+        1 - sin(x0[:x][1]) - x0[:x][2]^3,
+        -2 - sin(x0[:x][1]) - x0[:x][2],
+        sin(x0[:x][1]) + x0[:x][2] - 3,
+    ]
     @test eq(x0) == [x0[:x][1] + cos(x0[:x][2]) - 2]
 
     # Derivatives flow through the Nonlinear evaluator's rrule (reverse-mode
@@ -159,9 +164,19 @@ end
     v, g = NonconvexCore.value_gradient(vm.objective, xv, ADTypes.AutoZygote())
     @test g ≈ [2xv[1], cos(xv[2])]
     _, jac = NonconvexCore.value_jacobian(vm.ineq_constraints, xv, ADTypes.AutoZygote())
-    @test Matrix(jac) ≈ [cos(xv[1]) 3xv[2]^2]
+    @test Matrix(jac) ≈ [
+        -cos(xv[1]) -3xv[2]^2
+        -cos(xv[1]) -1
+        cos(xv[1]) 1
+    ]
     _, jaceq = NonconvexCore.value_jacobian(vm.eq_constraints, xv, ADTypes.AutoZygote())
     @test Matrix(jaceq) ≈ [1 -sin(xv[2])]
+
+    # The sparse path uses the graph structure and must include the interval
+    # rows.
+    J = NonconvexCore.sparse_jacobian(vm.ineq_constraints, xv, ADTypes.AutoZygote())
+    @test Matrix(J) ≈ Matrix(jac)
+    @test size(J) == (3, 2)
 end
 
 @testset "x[(ind1, ind2)] variable names" begin

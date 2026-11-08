@@ -35,7 +35,8 @@ export Model,
     get_ad_backend,
     JuMPSymbolicFunction,
     jump_symbolic_gradient,
-    jump_symbolic_hessian
+    jump_symbolic_hessian,
+    jump_symbolic_function
 
 using Parameters, Zygote, ReverseDiff, ChainRulesCore, ForwardDiff
 using SparseArrays, Reexport, Requires

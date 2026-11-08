@@ -53,6 +53,10 @@ pipeline fails for `f`, the values are assembled from per-function
 derivatives at the detected pattern positions.
 """
 function sparse_jacobian(f, x, backend::AbstractADType = DEFAULT_AD_BACKEND[])
+    return _sparse_jacobian_default(f, x, backend)
+end
+
+function _sparse_jacobian_default(f, x, backend::AbstractADType)
     y = f(x)
     # The sparse pipeline requires an array-valued function; promote scalar
     # outputs to 1-element vectors.
@@ -61,24 +65,32 @@ function sparse_jacobian(f, x, backend::AbstractADType = DEFAULT_AD_BACKEND[])
     # produce corrupted cotangents when the functions reconstruct flattened
     # structures; evaluate each function separately in that case.
     if backend isa AutoZygote
-        pattern = jacobian_sparsity(f_, x, TracerSparsityDetector())
+        try
+            pattern = jacobian_sparsity(f_, x, TracerSparsityDetector())
+        catch
+            return sparse(Matrix(value_jacobian(f_, x, backend)[2]))
+        end
         return _assemble_sparse_jacobian(f_, x, pattern, backend)
     end
     key = (f, backend)
     entry = get(_SPARSE_JACOBIAN_PREP_CACHE, key, nothing)
-    if entry === nothing
-        sb = _sparse_backend(backend)
-        entry = (f_, sb, DI.prepare_jacobian(f_, sb, x))
-        _SPARSE_JACOBIAN_PREP_CACHE[key] = entry
+    if entry !== nothing
+        f2, sb, prep = entry
+        try
+            return DI.jacobian(f2, prep, sb, x)
+        catch
+        end
     end
-    f2, sb, prep = entry
     try
-        return DI.jacobian(f2, prep, sb, x)
+        sb = _sparse_backend(backend)
+        prep = DI.prepare_jacobian(f_, sb, x)
+        _SPARSE_JACOBIAN_PREP_CACHE[key] = (f_, sb, prep)
+        return DI.jacobian(f_, prep, sb, x)
     catch
-        pattern = jacobian_sparsity(f_, x, TracerSparsityDetector())
-        return _assemble_sparse_jacobian(f_, x, pattern, backend)
+        return sparse(Matrix(value_jacobian(f_, x, backend)[2]))
     end
 end
+
 
 function _assemble_sparse_jacobian(f, x, pattern, backend)
     m, n = size(pattern)
@@ -118,25 +130,44 @@ differences of the gradient.
 function sparse_hessian(f, x, backend::AbstractADType = DEFAULT_AD_BACKEND[])
     key = (f, backend)
     entry = get(_SPARSE_HESSIAN_PREP_CACHE, key, nothing)
-    if entry === nothing
-        sb = _sparse_backend(second_order_backend(backend))
-        entry = (sb, DI.prepare_hessian(f, sb, x))
-        _SPARSE_HESSIAN_PREP_CACHE[key] = entry
+    if entry !== nothing
+        sb, prep = entry
+        try
+            return DI.hessian(f, prep, sb, x)
+        catch
+        end
     end
-    sb, prep = entry
     try
+        sb = _sparse_backend(second_order_backend(backend))
+        prep = DI.prepare_hessian(f, sb, x)
+        _SPARSE_HESSIAN_PREP_CACHE[key] = (sb, prep)
         return DI.hessian(f, prep, sb, x)
     catch
         return sparse_fd_jacobian(x -> sparse_gradient(f, x, backend), x)
     end
 end
 
+# Central finite differences of `f` (a vector-valued function), with plain
+# Float64 steps: unlike directional ForwardDiff derivatives, this works for
+# functions whose internals reject dual numbers (e.g. evaluator-based
+# functions).
 function sparse_fd_jacobian(f, x)
-    pf = pushforward_function(f, x)
-    M = length(x)
-    vecs = [sparsevec([i], [true], M) for i = 1:M]
-    # assumes there will be no structural non-zeros that have value 0
-    return reduce(hcat, sparse.(pf.(vecs)))
+    n = length(x)
+    f0 = f(x)
+    f0 = f0 isa Real ? [f0] : f0
+    m = length(f0)
+    J = zeros(m, n)
+    h = cbrt(eps(Float64))
+    for j = 1:n
+        e = zeros(n)
+        e[j] = h
+        fp = f(x + e)
+        fp = fp isa Real ? [fp] : fp
+        fm = f(x - e)
+        fm = fm isa Real ? [fm] : fm
+        J[:, j] = (fp - fm) ./ (2h)
+    end
+    return sparse(J)
 end
 function pushforward_function(f, x)
     return v -> begin
