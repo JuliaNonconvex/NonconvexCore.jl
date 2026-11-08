@@ -63,6 +63,33 @@ end
     @test Hs ≈ Zygote.hessian(f, xv)
 end
 
+@testset "AD backends - multi-constraint collections" begin
+    m = Model(f)
+    addvar!(m, -ones(5), ones(5))
+    add_ineq_constraint!(m, x -> x[1] + x[2])
+    add_ineq_constraint!(m, x -> x[3]^2 - x[4])
+    add_eq_constraint!(m, x -> x[2] * x[5])
+    vm, xv, _ = NonconvexCore.tovecmodel(m)
+    c = vm.ineq_constraints
+    ceq = vm.eq_constraints
+
+    # Reverse-mode differentiation of the whole collection must give the
+    # per-constraint derivatives (Zygote's vcat pullback used to corrupt
+    # seeds for collections with more than one function).
+    Jz = Matrix(Zygote.jacobian(c, xv)[1])
+    Jf = Matrix(NonconvexCore.value_jacobian(c, xv, ADTypes.AutoForwardDiff())[2])
+    @test Jz ≈ Jf
+    Jz_eq = Matrix(Zygote.jacobian(ceq, xv)[1])
+    Jf_eq = Matrix(NonconvexCore.value_jacobian(ceq, xv, ADTypes.AutoForwardDiff())[2])
+    @test Jz_eq ≈ Jf_eq
+
+    # The sparse pipeline gives the same values.
+    Js = NonconvexCore.sparse_jacobian(c, xv)
+    @test Js ≈ Jf
+    Js_eq = NonconvexCore.sparse_jacobian(ceq, xv, ADTypes.AutoForwardDiff())
+    @test Js_eq ≈ Jf_eq
+end
+
 @testset "AD backends - default backend" begin
     old = get_ad_backend()
     set_ad_backend!(ADTypes.AutoForwardDiff())

@@ -40,6 +40,7 @@ using SparseArrays, Reexport, Requires
 @reexport using ADTypes
 import DifferentiationInterface as DI
 using SparseConnectivityTracer: TracerSparsityDetector, jacobian_sparsity, hessian_sparsity
+using SparseMatrixColorings: GreedyColoringAlgorithm
 using Reexport, Setfield
 
 """

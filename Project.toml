@@ -1,7 +1,7 @@
 name = "NonconvexCore"
 uuid = "035190e5-69f1-488f-aaab-becca2889735"
 authors = ["Mohamed Tarek <mohdibntarek@gmail.com> and contributors"]
-version = "1.6.2"
+version = "2.0.0"
 
 [deps]
 ADTypes = "47edcb42-4c32-4615-8424-f2b9edc5f35b"
@@ -23,6 +23,7 @@ Setfield = "efcf1570-3423-57d1-acb7-fd33fddbac46"
 SolverCore = "ff4d7338-4cf1-434d-91df-b86cb86fb843"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 SparseConnectivityTracer = "9f842d2f-2579-4b1d-911e-f412cf18a3f5"
+SparseMatrixColorings = "0a514795-09f3-496d-8182-132a7b665d35"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
@@ -43,6 +44,7 @@ Requires = "1"
 Setfield = "0.7, 0.8, 1"
 SolverCore = "0.2, 0.3"
 SparseConnectivityTracer = "1"
+SparseMatrixColorings = "0.4"
 Zygote = "0.6, 0.7"
 julia = "1.10"
 

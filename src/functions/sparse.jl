@@ -1,6 +1,13 @@
-# Sparse Jacobians and Hessians. SparseConnectivityTracer detects the
-# structural sparsity pattern; the values are computed densely with the
-# automatic differentiation backend `backend` and masked by the pattern.
+# Sparse Jacobians and Hessians via automatic sparse differentiation.
+# SparseConnectivityTracer detects the structural sparsity pattern,
+# SparseMatrixColorings compresses it into a graph coloring and
+# DifferentiationInterface evaluates the compressed derivatives with the dense
+# `backend`. If the sparse pipeline fails for a function, the derivatives are
+# assembled from per-function derivatives at the detected pattern positions.
+
+function _sparse_backend(backend::AbstractADType)
+    return AutoSparse(backend, TracerSparsityDetector(), GreedyColoringAlgorithm())
+end
 
 """
     sparse_gradient(f, x, [backend::ADTypes.AbstractADType])
@@ -19,16 +26,47 @@ end
 
 Returns the structurally sparse Jacobian of `f` at `x` as a
 `SparseMatrixCSC`. The sparsity pattern is detected with
-SparseConnectivityTracer and the entries are computed with the automatic
-differentiation backend `backend` (defaults to the package-wide backend, see
-[`get_ad_backend`](@ref)).
+SparseConnectivityTracer, colored with SparseMatrixColorings and the entries
+are computed with the automatic differentiation backend `backend` (defaults
+to the package-wide backend, see [`get_ad_backend`](@ref)). If the sparse
+pipeline fails for `f`, the values are assembled from per-function
+derivatives at the detected pattern positions.
 """
 function sparse_jacobian(f, x, backend::AbstractADType = DEFAULT_AD_BACKEND[])
-    J = Matrix(value_jacobian(f, x, backend)[2])
     y = f(x)
+    # The sparse pipeline requires an array-valued function; promote scalar
+    # outputs to 1-element vectors.
     f_ = y isa Number ? (z -> [f(z)]) : f
-    pattern = jacobian_sparsity(f_, x, TracerSparsityDetector())
-    return J .* pattern
+    try
+        return DI.jacobian(f_, _sparse_backend(backend), x)
+    catch
+        pattern = jacobian_sparsity(f_, x, TracerSparsityDetector())
+        return _assemble_sparse_jacobian(f_, x, pattern, backend)
+    end
+end
+
+function _assemble_sparse_jacobian(f, x, pattern, backend)
+    m, n = size(pattern)
+    I = Int[]
+    J = Int[]
+    V = Float64[]
+    blocks = if f isa VectorOfFunctions
+        map(fi -> Matrix(value_jacobian(fi, x, backend)[2]), f.fs)
+    else
+        [Matrix(value_jacobian(f, x, backend)[2])]
+    end
+    offset = 0
+    for bi in blocks
+        dim = size(bi, 1)
+        sub = pattern[(offset+1):(offset+dim), :]
+        for (lr, c) in zip(findnz(sub)[1], findnz(sub)[2])
+            push!(I, offset + lr)
+            push!(J, c)
+            push!(V, bi[lr, c])
+        end
+        offset += dim
+    end
+    return sparse(I, J, V, m, n)
 end
 
 """
@@ -36,14 +74,18 @@ end
 
 Returns the structurally sparse Hessian of the scalar-valued function `f` at
 `x` as a `SparseMatrixCSC`. The sparsity pattern is detected with
-SparseConnectivityTracer and the entries are computed with the automatic
-differentiation backend `backend` (defaults to the package-wide backend, see
-[`get_ad_backend`](@ref)).
+SparseConnectivityTracer, colored with SparseMatrixColorings and the entries
+are computed by forward-mode differentiation of the gradient computed with
+`backend` (defaults to the package-wide backend, see [`get_ad_backend`](@ref)).
+If the sparse pipeline fails for `f`, the Hessian is computed by sparse finite
+differences of the gradient.
 """
 function sparse_hessian(f, x, backend::AbstractADType = DEFAULT_AD_BACKEND[])
-    H = DI.hessian(f, backend, x)
-    pattern = hessian_sparsity(f, x, TracerSparsityDetector())
-    return H .* pattern
+    try
+        return DI.hessian(f, _sparse_backend(DI.SecondOrder(AutoForwardDiff(), backend)), x)
+    catch
+        return sparse_fd_jacobian(x -> sparse_gradient(f, x, backend), x)
+    end
 end
 
 function sparse_fd_jacobian(f, x)

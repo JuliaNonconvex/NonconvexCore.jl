@@ -66,3 +66,39 @@ Returns the Hessian of the scalar-valued function `f` at the point `x`, computed
 """
 value_hessian(f::Function, x::AbstractVector, backend::AbstractADType = DEFAULT_AD_BACKEND[]) =
     DI.hessian(f, backend, x)
+
+# Extract the cotangent of `x` from a pullback seed application in a way that
+# works across Zygote versions (older versions return the cotangent directly
+# for single-argument functions while newer versions wrap it in a 1-tuple).
+@inline function _pullback_cotangent(pb, seed)
+    Δ = pb(seed)
+    return Δ isa Tuple ? Δ[1] : Δ
+end
+
+# Reverse-mode differentiation of a `VectorOfFunctions` call as a whole gives
+# wrong cotangents for Zygote: the pullback of `vcat` over scalar outputs
+# passes the full seed to every function. Assemble the pullback from
+# per-function pullbacks instead.
+function ChainRulesCore.rrule(::Zygote.ZygoteRuleConfig, c::VectorOfFunctions, x)
+    isempty(c.fs) && return (Float64[], _ -> (NoTangent(), NoTangent()))
+    outs_pbs = map(c.fs) do f
+        Zygote.pullback(f, x)
+    end
+    y = mapreduce(vcat, outs_pbs; init = Float64[]) do out_pb
+        out = out_pb[1]
+        out isa Real ? [out] : out
+    end
+    function vof_pullback(Δ)
+        Δx = nothing
+        offset = 0
+        for (f, (out, pb)) in zip(c.fs, outs_pbs)
+            dim = getdim(f)
+            δ = dim == 1 ? Δ[offset+1] : Δ[offset+1:offset+dim]
+            offset += dim
+            Δxi = _pullback_cotangent(pb, δ)
+            Δx = Δx === nothing ? Δxi : Δx + Δxi
+        end
+        return (NoTangent(), Δx)
+    end
+    return y, vof_pullback
+end
