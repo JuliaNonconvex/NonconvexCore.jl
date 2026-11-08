@@ -308,42 +308,48 @@ end
 
 function _dict_model_from_jump_expressions(model, dict_model, ks, nvars)
     vars = _ordered_jump_variables(model, ks)
+    # One Nonlinear model for the objective and every constraint, so the
+    # evaluator computes shared subexpressions once per pass.
+    nl = MOI.Nonlinear.Model()
     obj_expr = objective_function(model)
     if obj_expr isa JuMP.GenericNonlinearExpr || obj_expr isa QuadExpr || obj_expr isa AffExpr
         obj_expr = JuMP.moi_function(obj_expr)
     end
-    obj_f = JuMPSymbolicFunction(obj_expr, vars)
-    if objective_sense(model) == MathOptInterface.MAX_SENSE
-        set_objective!(dict_model, x -> -JumpConvertedFunction(obj_f, ks)(x))
-    else
-        set_objective!(dict_model, JumpConvertedFunction(obj_f, ks))
-    end
+    MOI.Nonlinear.set_objective(nl, obj_expr)
+    obj_sign = objective_sense(model) == MathOptInterface.MAX_SENSE ? -1.0 : 1.0
+    ineq_cis = MOI.Nonlinear.ConstraintIndex[]
+    ineq_sign = Float64[]
+    ineq_shift = Float64[]
+    eq_cis = MOI.Nonlinear.ConstraintIndex[]
+    eq_shift = Float64[]
+    # Nonconvex inequality constraints are feasible when their value is <= 0,
+    # so each row stores `sign * f(x) + shift`. JuMP may have folded the
+    # bound into the expression (its nonlinear interface normalizes to zero
+    # sets); carrying the raw bound works under both conventions.
     for (expr, set) in _nonlinear_constraints(model)
-        f = JuMPSymbolicFunction(expr, vars)
         if set isa MOI.GreaterThan
-            # Nonconvex inequality constraints are feasible when their value
-            # is <= 0, so `f >= lower` is stored as `lower - f`. JuMP may
-            # have folded the bound into the expression already (its
-            # nonlinear interface normalizes to a zero set); carrying the raw
-            # bound works under both conventions.
-            add_ineq_constraint!(dict_model, let f = f
-                NegatedJumpConvertedFunction(JumpConvertedFunction(f, ks), ks, set.lower)
-            end)
+            push!(ineq_cis, MOI.Nonlinear.add_constraint(nl, expr, set))
+            push!(ineq_sign, -1.0)
+            push!(ineq_shift, set.lower)
         elseif set isa MOI.LessThan
-            add_ineq_constraint!(dict_model, let f = f
-                ShiftedJumpConvertedFunction(JumpConvertedFunction(f, ks), ks, set.upper)
-            end)
+            push!(ineq_cis, MOI.Nonlinear.add_constraint(nl, expr, set))
+            push!(ineq_sign, 1.0)
+            push!(ineq_shift, -set.upper)
         elseif set isa MOI.Interval
-            # One vector-valued constraint `[lb - f, f - ub]` evaluates the
-            # expression once; both entries are feasible when <= 0.
-            add_ineq_constraint!(dict_model, let f = f
-                IntervalJumpConvertedFunction(JumpConvertedFunction(f, ks), ks, set.lower, set.upper)
-            end)
-        else
-            add_eq_constraint!(dict_model, let f = f
-                ShiftedJumpConvertedFunction(JumpConvertedFunction(f, ks), ks, set.value)
-            end)
+            push!(ineq_cis, MOI.Nonlinear.add_constraint(nl, expr, MOI.GreaterThan(set.lower)))
+            push!(ineq_sign, -1.0)
+            push!(ineq_shift, set.lower)
+            push!(ineq_cis, MOI.Nonlinear.add_constraint(nl, expr, MOI.LessThan(set.upper)))
+            push!(ineq_sign, 1.0)
+            push!(ineq_shift, -set.upper)
+        elseif set isa MOI.EqualTo
+            push!(eq_cis, MOI.Nonlinear.add_constraint(nl, expr, set))
+            push!(eq_shift, -set.value)
         end
     end
+    je = JumpEvaluator(nl, vars, obj_sign, ineq_cis, ineq_sign, ineq_shift, eq_cis, eq_shift)
+    set_objective!(dict_model, JumpModelObjective(je, ks))
+    je.nineq > 0 && add_ineq_constraint!(dict_model, JumpModelIneq(je, ks))
+    je.neq > 0 && add_eq_constraint!(dict_model, JumpModelEq(je, ks))
     return dict_model
 end
