@@ -42,9 +42,13 @@ function get_variable_info(model::JuMP.Model)
             else
                 varinds[k] = OrderedDict(vec(inds) .=> 1:length(inds))
             end
-            integer[k] = map(vs) do v
+            # Store the integer flags as a flat BitVector: the bounds keep the
+            # structured form, but flattening heterogeneous array-typed dict
+            # values is not supported by the flattening machinery.
+            ints = map(vs) do v
                 is_binary(v) || is_integer(v)
             end
+            integer[k] = BitVector(vec(ints isa JuMP.Containers.DenseAxisArray ? ints.data : collect(ints)))
             lb[k] = map(vs) do v
                 if has_lower_bound(v)
                     lower_bound(v)
