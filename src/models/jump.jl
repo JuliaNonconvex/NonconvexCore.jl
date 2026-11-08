@@ -35,3 +35,13 @@ Builds a JuMP model wrapping a NonconvexCore model through a custom
 `MOI.AbstractNLPEvaluator`, for solvers that interface through JuMP.
 """
 function get_jump_problem end
+
+"""
+    symbolify(f, x...; flatteny = true, kwargs...)
+
+Returns a version of `f` whose value, gradient and Hessian are computed
+symbolically with Symbolics. The Symbolics-specific implementation lives in
+the NonconvexCoreSymbolicsExt package extension (Symbolics is an optional
+dependency of NonconvexCore).
+"""
+function symbolify end

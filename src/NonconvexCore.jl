@@ -34,15 +34,25 @@ export Model,
     set_ad_backend!,
     get_ad_backend,
     JuMPSymbolicFunction,
+    TraceFunction,
+    CustomGradFunction,
+    CustomHessianFunction,
+    LazyJacobian,
+    ImplicitFunction,
+    symbolify,
     jump_symbolic_gradient,
     jump_symbolic_hessian,
     jump_symbolic_function
 
 using Parameters, Zygote, ReverseDiff, ChainRulesCore, ForwardDiff
+using LinearMaps: LinearMap
+using IterativeSolvers: gmres
 using SparseArrays, Reexport, Requires
 @reexport using LinearAlgebra, OrderedCollections
 @reexport using ADTypes
-import DifferentiationInterface as DI
+import DifferentiationInterface
+const DI = DifferentiationInterface
+import MacroTools
 using SparseConnectivityTracer: TracerSparsityDetector, jacobian_sparsity, hessian_sparsity
 using SparseMatrixColorings: GreedyColoringAlgorithm
 using Reexport, Setfield
@@ -53,12 +63,12 @@ using Reexport, Setfield
 The automatic differentiation backend used by default wherever NonconvexCore
 computes derivatives, e.g. in `value_gradient`, `value_jacobian`,
 `sparse_jacobian` and the solver-facing derivative evaluators. It is initially
-`ADTypes.AutoReverseDiff()`, whose compiled tapes amortize repeated
-differentiation of the same model functions over an optimization run. Change
-it with [`set_ad_backend!`](@ref), or pass a backend explicitly to the
-functions above.
+`ADTypes.AutoZygote()`, whose ChainRules-based design supports arbitrary
+argument types (dictionaries, structs, arrays) through the model-flattening
+machinery. Change it with [`set_ad_backend!`](@ref), or pass a backend
+explicitly to the functions above.
 """
-const DEFAULT_AD_BACKEND = Ref{AbstractADType}(AutoReverseDiff())
+const DEFAULT_AD_BACKEND = Ref{AbstractADType}(AutoZygote())
 
 """
     set_ad_backend!(backend::ADTypes.AbstractADType)
@@ -107,5 +117,10 @@ include("models/moi.jl")
 # Utilities that depend on the model layer
 
 include("utilities/capabilities.jl")
+include("utilities/forwarddiff_frule.jl")
+include("utilities/lazy.jl")
+include("utilities/trace.jl")
+include("utilities/custom.jl")
+include("utilities/implicit.jl")
 
 end
