@@ -78,24 +78,9 @@ Returns the package-wide default automatic differentiation backend, see
 """
 get_ad_backend() = DEFAULT_AD_BACKEND[]
 
-import JuMP, MathOptInterface
+import MathOptInterface
 const MOI = MathOptInterface
 using SolverCore: log_header, log_row
-using JuMP:
-    VariableRef,
-    is_binary,
-    is_integer,
-    has_lower_bound,
-    has_upper_bound,
-    lower_bound,
-    upper_bound,
-    start_value,
-    ConstraintRef,
-    constraint_object,
-    AffExpr,
-    QuadExpr,
-    objective_function,
-    objective_sense
 using DifferentiableFlatten: flatten, maybeflatten, Unflatten
 
 # General
