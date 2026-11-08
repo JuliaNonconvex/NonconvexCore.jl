@@ -9,6 +9,18 @@ function _sparse_backend(backend::AbstractADType)
     return AutoSparse(backend, TracerSparsityDetector(), GreedyColoringAlgorithm())
 end
 
+"""
+    second_order_backend(backend::ADTypes.AbstractADType)
+
+Returns the backend used to compose second derivatives from `backend` for
+`sparse_hessian`. The default is forward-mode differentiation over the
+gradient computed with `backend`
+(`DI.SecondOrder(AutoForwardDiff(), backend)`). This function can be
+specialized for specific backends, e.g. to use a forward-over-reverse
+composition with the same engine.
+"""
+second_order_backend(backend::AbstractADType) = DI.SecondOrder(AutoForwardDiff(), backend)
+
 # Prepared sparse differentiation caches. Preparation performs the sparsity
 # detection and graph coloring once; later evaluations reuse them. The
 # functions stored in a VecModel are immutable, so caching by function
@@ -107,7 +119,7 @@ function sparse_hessian(f, x, backend::AbstractADType = DEFAULT_AD_BACKEND[])
     key = (f, backend)
     entry = get(_SPARSE_HESSIAN_PREP_CACHE, key, nothing)
     if entry === nothing
-        sb = _sparse_backend(DI.SecondOrder(AutoForwardDiff(), backend))
+        sb = _sparse_backend(second_order_backend(backend))
         entry = (sb, DI.prepare_hessian(f, sb, x))
         _SPARSE_HESSIAN_PREP_CACHE[key] = entry
     end
