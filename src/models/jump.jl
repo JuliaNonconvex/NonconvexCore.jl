@@ -186,14 +186,17 @@ function get_objective_info(model::JuMP.Model, nvars)
         c, Q = _affine_objective(obj, nvars)
     elseif obj isa QuadExpr
         c, Q = _quadratic_objective(obj, nvars)
+    elseif obj isa MOI.ScalarNonlinearFunction || obj isa JuMP.GenericNonlinearExpr
+        c, Q = nothing, nothing
     else
         error(
-            "Unsupported objective function of type $(typeof(obj)). Only affine and " *
-            "quadratic objectives can be converted to a DictModel.",
+            "Unsupported objective function of type $(typeof(obj)). Only affine, " *
+            "quadratic and nonlinear (ScalarNonlinearFunction) objectives can " *
+            "be converted to a DictModel.",
         )
     end
     if sense == MathOptInterface.MAX_SENSE
-        return -c, -Q
+        return c === nothing ? (nothing, nothing) : (-c, -Q)
     else
         return c, Q
     end
@@ -244,17 +247,71 @@ function DictModel(model::JuMP.Model)
     for k in ks
         addvar!(dict_model, k, lb[k], ub[k], init = inits[k], integer = integer[k])
     end
-    set_objective!(dict_model, x -> begin
-        xv = flatten(x, ks)[1]
-        # `c` is dense in memory: a sparse vector dotted with a tracked
-        # vector is method-ambiguous for some reverse-mode backends.
-        return dot(Vector(c), xv) + dot(xv, Q * xv)
-    end)
+    if c === nothing && Q === nothing
+        # Nonlinear objective: evaluate with the MathOptInterface Nonlinear
+        # evaluator, which also provides the derivatives.
+        vars = _ordered_jump_variables(model, ks)
+        obj_expr = objective_function(model)
+        obj_expr isa JuMP.GenericNonlinearExpr && (obj_expr = JuMP.moi_function(obj_expr))
+        obj_f = JuMPSymbolicFunction(obj_expr, vars)
+        if objective_sense(model) == MathOptInterface.MAX_SENSE
+            set_objective!(dict_model, x -> -obj_f(flatten(x, ks)[1]))
+        else
+            set_objective!(dict_model, x -> obj_f(flatten(x, ks)[1]))
+        end
+    else
+        set_objective!(dict_model, x -> begin
+            xv = flatten(x, ks)[1]
+            # `c` is dense in memory: a sparse vector dotted with a tracked
+            # vector is method-ambiguous for some reverse-mode backends.
+            return dot(Vector(c), xv) + dot(xv, Q * xv)
+        end)
+    end
     if length(bineq) > 0
         add_ineq_constraint!(dict_model, x -> Aineq * flatten(x, ks)[1] - bineq)
     end
     if length(beq) > 0
         add_eq_constraint!(dict_model, x -> Aeq * flatten(x, ks)[1] - beq)
     end
+    vars = _ordered_jump_variables(model, ks)
+    # JuMP's nonlinear interface normalizes each constraint bound into the
+    # expression itself (f >= 1 becomes f - 1 >= 0), so the constraint value
+    # is the expression evaluated directly.
+    for (expr, set) in _nonlinear_constraints(model)
+        f = JuMPSymbolicFunction(expr, vars)
+        closure = let f = f
+            x -> f(flatten(x, ks)[1])
+        end
+        if set isa MOI.LessThan || set isa MOI.GreaterThan
+            add_ineq_constraint!(dict_model, closure)
+        else
+            add_eq_constraint!(dict_model, closure)
+        end
+    end
     return dict_model
+end
+
+# The JuMP variables ordered like the flattened model vector. The indices are
+# flattened with the same machinery as the model values, so the order matches.
+function _ordered_jump_variables(model::JuMP.Model, ks)
+    inds = OrderedDict{Any,Any}()
+    for (k, vs) in model.obj_dict
+        if vs isa VariableRef
+            inds[k] = vs.index.value
+        elseif vs isa AbstractArray{<:VariableRef}
+            inds[k] = map(v -> v.index.value, vs)
+        end
+    end
+    return MOI.VariableIndex.(flatten(OrderedDict(k => inds[k] for k in ks))[1])
+end
+
+# Nonlinear (ScalarNonlinearFunction) constraints with their sets.
+function _nonlinear_constraints(model::JuMP.Model)
+    out = Tuple{MOI.ScalarNonlinearFunction,Any}[]
+    for c in JuMP.all_constraints(model; include_variable_in_set_constraints = true)
+        func = constraint_object(c).func
+        func isa JuMP.GenericNonlinearExpr && (func = JuMP.moi_function(func))
+        func isa MOI.ScalarNonlinearFunction && push!(out, (func, constraint_object(c).set))
+    end
+    return out
 end

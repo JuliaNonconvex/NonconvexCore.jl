@@ -32,7 +32,10 @@ export Model,
     solver_capabilities,
     checksubproblem!,
     set_ad_backend!,
-    get_ad_backend
+    get_ad_backend,
+    JuMPSymbolicFunction,
+    jump_symbolic_gradient,
+    jump_symbolic_hessian
 
 using Parameters, Zygote, ReverseDiff, ChainRulesCore, ForwardDiff
 using SparseArrays, Reexport, Requires
@@ -112,6 +115,7 @@ include("models/vec_model.jl")
 include("models/dict_model.jl")
 include("models/model_docs.jl")
 include("models/jump.jl")
+include("models/jumpsymbolic.jl")
 include("models/moi.jl")
 
 # Utilities that depend on the model layer
