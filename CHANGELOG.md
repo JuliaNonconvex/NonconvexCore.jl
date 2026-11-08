@@ -5,7 +5,12 @@ The format follows the recommendation from JuliaRegistrator:
 a brief summary, then categorized lists of breaking changes,
 new features, bug fixes, and maintenance items.
 
-## v2.0.0 (2026-11-08)
+## Unreleased
+
+> Note: the strict capabilities system is a breaking change; it will ship as
+> v2.0.0. The version bump is intentionally kept out of this PR so merging it
+> does not trigger a release; the 2.0.0 bump and registration happen in a
+> follow-up release PR.
 
 ### Breaking changes
 - The capabilities system is now **strict by default**: every model feature
