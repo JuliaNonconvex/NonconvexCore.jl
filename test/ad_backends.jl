@@ -88,6 +88,21 @@ end
     @test Js ≈ Jf
     Js_eq = NonconvexCore.sparse_jacobian(ceq, xv, ADTypes.AutoForwardDiff())
     @test Js_eq ≈ Jf_eq
+
+    # Prepared evaluation reuses the detected pattern across calls: repeated
+    # evaluations at other points keep the same structure and correct values.
+    xv2 = xv + 0.1 .* sin.(1:length(xv))
+    Js2 = NonconvexCore.sparse_jacobian(c, xv2)
+    @test nnz(Js2) == nnz(Js)
+    Jf2 = Matrix(NonconvexCore.value_jacobian(c, xv2, ADTypes.AutoForwardDiff())[2])
+    @test Js2 ≈ Jf2
+
+    # The Hessian preparation is cached by function type, so a fresh closure
+    # instance of the same type reuses it.
+    Hs1 = NonconvexCore.sparse_hessian(f, xv)
+    Hs2 = NonconvexCore.sparse_hessian(f, xv2)
+    @test nnz(Hs1) == nnz(Hs2)
+    @test Hs2 ≈ Zygote.hessian(f, xv2)
 end
 
 @testset "AD backends - default backend" begin

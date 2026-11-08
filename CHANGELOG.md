@@ -31,8 +31,12 @@ new features, bug fixes, and maintenance items.
   unsupported or undeclared features.
 - `value_gradient`, `value_jacobian`, `value_jacobian_transpose` and the new
   `value_hessian` accept an `ADTypes.AbstractADType` backend argument and
-  default to the package-wide backend, initially `AutoZygote`, settable with
-  `set_ad_backend!`.
+  default to the package-wide backend, settable with
+  `set_ad_backend!`. The default backend is `AutoReverseDiff()`, whose
+  compiled tapes amortize the differentiation of the model functions over an
+  optimization run; first-order derivatives use the tape directly and
+  Hessians use forward-mode differentiation over the taped gradients
+  (the fastest combination on the Rosetta-OPF benchmark).
 - `sparse_jacobian` and `sparse_hessian` detect the structural sparsity
   pattern with SparseConnectivityTracer, color it with SparseMatrixColorings
   and evaluate the compressed derivatives through DifferentiationInterface
@@ -44,12 +48,12 @@ new features, bug fixes, and maintenance items.
   backend, extracting them at the detected positions.
 
 ### Bug fixes
-- Reverse-mode differentiation of a `VectorOfFunctions` with more than one
-  function used to corrupt the seed of every function (Zygote's `vcat`
-  pullback over scalar outputs), producing wrong whole-collection Jacobians
-  and Hessians. The collection now defines a pullback assembled from
-  per-function pullbacks, and the Lagrangian in the MOI evaluator
-  accumulates one term per constraint.
+- Reverse-mode differentiation of a whole `VectorOfFunctions` can produce
+  corrupted cotangents when the collection's functions reconstruct
+  flattened structures (the pullbacks of the flattening layer are not
+  reusable across seed applications). NonconvexCore now differentiates each
+  function in a collection separately, and the Lagrangian in the MOI
+  evaluator accumulates one term per constraint.
 
 ## v1.6.0 (2026-08-11)
 

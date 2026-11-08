@@ -246,7 +246,9 @@ function DictModel(model::JuMP.Model)
     end
     set_objective!(dict_model, x -> begin
         xv = flatten(x, ks)[1]
-        return dot(c, xv) + dot(xv, Q * xv)
+        # `c` is dense in memory: a sparse vector dotted with a tracked
+        # vector is method-ambiguous for some reverse-mode backends.
+        return dot(Vector(c), xv) + dot(xv, Q * xv)
     end)
     if length(bineq) > 0
         add_ineq_constraint!(dict_model, x -> Aineq * flatten(x, ks)[1] - bineq)

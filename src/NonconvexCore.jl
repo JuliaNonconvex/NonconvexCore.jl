@@ -34,7 +34,7 @@ export Model,
     set_ad_backend!,
     get_ad_backend
 
-using Parameters, Zygote, ChainRulesCore, ForwardDiff
+using Parameters, Zygote, ReverseDiff, ChainRulesCore, ForwardDiff
 using SparseArrays, Reexport, Requires
 @reexport using LinearAlgebra, OrderedCollections
 @reexport using ADTypes
@@ -49,10 +49,12 @@ using Reexport, Setfield
 The automatic differentiation backend used by default wherever NonconvexCore
 computes derivatives, e.g. in `value_gradient`, `value_jacobian`,
 `sparse_jacobian` and the solver-facing derivative evaluators. It is initially
-`ADTypes.AutoZygote()`. Change it with [`set_ad_backend!`](@ref), or pass a
-backend explicitly to the functions above.
+`ADTypes.AutoReverseDiff()`, whose compiled tapes amortize repeated
+differentiation of the same model functions over an optimization run. Change
+it with [`set_ad_backend!`](@ref), or pass a backend explicitly to the
+functions above.
 """
-const DEFAULT_AD_BACKEND = Ref{AbstractADType}(AutoZygote())
+const DEFAULT_AD_BACKEND = Ref{AbstractADType}(AutoReverseDiff())
 
 """
     set_ad_backend!(backend::ADTypes.AbstractADType)

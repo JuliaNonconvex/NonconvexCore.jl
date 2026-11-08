@@ -9,6 +9,14 @@ function _sparse_backend(backend::AbstractADType)
     return AutoSparse(backend, TracerSparsityDetector(), GreedyColoringAlgorithm())
 end
 
+# Prepared sparse differentiation caches. Preparation performs the sparsity
+# detection and graph coloring once; later evaluations reuse them. The
+# functions stored in a VecModel are immutable, so caching by function
+# identity is sound. The Hessian cache is keyed by identity as well: solvers
+# pass a stable Lagrangian object (e.g. a closure over mutable multipliers).
+const _SPARSE_JACOBIAN_PREP_CACHE = IdDict{Any,Any}()
+const _SPARSE_HESSIAN_PREP_CACHE = IdDict{Any,Any}()
+
 """
     sparse_gradient(f, x, [backend::ADTypes.AbstractADType])
 
@@ -37,8 +45,23 @@ function sparse_jacobian(f, x, backend::AbstractADType = DEFAULT_AD_BACKEND[])
     # The sparse pipeline requires an array-valued function; promote scalar
     # outputs to 1-element vectors.
     f_ = y isa Number ? (z -> [f(z)]) : f
+    # Reverse-mode differentiation of a whole collection through Zygote can
+    # produce corrupted cotangents when the functions reconstruct flattened
+    # structures; evaluate each function separately in that case.
+    if backend isa AutoZygote
+        pattern = jacobian_sparsity(f_, x, TracerSparsityDetector())
+        return _assemble_sparse_jacobian(f_, x, pattern, backend)
+    end
+    key = (f, backend)
+    entry = get(_SPARSE_JACOBIAN_PREP_CACHE, key, nothing)
+    if entry === nothing
+        sb = _sparse_backend(backend)
+        entry = (f_, sb, DI.prepare_jacobian(f_, sb, x))
+        _SPARSE_JACOBIAN_PREP_CACHE[key] = entry
+    end
+    f2, sb, prep = entry
     try
-        return DI.jacobian(f_, _sparse_backend(backend), x)
+        return DI.jacobian(f2, prep, sb, x)
     catch
         pattern = jacobian_sparsity(f_, x, TracerSparsityDetector())
         return _assemble_sparse_jacobian(f_, x, pattern, backend)
@@ -81,8 +104,16 @@ If the sparse pipeline fails for `f`, the Hessian is computed by sparse finite
 differences of the gradient.
 """
 function sparse_hessian(f, x, backend::AbstractADType = DEFAULT_AD_BACKEND[])
+    key = (f, backend)
+    entry = get(_SPARSE_HESSIAN_PREP_CACHE, key, nothing)
+    if entry === nothing
+        sb = _sparse_backend(DI.SecondOrder(AutoForwardDiff(), backend))
+        entry = (sb, DI.prepare_hessian(f, sb, x))
+        _SPARSE_HESSIAN_PREP_CACHE[key] = entry
+    end
+    sb, prep = entry
     try
-        return DI.hessian(f, _sparse_backend(DI.SecondOrder(AutoForwardDiff(), backend)), x)
+        return DI.hessian(f, prep, sb, x)
     catch
         return sparse_fd_jacobian(x -> sparse_gradient(f, x, backend), x)
     end
