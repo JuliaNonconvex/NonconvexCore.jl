@@ -114,3 +114,11 @@ end
     set_ad_backend!(old)
     @test get_ad_backend() === old
 end
+
+@testset "AD backends - Zygote sparse path" begin
+    # Regression: the Zygote branch of sparse_jacobian used to read its
+    # sparsity pattern outside the scope it was assigned in.
+    g = z -> [z[1] + z[2], z[1]^2, 3z[2]]
+    J = Matrix(NonconvexCore.sparse_jacobian(g, [1.0, 2.0], ADTypes.AutoZygote()))
+    @test J ≈ [1.0 1.0; 2.0 0.0; 0.0 3.0]
+end

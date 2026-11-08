@@ -65,6 +65,7 @@ function _sparse_jacobian_default(f, x, backend::AbstractADType)
     # produce corrupted cotangents when the functions reconstruct flattened
     # structures; evaluate each function separately in that case.
     if backend isa AutoZygote
+        pattern = nothing
         try
             pattern = jacobian_sparsity(f_, x, TracerSparsityDetector())
         catch
