@@ -18,6 +18,9 @@ end
 @safetestset "Convergence" begin
     include("convergence.jl")
 end
+@safetestset "Capabilities" begin
+    include("capabilities.jl")
+end
 @safetestset "Regressions" begin
     include("regressions.jl")
 end

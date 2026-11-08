@@ -5,6 +5,32 @@ The format follows the recommendation from JuliaRegistrator:
 a brief summary, then categorized lists of breaking changes,
 new features, bug fixes, and maintenance items.
 
+## Unreleased
+
+> Note: the strict capabilities system is a breaking change; it will ship as
+> v2.0.0. The version bump is intentionally kept out of this PR so merging it
+> does not trigger a release; the 2.0.0 bump and registration happen in a
+> follow-up release PR.
+
+### Breaking changes
+- The capabilities system is now **strict by default**: every model feature
+  present (equality/inequality/semidefinite constraints, finite variable
+  bounds, integer variables) must be declared supported by the solver via
+  `solver_capabilities`, otherwise `optimize` throws an informative
+  `ArgumentError`. Solvers that previously ignored constraints silently (or
+  with a warning) must now declare their capabilities. The
+  semidefinite-constraints warning is removed: undeclared solvers error
+  instead.
+
+### New features
+- Add the strict capabilities system: `ConstraintCapabilities`,
+  `solver_capabilities` and `checksubproblem!` plus the
+  `merge_capabilities` helper. Solvers declaring capabilities are validated
+  by the generic `optimize` against the features present in the model
+  (equality/inequality/semidefinite constraints, variable bounds and integer
+  variables), with an informative `ArgumentError` for unsupported or
+  undeclared features.
+
 ## v1.6.0 (2026-08-11)
 
 ### New features
