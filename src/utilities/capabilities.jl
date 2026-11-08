@@ -6,7 +6,8 @@
 
 """
     ConstraintCapabilities(; eq = missing, ineq = missing, sd = missing,
-                             box = missing, integer = missing)
+                             box = missing, integer = missing,
+                             infinite_bounds = missing)
 
 Declares which constraint/variable features an optimizer supports:
 
@@ -14,7 +15,8 @@ Declares which constraint/variable features an optimizer supports:
 - `ineq`: inequality constraints,
 - `sd`: semidefinite constraints,
 - `box`: finite variable bounds,
-- `integer`: integer/binary variables.
+- `integer`: integer/binary variables,
+- `infinite_bounds`: variables with infinite (unbounded) bounds.
 
 Each field is one of `true` (supported), `false` (not supported) or `missing`
 (unknown/not declared). A solver that returns `nothing` from
@@ -26,6 +28,7 @@ struct ConstraintCapabilities
     sd::Union{Bool,Missing}
     box::Union{Bool,Missing}
     integer::Union{Bool,Missing}
+    infinite_bounds::Union{Bool,Missing}
 end
 function ConstraintCapabilities(;
     eq = missing,
@@ -33,8 +36,9 @@ function ConstraintCapabilities(;
     sd = missing,
     box = missing,
     integer = missing,
+    infinite_bounds = missing,
 )
-    return ConstraintCapabilities(eq, ineq, sd, box, integer)
+    return ConstraintCapabilities(eq, ineq, sd, box, integer, infinite_bounds)
 end
 
 """
@@ -72,6 +76,7 @@ function merge_capabilities(base::Union{ConstraintCapabilities,Nothing}; kwargs.
         sd = d[:sd],
         box = d[:box],
         integer = d[:integer],
+        infinite_bounds = d[:infinite_bounds],
     )
 end
 
@@ -121,6 +126,7 @@ function checksubproblem!(
         :sd => !isempty(model.sd_constraints.fs),
         :box => any(isfinite, model.box_min) || any(isfinite, model.box_max),
         :integer => any(!iszero, model.integer),
+        :infinite_bounds => any(!isfinite, model.box_min) || any(!isfinite, model.box_max),
     )
     featurenames = Dict{Symbol,String}(
         :eq => "equality constraints",
@@ -128,6 +134,7 @@ function checksubproblem!(
         :sd => "semidefinite constraints",
         :box => "bounds on variables",
         :integer => "integer/binary variables",
+        :infinite_bounds => "infinite (unbounded) variable bounds",
     )
     for f in fieldnames(ConstraintCapabilities)
         features[f] || continue

@@ -11,9 +11,9 @@ struct LyingSolver <: AbstractOptimizer end
 struct SilentSolver <: AbstractOptimizer end
 
 NonconvexCore.solver_capabilities(::DeclaredSolver) =
-    ConstraintCapabilities(eq = true, ineq = true, sd = true, box = true, integer = true)
+    ConstraintCapabilities(eq = true, ineq = true, sd = true, box = true, integer = true, infinite_bounds = true)
 NonconvexCore.solver_capabilities(::PartialSolver) =
-    ConstraintCapabilities(eq = true, ineq = false, sd = true, box = true, integer = false)
+    ConstraintCapabilities(eq = true, ineq = false, sd = true, box = true, integer = false, infinite_bounds = false)
 NonconvexCore.solver_capabilities(::LyingSolver) =
     ConstraintCapabilities(eq = true, ineq = true, box = true)
 
@@ -79,6 +79,7 @@ end
     @test c.sd === missing
     @test c.box === missing
     @test c.integer === missing
+    @test c.infinite_bounds === missing
     c2 = ConstraintCapabilities(eq = true, sd = false)
     @test c2.eq === true
     @test c2.sd === false
@@ -95,6 +96,44 @@ end
     @test merged2.sd === missing
 end
 
+@testset "infinite bounds capability" begin
+    # Declared-supported infinite bounds pass.
+    m, x0, _ = NonconvexCore.tovecmodel(make_model(), ones(2))
+    @test checksubproblem!(m, DeclaredSolver()) === nothing
+
+    # Declared-false errors with an actionable message.
+    err = _capture() do
+        checksubproblem!(m, PartialSolver())
+    end
+    @test err isa ArgumentError
+    @test occursin("PartialSolver", sprint(showerror, err))
+    @test occursin("infinite", sprint(showerror, err))
+
+    # Undeclared errors strictly.
+    err = _capture() do
+        checksubproblem!(m, LyingSolver())
+    end
+    @test err isa ArgumentError
+    @test occursin("solver_capabilities", sprint(showerror, err))
+
+    # A model with finite bounds only does not trigger the check.
+    m2, x0, _ = NonconvexCore.tovecmodel(make_model(; box = true), ones(2))
+    @test checksubproblem!(m2, PartialSolver()) === nothing
+
+    # The merge forwards the sub-solver's declaration.
+    merged = NonconvexCore.merge_capabilities(
+        NonconvexCore.solver_capabilities(PartialSolver()); ineq = true,
+    )
+    @test merged.infinite_bounds === false
+
+    # optimize integration.
+    err = _capture() do
+        optimize(make_model(), PartialSolver(), ones(2))
+    end
+    @test err isa ArgumentError
+    @test occursin("infinite", sprint(showerror, err))
+end
+
 @testset "checksubproblem! basics" begin
     # Fully declared solver passes on any model.
     for kwargs in (
@@ -109,7 +148,7 @@ end
     end
 
     # Feature-free models pass for any solver, declared or not.
-    m, x0, _ = NonconvexCore.tovecmodel(make_model(), ones(2))
+    m, x0, _ = NonconvexCore.tovecmodel(Model(), Float64[])
     @test checksubproblem!(m, SilentSolver()) === nothing
     @test solver_capabilities(SilentSolver()) === nothing
 
@@ -144,11 +183,11 @@ end
     @test occursin("solver_capabilities", sprint(showerror, err))
 
     # Assumed capabilities override the solver's declaration.
-    m, x0, _ = NonconvexCore.tovecmodel(make_model(; ineq = true), ones(2))
+    m, x0, _ = NonconvexCore.tovecmodel(make_model(; box = true, ineq = true), ones(2))
     @test checksubproblem!(
         m,
         PartialSolver();
-        assumed = ConstraintCapabilities(; ineq = true),
+        assumed = ConstraintCapabilities(; ineq = true, box = true, infinite_bounds = true),
     ) === nothing
 
     # Hint text is appended to the error.
