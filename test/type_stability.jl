@@ -34,9 +34,12 @@
     @test (@inferred NonconvexCore.getrawfunction(flat)) isa Function
 
     # Function modifiers.
-    @test (@inferred NonconvexCore.CustomGradFunction(x -> x[1] + x[2], x -> [1.0, 1.0])(x0)) isa Float64
+    @test (@inferred NonconvexCore.CustomGradFunction(x -> x[1] + x[2], x -> [1.0, 1.0])(
+        x0
+    )) isa Float64
     @test (@inferred NonconvexCore.TraceFunction(sum)(x0)) isa Float64
-    @test (@inferred NonconvexCore.LazyJacobian(; jvp = v -> v, symmetric = true) * x0) isa Vector{Float64}
+    @test (@inferred NonconvexCore.LazyJacobian(; jvp=v -> v, symmetric=true) * x0) isa
+        Vector{Float64}
     @test (@inferred NonconvexCore.diffy(x -> sum(abs2, x), x0)(x0)) isa Float64
 
     # Sparse bookkeeping utilities.
@@ -44,5 +47,6 @@
     @test (@inferred NonconvexCore.nvalues(zeros(2, 2))) == 4
     rows = zeros(Int, 4)
     cols = zeros(Int, 4)
-    @test (@inferred NonconvexCore.fill_indices!(rows, cols, [1.0 0.0; 0.0 1.0])) == (rows, cols)
+    @test (@inferred NonconvexCore.fill_indices!(rows, cols, [1.0 0.0; 0.0 1.0])) ==
+        (rows, cols)
 end

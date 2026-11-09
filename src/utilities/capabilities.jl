@@ -161,7 +161,7 @@ function checksubproblem!(
     n = length(model.integer)
     discrete = BitVector(undef, n)
     binary_flag = BitVector(undef, n)
-    for i = 1:n
+    for i in 1:n
         discrete[i] = model.integer[i] != 0
         binary_flag[i] = discrete[i] && model.box_min[i] >= 0 && model.box_max[i] <= 1
     end

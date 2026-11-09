@@ -169,34 +169,34 @@ function tovecmodel(m::AbstractModel, _x0=getinit(m))
         # eq_constraints
         if length(m.eq_constraints.fs) != 0
             VectorOfFunctions(
-            map(Tuple(m.eq_constraints.fs)) do c
-                return EqConstraint(
-                    tovecfunc(c.f, x0)[1], maybeflatten(c.rhs)[1], c.dim, c.flags
-                )
-            end,
-        )
+                map(Tuple(m.eq_constraints.fs)) do c
+                    return EqConstraint(
+                        tovecfunc(c.f, x0)[1], maybeflatten(c.rhs)[1], c.dim, c.flags
+                    )
+                end,
+            )
         else
             VectorOfFunctions(())
         end,
         # ineq_constraints
         if length(m.ineq_constraints.fs) != 0
             VectorOfFunctions(
-            map(Tuple(m.ineq_constraints.fs)) do c
-                return IneqConstraint(
-                    tovecfunc(c.f, x0)[1], maybeflatten(c.rhs)[1], c.dim, c.flags
-                )
-            end,
-        )
+                map(Tuple(m.ineq_constraints.fs)) do c
+                    return IneqConstraint(
+                        tovecfunc(c.f, x0)[1], maybeflatten(c.rhs)[1], c.dim, c.flags
+                    )
+                end,
+            )
         else
             VectorOfFunctions(())
         end,
         # sd_constraints
         if length(m.sd_constraints.fs) != 0
             VectorOfFunctions(
-            map(Tuple(m.sd_constraints.fs)) do c
-                return SDConstraint(tovecfunc(c.f, x0; flatteny=false)[1], c.dim)
-            end,
-        )
+                map(Tuple(m.sd_constraints.fs)) do c
+                    return SDConstraint(tovecfunc(c.f, x0; flatteny=false)[1], c.dim)
+                end,
+            )
         else
             VectorOfFunctions(())
         end,

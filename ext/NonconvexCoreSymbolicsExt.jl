@@ -169,12 +169,12 @@ function NonconvexCore.symbolify(
     if ineq_constraints
         ineq = if length(model.ineq_constraints.fs) != 0
             NonconvexCore.VectorOfFunctions(
-            map(model.ineq_constraints.fs) do c
-                return NonconvexCore.IneqConstraint(
-                    symbolify(c.f, x; kwargs...), c.rhs, c.dim, c.flags
-                )
-            end,
-        )
+                map(model.ineq_constraints.fs) do c
+                    return NonconvexCore.IneqConstraint(
+                        symbolify(c.f, x; kwargs...), c.rhs, c.dim, c.flags
+                    )
+                end,
+            )
         else
             NonconvexCore.VectorOfFunctions(NonconvexCore.IneqConstraint[])
         end
@@ -184,12 +184,12 @@ function NonconvexCore.symbolify(
     if eq_constraints
         eq = if length(model.eq_constraints.fs) != 0
             NonconvexCore.VectorOfFunctions(
-            map(model.eq_constraints.fs) do c
-                return NonconvexCore.EqConstraint(
-                    symbolify(c.f, x; kwargs...), c.rhs, c.dim, c.flags
-                )
-            end,
-        )
+                map(model.eq_constraints.fs) do c
+                    return NonconvexCore.EqConstraint(
+                        symbolify(c.f, x; kwargs...), c.rhs, c.dim, c.flags
+                    )
+                end,
+            )
         else
             NonconvexCore.VectorOfFunctions(NonconvexCore.EqConstraint[])
         end
@@ -199,12 +199,12 @@ function NonconvexCore.symbolify(
     if sd_constraints
         sd = if length(model.sd_constraints.fs) != 0
             NonconvexCore.VectorOfFunctions(
-            map(model.sd_constraints.fs) do c
-                return NonconvexCore.SDConstraint(
-                    symbolify(c.f, x; flatteny=false, kwargs...), c.dim
-                )
-            end,
-        )
+                map(model.sd_constraints.fs) do c
+                    return NonconvexCore.SDConstraint(
+                        symbolify(c.f, x; flatteny=false, kwargs...), c.dim
+                    )
+                end,
+            )
         else
             NonconvexCore.VectorOfFunctions(NonconvexCore.SDConstraint[])
         end
