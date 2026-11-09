@@ -17,7 +17,7 @@ function value_jacobian(f::Function, x::AbstractVector, backend::AbstractADType 
     y = f(x)
     if y isa Number
         _, g = DI.value_and_gradient(f, backend, x)
-        return y, g'
+        return y, reshape(g, 1, :)
     end
     if backend isa AutoZygote
         # Zygote's pullback of array-valued outputs can double-accumulate
@@ -38,7 +38,7 @@ function value_jacobian(f::Function, x::AbstractVector, backend::AbstractADType 
     else
         _, J = DI.value_and_jacobian(f, prep, backend, x)
     end
-    return y, Adjoint(Matrix(transpose(J)))
+    return y, J
 end
 
 function _value_jacobian_zygote_rows(f, x, y, backend)
@@ -48,7 +48,7 @@ function _value_jacobian_zygote_rows(f, x, y, backend)
         _, g = DI.value_and_gradient(z -> f(z)[k], backend, x)
         J[k, :] .= g
     end
-    return y, Adjoint(transpose(J))
+    return y, J
 end
 function value_jacobian(c::VectorOfFunctions, x::AbstractVector, backend::AbstractADType = DEFAULT_AD_BACKEND[])
     isempty(c.fs) && return (c(x), adjoint(zeros(length(x), 0)))
@@ -61,10 +61,10 @@ function value_jacobian(c::VectorOfFunctions, x::AbstractVector, backend::Abstra
     vals = mapreduce(vcat, vals_jacs; init = zeros(0)) do val_jac
         val_jac[1]
     end
-    jact = mapreduce(hcat, vals_jacs; init = zeros(length(x), 0)) do val_jac
-        val_jac[2]'
+    J = mapreduce(vcat, vals_jacs; init = zeros(0, length(x))) do val_jac
+        reshape(val_jac[2], :, length(x))
     end
-    return vals, jact'
+    return vals, J
 end
 
 """

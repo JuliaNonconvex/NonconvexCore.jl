@@ -55,11 +55,6 @@ prepared objects are cached per `(f, backend)` and consulted by
 [`sparse_jacobian`](@ref NonconvexCore.sparse_jacobian) and
 [`sparse_hessian`](@ref NonconvexCore.sparse_hessian) thereafter.
 
-An entire model can be prepared at once with
-[`prepare_model`](@ref NonconvexCore.prepare_model), which prepares the
-objective gradient and Hessian and every constraint Jacobian of the
-vectorized model and returns it.
-
 ## The `diffy` modifier
 
 [`diffy`](@ref NonconvexCore.diffy) wraps a function so that it evaluates

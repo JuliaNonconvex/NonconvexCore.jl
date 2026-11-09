@@ -119,24 +119,39 @@ function ChainRulesCore.rrule(g::PreparedFunction, x::AbstractVector)
 end
 
 """
-    prepare_model(model, [x], [backend])
+    prepare_model(model, [x], [backend]; gradient = true, hessian = true, jacobian = true)
 
-Explicitly prepares the differentiation backend for the objective (gradient
-and Hessian) and every constraint (Jacobian) of `model` at the initial point,
-and returns the prepared vectorized model. The preparations are cached by
-function and backend and are used by default by the value-and-derivative and
-sparse derivative functions on the returned model.
+Explicitly prepares the differentiation backend for the selected pieces of
+`model` at the initial point, and returns the prepared vectorized model:
+
+- `gradient`: the objective gradient,
+- `hessian`: the objective Hessian (not always required, e.g. for
+  first-order solvers),
+- `jacobian`: the Jacobians of all the constraints.
+
+The preparations are cached per function and backend and are used by default
+by the value-and-derivative and sparse derivative functions on the returned
+model.
 """
-function prepare_model(model::AbstractModel, x = getinit(model), backend::AbstractADType = DEFAULT_AD_BACKEND[])
+function prepare_model(
+    model::AbstractModel,
+    x = getinit(model),
+    backend::AbstractADType = DEFAULT_AD_BACKEND[];
+    gradient = true,
+    hessian = true,
+    jacobian = true,
+)
     vm, xv, _ = tovecmodel(model, x)
     obj = getobjective(vm)
-    prepare_gradient(obj, xv, backend)
-    prepare_hessian(obj, xv, backend)
-    for c in getineqconstraints(vm).fs
-        prepare_jacobian(c, xv, backend)
-    end
-    for c in geteqconstraints(vm).fs
-        prepare_jacobian(c, xv, backend)
+    gradient && prepare_gradient(obj, xv, backend)
+    hessian && prepare_hessian(obj, xv, backend)
+    if jacobian
+        for c in getineqconstraints(vm).fs
+            prepare_jacobian(c, xv, backend)
+        end
+        for c in geteqconstraints(vm).fs
+            prepare_jacobian(c, xv, backend)
+        end
     end
     return vm
 end
@@ -187,10 +202,3 @@ default by `sparse_hessian`.
 """
 prepare_sparse_hessian
 
-"""
-    prepare_model(model, [x], [backend])
-
-Explicitly prepares the derivative backends of every function of `model` and
-returns the prepared vectorized model.
-"""
-prepare_model

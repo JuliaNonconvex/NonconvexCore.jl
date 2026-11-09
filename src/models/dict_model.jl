@@ -1,3 +1,11 @@
+"""
+    DictModel(obj = nothing)
+
+An `AbstractModel` whose variables are named: each variable has a `Symbol` or
+`String` key and arbitrary structured values, collected in an `OrderedDict`.
+The JuMP model conversion is provided by the `NonconvexCoreJuMPExt` extension
+when JuMP is loaded.
+"""
 mutable struct DictModel <: AbstractModel
     objective::Union{Nothing,Objective}
     eq_constraints::VectorOfFunctions

@@ -150,6 +150,21 @@ The function `f` can return:
    vectorized first and the constraint is applied element-wise on the
    vectorized output.
 
+## Interval constraint definition
+
+NonconvexCore has no dedicated interval constraint type. A function interval
+`l <= f(x) <= u` is written as one vector-valued inequality constraint with
+two entries, both feasible when `<= 0`:
+
+```julia
+l, u = 0.0, 1.0
+add_ineq_constraint!(model, x -> [l - f(x), f(x) - u])
+```
+
+The wrapped expression `f` is evaluated once per call, and both bounds are
+returned by the same function. This is also the form the JuMP conversion
+produces for `Interval` sets (see [JuMP models](jump.md)).
+
 ## Equality constraint definition
 
 To define an equality constraint `f(x) == 0`, use:

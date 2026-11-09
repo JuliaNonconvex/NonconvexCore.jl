@@ -5,7 +5,7 @@ import JuMP
 import MathOptInterface
 const MOI = MathOptInterface
 using SparseArrays: sparse, sparsevec, spzeros
-using LinearAlgebra: dot, LowerTriangular
+using LinearAlgebra: dot, LowerTriangular, mul!
 using NonconvexCore: DictModel, addvar!, set_objective!, add_ineq_constraint!,
     add_eq_constraint!, flatten, OrderedDict, JuMPEvaluator,
     JuMPModelObjective, JuMPModelIneq, JuMPModelEq, get_variable_info,
@@ -342,34 +342,42 @@ function _dict_model_from_jump_expressions(model, dict_model, ks, nvars)
     ineq_cis = MOI.Nonlinear.ConstraintIndex[]
     ineq_sign = Float64[]
     ineq_shift = Float64[]
+    ineq_linear = Bool[]
     eq_cis = MOI.Nonlinear.ConstraintIndex[]
     eq_shift = Float64[]
+    eq_linear = Bool[]
     # Nonconvex inequality constraints are feasible when their value is <= 0,
     # so each row stores `sign * f(x) + shift`. JuMP may have folded the
     # bound into the expression (its nonlinear interface normalizes to zero
     # sets); carrying the raw bound works under both conventions.
     for (expr, set) in _nonlinear_constraints(model)
+        linear = expr isa MOI.ScalarAffineFunction
         if set isa MOI.GreaterThan
             push!(ineq_cis, MOI.Nonlinear.add_constraint(nl, expr, set))
             push!(ineq_sign, -1.0)
             push!(ineq_shift, set.lower)
+            push!(ineq_linear, linear)
         elseif set isa MOI.LessThan
             push!(ineq_cis, MOI.Nonlinear.add_constraint(nl, expr, set))
             push!(ineq_sign, 1.0)
             push!(ineq_shift, -set.upper)
+            push!(ineq_linear, linear)
         elseif set isa MOI.Interval
             push!(ineq_cis, MOI.Nonlinear.add_constraint(nl, expr, MOI.GreaterThan(set.lower)))
             push!(ineq_sign, -1.0)
             push!(ineq_shift, set.lower)
+            push!(ineq_linear, linear)
             push!(ineq_cis, MOI.Nonlinear.add_constraint(nl, expr, MOI.LessThan(set.upper)))
             push!(ineq_sign, 1.0)
             push!(ineq_shift, -set.upper)
+            push!(ineq_linear, linear)
         elseif set isa MOI.EqualTo
             push!(eq_cis, MOI.Nonlinear.add_constraint(nl, expr, set))
             push!(eq_shift, -set.value)
+            push!(eq_linear, linear)
         end
     end
-    je = JuMPEvaluator(nl, vars, obj_sign, ineq_cis, ineq_sign, ineq_shift, eq_cis, eq_shift)
+    je = JuMPEvaluator(nl, vars, obj_sign, ineq_cis, ineq_sign, ineq_shift, eq_cis, eq_shift, ineq_linear, eq_linear)
     set_objective!(dict_model, JuMPModelObjective(je, ks))
     je.nineq > 0 && add_ineq_constraint!(dict_model, JuMPModelIneq(je, ks))
     je.neq > 0 && add_eq_constraint!(dict_model, JuMPModelEq(je, ks))
@@ -564,13 +572,12 @@ function MOI.initialize(d::JuMPProblemEvaluator, requested_features::Vector{Symb
     for feat in requested_features
         if !(feat in MOI.features_available(d))
             error("Unsupported feature $feat")
-            # TODO: implement Jac-vec products for solvers that need them
         end
     end
 end
 
 function MOI.features_available(::JuMPProblemEvaluator)
-    return [:Grad, :Jac, :Hess]
+    return [:Grad, :Jac, :Hess, :JacVec, :HessVec]
 end
 
 MOI.eval_objective(d::JuMPProblemEvaluator, x) = d.obj(x)
@@ -601,6 +608,47 @@ end
 function MOI.eval_hessian_lagrangian(d::JuMPProblemEvaluator, H, x, σ, μ)
     d.eval_h(x, σ, μ, H)
     return
+end
+
+# Jacobian-vector and Hessian-vector products, computed from the full sparse
+# Jacobian and Lagrangian Hessian.
+
+function _dense_jacobian(d::JuMPProblemEvaluator, x)
+    structure = d.jac_structure()
+    vals = zeros(d.njacvalues)
+    d.eval_jac_g(x, vals)
+    J = zeros(d.nconstr, d.nvars)
+    for (k, (row, col)) in enumerate(structure)
+        J[row, col] = vals[k]
+    end
+    return J
+end
+
+function MOI.eval_constraint_jacobian_product(d::JuMPProblemEvaluator, y, x, w)
+    mul!(y, _dense_jacobian(d, x), w)
+    return y
+end
+
+function MOI.eval_constraint_jacobian_transpose_product(d::JuMPProblemEvaluator, y, x, w)
+    mul!(y, transpose(_dense_jacobian(d, x)), w)
+    return y
+end
+
+function _dense_hessian(d::JuMPProblemEvaluator, x, σ, μ)
+    structure = d.lag_hess_structure()
+    vals = zeros(d.nhessvalues)
+    d.eval_h(x, σ, μ, vals)
+    H = zeros(d.nvars, d.nvars)
+    for (k, (i, j)) in enumerate(structure)
+        H[i, j] = vals[k]
+        H[j, i] = vals[k]
+    end
+    return H
+end
+
+function MOI.eval_hessian_lagrangian_product(d::JuMPProblemEvaluator, h, x, v, σ, μ)
+    mul!(h, _dense_hessian(d, x, σ, μ), v)
+    return h
 end
 
 

@@ -61,10 +61,9 @@ without affecting other functions in the model:
 - [`LazyJacobian`](@ref) supplies matrix-free Jacobian-vector and
   vector-Jacobian products.
 - [`TraceFunction`](@ref) records where a function is evaluated.
-- [`ImplicitFunction`](@ref) differentiates implicit functions.
 - [`symbolify`](@ref) computes derivatives symbolically with Symbolics.
 
-See [Function modifiers](modifiers/custom.md), [Implicit functions](implicit.md)
+See [Function modifiers](modifiers/custom.md)
 and [Symbolic differentiation](symbolify.md).
 
 ## Solver capabilities
@@ -76,9 +75,9 @@ solver's capabilities before optimization. See
 
 ## Package extensions
 
-NonconvexCore uses package extensions for its optional integrations:
+NonconvexCore uses package extensions for its optional integrations. To use
+a feature from an extension, load the optional dependency first (the
+extension then activates automatically):
 
-- `NonconvexCoreJuMPExt`: the JuMP model conversion, loaded when JuMP is
-  present in the environment.
-- `NonconvexCoreSymbolicsExt`: [`symbolify`](@ref), loaded when Symbolics is
-  present in the environment.
+- `NonconvexCoreJuMPExt`: the JuMP model conversion — `using JuMP` first.
+- `NonconvexCoreSymbolicsExt`: [`symbolify`](@ref) — `using Symbolics` first.

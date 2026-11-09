@@ -5,17 +5,24 @@
 ######################################################
 
 """
-    ConstraintCapabilities(; eq = missing, ineq = missing, sd = missing,
-                             box = missing, integer = missing,
-                             infinite_bounds = missing)
+    ConstraintCapabilities(; linear_eq = missing, nonlinear_eq = missing,
+                             linear_ineq = missing, nonlinear_ineq = missing,
+                             sd = missing, box = missing,
+                             continuous = missing, binary = missing,
+                             integer = missing, infinite_bounds = missing)
 
 Declares which constraint/variable features an optimizer supports:
 
-- `eq`: equality constraints,
-- `ineq`: inequality constraints,
-- `sd`: semidefinite constraints,
+- `linear_eq`: linear equality constraints,
+- `nonlinear_eq`: nonlinear equality constraints,
+- `linear_ineq`: linear inequality constraints,
+- `nonlinear_ineq`: nonlinear inequality constraints,
+- `linear_sd`: linear semidefinite constraints,
+- `nonlinear_sd`: nonlinear semidefinite constraints,
 - `box`: finite variable bounds,
-- `integer`: integer/binary variables,
+- `continuous`: continuous variables,
+- `binary`: binary (0/1) variables,
+- `integer`: integer (non-binary) variables,
 - `infinite_bounds`: variables with infinite (unbounded) bounds.
 
 Each field is one of `true` (supported), `false` (not supported) or `missing`
@@ -23,22 +30,44 @@ Each field is one of `true` (supported), `false` (not supported) or `missing`
 [`solver_capabilities`](@ref) declares nothing at all.
 """
 struct ConstraintCapabilities
-    eq::Union{Bool,Missing}
-    ineq::Union{Bool,Missing}
-    sd::Union{Bool,Missing}
+    linear_eq::Union{Bool,Missing}
+    nonlinear_eq::Union{Bool,Missing}
+    linear_ineq::Union{Bool,Missing}
+    nonlinear_ineq::Union{Bool,Missing}
+    linear_sd::Union{Bool,Missing}
+    nonlinear_sd::Union{Bool,Missing}
     box::Union{Bool,Missing}
+    continuous::Union{Bool,Missing}
+    binary::Union{Bool,Missing}
     integer::Union{Bool,Missing}
     infinite_bounds::Union{Bool,Missing}
 end
 function ConstraintCapabilities(;
-    eq = missing,
-    ineq = missing,
-    sd = missing,
+    linear_eq = missing,
+    nonlinear_eq = missing,
+    linear_ineq = missing,
+    nonlinear_ineq = missing,
+    linear_sd = missing,
+    nonlinear_sd = missing,
     box = missing,
+    continuous = missing,
+    binary = missing,
     integer = missing,
     infinite_bounds = missing,
 )
-    return ConstraintCapabilities(eq, ineq, sd, box, integer, infinite_bounds)
+    return ConstraintCapabilities(
+        linear_eq,
+        nonlinear_eq,
+        linear_ineq,
+        nonlinear_ineq,
+        linear_sd,
+        nonlinear_sd,
+        box,
+        continuous,
+        binary,
+        integer,
+        infinite_bounds,
+    )
 end
 
 """
@@ -71,10 +100,15 @@ function merge_capabilities(base::Union{ConstraintCapabilities,Nothing}; kwargs.
     end
     merge!(d, Dict{Symbol,Union{Bool,Missing}}(kwargs))
     return ConstraintCapabilities(;
-        eq = d[:eq],
-        ineq = d[:ineq],
-        sd = d[:sd],
+        linear_eq = d[:linear_eq],
+        nonlinear_eq = d[:nonlinear_eq],
+        linear_ineq = d[:linear_ineq],
+        nonlinear_ineq = d[:nonlinear_ineq],
+        linear_sd = d[:linear_sd],
+        nonlinear_sd = d[:nonlinear_sd],
         box = d[:box],
+        continuous = d[:continuous],
+        binary = d[:binary],
         integer = d[:integer],
         infinite_bounds = d[:infinite_bounds],
     )
@@ -120,20 +154,36 @@ function checksubproblem!(
     context::String = "the model",
 )
     caps = assumed === nothing ? solver_capabilities(optimizer) : assumed
+    x = getinit(model)
+    eq_lin = _constraint_linearity(model.eq_constraints, x)
+    ineq_lin = _constraint_linearity(model.ineq_constraints, x)
+    sd_lin = _constraint_linearity(model.sd_constraints, x)
+    discrete = model.integer .!= 0
+    binary_flag = discrete .&& (model.box_min .>= 0) .&& (model.box_max .<= 1)
     features = Dict{Symbol,Bool}(
-        :eq => !isempty(model.eq_constraints.fs),
-        :ineq => !isempty(model.ineq_constraints.fs),
-        :sd => !isempty(model.sd_constraints.fs),
+        :linear_eq => any(eq_lin),
+        :nonlinear_eq => any(.!eq_lin),
+        :linear_ineq => any(ineq_lin),
+        :nonlinear_ineq => any(.!ineq_lin),
+        :linear_sd => any(sd_lin),
+        :nonlinear_sd => any(.!sd_lin),
         :box => any(isfinite, model.box_min) || any(isfinite, model.box_max),
-        :integer => any(!iszero, model.integer),
+        :continuous => any(.!discrete),
+        :binary => any(binary_flag),
+        :integer => any(discrete .&& .!binary_flag),
         :infinite_bounds => any(!isfinite, model.box_min) || any(!isfinite, model.box_max),
     )
     featurenames = Dict{Symbol,String}(
-        :eq => "equality constraints",
-        :ineq => "inequality constraints",
-        :sd => "semidefinite constraints",
+        :linear_eq => "linear equality constraints",
+        :nonlinear_eq => "nonlinear equality constraints",
+        :linear_ineq => "linear inequality constraints",
+        :nonlinear_ineq => "nonlinear inequality constraints",
+        :linear_sd => "linear semidefinite constraints",
+        :nonlinear_sd => "nonlinear semidefinite constraints",
         :box => "bounds on variables",
-        :integer => "integer/binary variables",
+        :continuous => "continuous variables",
+        :binary => "binary variables",
+        :integer => "integer variables",
         :infinite_bounds => "infinite (unbounded) variable bounds",
     )
     for f in fieldnames(ConstraintCapabilities)
@@ -153,4 +203,36 @@ function checksubproblem!(
         throw(ArgumentError(msg))
     end
     return nothing
+end
+
+
+# Classify the constraints of a collection as linear (true) or nonlinear
+# (false) per output row. JuMP-converted constraints use the linearity of
+# their expression graphs (exact); any other constraint is classified by its
+# structural Hessian: a function is structurally linear exactly when its
+# Hessian pattern is empty. Functions that cannot be traced are
+# conservatively classified as nonlinear.
+function _constraint_linearity(cs::VectorOfFunctions, x)
+    out = BitVector()
+    for c in cs.fs
+        raw = c.f isa FlattenedFunction ? getrawfunction(c.f) : c.f
+        raw = raw isa FunctionWrapper ? getfunction(raw) : raw
+        if raw isa JuMPModelIneq
+            lin, _ = jump_constraint_linearity(raw.m)
+            append!(out, lin)
+        elseif raw isa JuMPModelEq
+            _, lin = jump_constraint_linearity(raw.m)
+            append!(out, lin)
+        else
+            m = getdim(c)
+            lin = try
+                H = hessian_sparsity(c.f, x, TracerSparsityDetector())
+                all(iszero, H)
+            catch
+                false
+            end
+            append!(out, fill(lin, m))
+        end
+    end
+    return out
 end

@@ -15,9 +15,9 @@ The objective can also be defined either using JuMP or Nonconvex. Once you
 convert the JuMP model to a Nonconvex model, you can go ahead and define more
 variables and constraints and/or set the objective in Nonconvex.
 
-> JuMP is an optional dependency of NonconvexCore: the conversion methods are
-> provided by the `NonconvexCoreJuMPExt` package extension, which loads
-> automatically when JuMP is present in the environment.
+> JuMP is an optional dependency of NonconvexCore: the conversion methods
+> are provided by the `NonconvexCoreJuMPExt` package extension. To use them,
+> load JuMP first (e.g. `using JuMP`) so the extension activates.
 
 ## Affine and quadratic models
 

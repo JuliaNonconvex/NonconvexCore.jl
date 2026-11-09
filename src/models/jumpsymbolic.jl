@@ -112,55 +112,55 @@ end
 # JuMPSymbolicFunction on the flattened model vector. The wrapped function is
 # exposed so that sparse differentiation can use the expression graph's
 # sparsity directly.
-struct JumpConvertedFunction{F,U} <: Function
+struct JuMPConvertedFunction{F,U} <: Function
     f::F
     ks::U
 end
-(g::JumpConvertedFunction)(x) = g.f(flatten(x, g.ks)[1])
+(g::JuMPConvertedFunction)(x) = g.f(flatten(x, g.ks)[1])
 
 """
-    jump_symbolic_function(f::JumpConvertedFunction)
+    jump_symbolic_function(f::JuMPConvertedFunction)
 
 Returns the [`JuMPSymbolicFunction`](@ref) wrapped by `f`.
 """
-jump_symbolic_function(g::JumpConvertedFunction) = g.f
+jump_symbolic_function(g::JuMPConvertedFunction) = g.f
 
 # A bound that negates the expression: `lower - f(x)` for `f >= lower`. JuMP
 # may or may not have folded the bound into the expression (its nonlinear
 # interface normalizes to a zero set, affine constraints do not), so the raw
 # bound is carried explicitly.
-struct NegatedJumpConvertedFunction{F,U,L} <: Function
+struct NegatedJuMPConvertedFunction{F,U,L} <: Function
     f::F
     ks::U
     lower::L
 end
-(g::NegatedJumpConvertedFunction)(x) = g.lower - g.f(x)
-jump_symbolic_function(g::NegatedJumpConvertedFunction) = jump_symbolic_function(g.f)
+(g::NegatedJuMPConvertedFunction)(x) = g.lower - g.f(x)
+jump_symbolic_function(g::NegatedJuMPConvertedFunction) = jump_symbolic_function(g.f)
 
 # A bound that shifts the expression: `f(x) - shift` for `f <= shift` or
 # `f == shift`. The shift does not affect the derivatives.
-struct ShiftedJumpConvertedFunction{F,U,S} <: Function
+struct ShiftedJuMPConvertedFunction{F,U,S} <: Function
     f::F
     ks::U
     shift::S
 end
-(g::ShiftedJumpConvertedFunction)(x) = g.f(x) - g.shift
-jump_symbolic_function(g::ShiftedJumpConvertedFunction) = jump_symbolic_function(g.f)
+(g::ShiftedJuMPConvertedFunction)(x) = g.f(x) - g.shift
+jump_symbolic_function(g::ShiftedJuMPConvertedFunction) = jump_symbolic_function(g.f)
 
 # An interval bound `lb <= f <= ub`: the two Nonconvex inequality values are
 # `[lb - f(x), f(x) - ub]`, both feasible when <= 0, both from a single
 # evaluation of the wrapped expression.
-struct IntervalJumpConvertedFunction{F,U,L,S} <: Function
+struct IntervalJuMPConvertedFunction{F,U,L,S} <: Function
     f::F
     ks::U
     lower::L
     upper::S
 end
-function (g::IntervalJumpConvertedFunction)(x)
+function (g::IntervalJuMPConvertedFunction)(x)
     v = g.f(x)
     return [g.lower - v, v - g.upper]
 end
-jump_symbolic_function(g::IntervalJumpConvertedFunction) = jump_symbolic_function(g.f)
+jump_symbolic_function(g::IntervalJuMPConvertedFunction) = jump_symbolic_function(g.f)
 
 function ChainRulesCore.rrule(f::JuMPSymbolicFunction, x)
     y = f(x)
@@ -198,6 +198,8 @@ mutable struct JuMPEvaluator{E,V}
     hess_cols::Vector{Int}
     ev_sign::Vector{Float64}   # per evaluator row
     ev_shift::Vector{Float64}  # per evaluator row
+    ineq_linear::Vector{Bool}  # per converted row
+    eq_linear::Vector{Bool}    # per converted row
     myrow_of_evrow::Vector{Int}
     g_buffer::Vector{Float64}  # constraint values in evaluator row order
     jac_buffer::Vector{Float64}# jacobian values in evaluator structure order
@@ -213,6 +215,8 @@ function JuMPEvaluator(
     ineq_shift::Vector{Float64},
     eq_cis::Vector{MOI.Nonlinear.ConstraintIndex},
     eq_shift::Vector{Float64},
+    ineq_linear::Vector{Bool},
+    eq_linear::Vector{Bool},
 )
     ev = MOI.Nonlinear.Evaluator(model, MOI.Nonlinear.SparseReverseMode(), vars)
     features = [:Grad, :Hess]
@@ -227,9 +231,11 @@ function JuMPEvaluator(
     ineq_cis = ineq_cis[perm]
     ineq_sign = ineq_sign[perm]
     ineq_shift = ineq_shift[perm]
+    ineq_linear = ineq_linear[perm]
     perm = sortperm([c.value for c in eq_cis])
     eq_cis = eq_cis[perm]
     eq_shift = eq_shift[perm]
+    eq_linear = eq_linear[perm]
     ci_to_myrow = Dict{MOI.Nonlinear.ConstraintIndex,Int}()
     ci_sign = Dict{MOI.Nonlinear.ConstraintIndex,Float64}()
     ci_shift = Dict{MOI.Nonlinear.ConstraintIndex,Float64}()
@@ -278,6 +284,8 @@ function JuMPEvaluator(
         hess_cols,
         ev_sign,
         ev_shift,
+        ineq_linear,
+        eq_linear,
         myrow_of_evrow,
         zeros(m),
         zeros(length(jac_rows)),
@@ -397,6 +405,14 @@ rows ordered inequality-first like the constraint values.
 jump_jacobian_structure(m::JuMPEvaluator) = (m.jac_rows, m.jac_cols)
 
 """
+    jump_constraint_linearity(m::JuMPEvaluator)
+
+Returns `(ineq_linear, eq_linear)`: per-row `Bool`s recording whether each
+converted inequality and equality row is a linear expression.
+"""
+jump_constraint_linearity(m::JuMPEvaluator) = (m.ineq_linear, m.eq_linear)
+
+"""
     jump_jacobian(m::JuMPEvaluator, x)
 
 Returns the constraint Jacobian of the converted model at `x` as a sparse
@@ -495,7 +511,7 @@ function value_jacobian(f::FlattenedFunction{<:FunctionWrapper{<:JuMPModelIneq}}
     g = zeros(m.nineq + m.neq)
     jump_constraint_values!(m, g, x)
     J = jump_jacobian(m, x)[1:m.nineq, :]
-    return g[1:m.nineq], Adjoint(Matrix(transpose(J)))
+    return g[1:m.nineq], J
 end
 
 function value_jacobian(f::FlattenedFunction{<:FunctionWrapper{<:JuMPModelEq}}, x::AbstractVector, backend::AbstractADType = DEFAULT_AD_BACKEND[])
@@ -504,5 +520,5 @@ function value_jacobian(f::FlattenedFunction{<:FunctionWrapper{<:JuMPModelEq}}, 
     g = zeros(m.nineq + m.neq)
     jump_constraint_values!(m, g, x)
     J = jump_jacobian(m, x)[m.nineq+1:end, :]
-    return g[m.nineq+1:end], Adjoint(Matrix(transpose(J)))
+    return g[m.nineq+1:end], J
 end

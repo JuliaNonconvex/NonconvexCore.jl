@@ -37,9 +37,9 @@ end
 @safetestset "Custom gradients" begin
     include("custom.jl")
 end
-@safetestset "Implicit functions" begin
-    include("implicit.jl")
-end
 @safetestset "Symbolics" begin
     include("symbolic.jl")
+end
+@safetestset "Coverage" begin
+    include("coverage.jl")
 end

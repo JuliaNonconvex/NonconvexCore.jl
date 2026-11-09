@@ -50,7 +50,9 @@ SparseConnectivityTracer, colored with SparseMatrixColorings and the entries
 are computed with the automatic differentiation backend `backend` (defaults
 to the package-wide backend, see [`get_ad_backend`](@ref)). If the sparse
 pipeline fails for `f`, the values are assembled from per-function
-derivatives at the detected pattern positions.
+derivatives at the detected pattern positions. Failures (for example,
+sparsity detection on functions whose internals branch on values) raise
+errors rather than degrading silently.
 """
 function sparse_jacobian(f, x, backend::AbstractADType = DEFAULT_AD_BACKEND[])
     return _sparse_jacobian_default(f, x, backend)
@@ -65,31 +67,18 @@ function _sparse_jacobian_default(f, x, backend::AbstractADType)
     # produce corrupted cotangents when the functions reconstruct flattened
     # structures; evaluate each function separately in that case.
     if backend isa AutoZygote
-        pattern = nothing
-        try
-            pattern = jacobian_sparsity(f_, x, TracerSparsityDetector())
-        catch
-            return sparse(Matrix(value_jacobian(f_, x, backend)[2]))
-        end
+        pattern = jacobian_sparsity(f_, x, TracerSparsityDetector())
         return _assemble_sparse_jacobian(f_, x, pattern, backend)
     end
     key = (f, backend)
     entry = get(_SPARSE_JACOBIAN_PREP_CACHE, key, nothing)
-    if entry !== nothing
-        f2, sb, prep = entry
-        try
-            return DI.jacobian(f2, prep, sb, x)
-        catch
-        end
-    end
-    try
+    if entry === nothing
         sb = _sparse_backend(backend)
-        prep = DI.prepare_jacobian(f_, sb, x)
-        _SPARSE_JACOBIAN_PREP_CACHE[key] = (f_, sb, prep)
-        return DI.jacobian(f_, prep, sb, x)
-    catch
-        return sparse(Matrix(value_jacobian(f_, x, backend)[2]))
+        entry = (f_, sb, DI.prepare_jacobian(f_, sb, x))
+        _SPARSE_JACOBIAN_PREP_CACHE[key] = entry
     end
+    f2, sb, prep = entry
+    return DI.jacobian(f2, prep, sb, x)
 end
 
 
@@ -125,55 +114,18 @@ Returns the structurally sparse Hessian of the scalar-valued function `f` at
 SparseConnectivityTracer, colored with SparseMatrixColorings and the entries
 are computed by forward-mode differentiation of the gradient computed with
 `backend` (defaults to the package-wide backend, see [`get_ad_backend`](@ref)).
-If the sparse pipeline fails for `f`, the Hessian is computed by sparse finite
-differences of the gradient.
+Failures raise errors rather than degrading silently.
 """
 function sparse_hessian(f, x, backend::AbstractADType = DEFAULT_AD_BACKEND[])
     key = (f, backend)
     entry = get(_SPARSE_HESSIAN_PREP_CACHE, key, nothing)
-    if entry !== nothing
-        sb, prep = entry
-        try
-            return DI.hessian(f, prep, sb, x)
-        catch
-        end
-    end
-    try
+    if entry === nothing
         sb = _sparse_backend(second_order_backend(backend))
-        prep = DI.prepare_hessian(f, sb, x)
-        _SPARSE_HESSIAN_PREP_CACHE[key] = (sb, prep)
-        return DI.hessian(f, prep, sb, x)
-    catch
-        return sparse_fd_jacobian(x -> sparse_gradient(f, x, backend), x)
+        entry = (sb, DI.prepare_hessian(f, sb, x))
+        _SPARSE_HESSIAN_PREP_CACHE[key] = entry
     end
-end
-
-# Central finite differences of `f` (a vector-valued function), with plain
-# Float64 steps: unlike directional ForwardDiff derivatives, this works for
-# functions whose internals reject dual numbers (e.g. evaluator-based
-# functions).
-function sparse_fd_jacobian(f, x)
-    n = length(x)
-    f0 = f(x)
-    f0 = f0 isa Real ? [f0] : f0
-    m = length(f0)
-    J = zeros(m, n)
-    h = cbrt(eps(Float64))
-    for j = 1:n
-        e = zeros(n)
-        e[j] = h
-        fp = f(x + e)
-        fp = fp isa Real ? [fp] : fp
-        fm = f(x - e)
-        fm = fm isa Real ? [fm] : fm
-        J[:, j] = (fp - fm) ./ (2h)
-    end
-    return sparse(J)
-end
-function pushforward_function(f, x)
-    return v -> begin
-        return ForwardDiff.derivative(h -> f(x + h * v), 0)
-    end
+    sb, prep = entry
+    return DI.hessian(f, prep, sb, x)
 end
 
 _sparsevec(x::Real) = [x]

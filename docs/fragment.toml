@@ -36,10 +36,6 @@ title = "Function modifiers"
   file = "modifiers/trace.md"
 
 [[pages]]
-title = "Implicit functions"
-file = "implicit.md"
-
-[[pages]]
 title = "Symbolic differentiation"
 file = "symbolify.md"
 

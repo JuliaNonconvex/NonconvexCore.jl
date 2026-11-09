@@ -335,19 +335,3 @@ function clamp_and_evaluate!(model::AbstractModel, x::AbstractVector)
     x .= clamp.(x, box_min, box_max)
     model.objective(x)
 end
-
-"""
-    ConvergenceCriteria
-
-Abstract supertype of the convergence criteria passed to `optimize` (e.g.
-`GenericCriteria`, `KKTCriteria`, `ScaledKKTCriteria`, `IpoptCriteria`).
-"""
-ConvergenceCriteria
-
-"""
-    ConvergenceState
-
-The convergence state computed by a `ConvergenceCriteria` from the residuals
-of a solution, together with the tolerance and call counters.
-"""
-ConvergenceState

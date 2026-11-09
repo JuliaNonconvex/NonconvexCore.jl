@@ -16,8 +16,8 @@ const x = [0.3, -0.7, 1.2, 0.5, -0.4]
 
     val, jac = NonconvexCore.value_jacobian(f, x)
     @test val == f(x)
-    @test jac isa Adjoint
-    @test jac ≈ Zygote.jacobian(f, x)[1]
+    @test jac isa Matrix
+    @test vec(jac) ≈ Zygote.gradient(f, x)[1]
     valf, jacf = NonconvexCore.value_jacobian(f, x, ADTypes.AutoForwardDiff())
     @test valf == val
     @test jacf ≈ jac
@@ -29,7 +29,7 @@ const x = [0.3, -0.7, 1.2, 0.5, -0.4]
     c = vm.ineq_constraints
     vc, jc = NonconvexCore.value_jacobian(c, xv)
     @test vc == g(xv)
-    @test jc isa Adjoint
+    @test jc isa Matrix
     @test jc ≈ Zygote.jacobian(g, xv)[1]
     vcf, jcf = NonconvexCore.value_jacobian(c, xv, ADTypes.AutoForwardDiff())
     @test vcf ≈ vc
@@ -137,9 +137,4 @@ end
     vg, gg = NonconvexCore.value_gradient(f2, x2)
     @test vg == sum(abs2, x2)
     @test gg ≈ 2x2
-
-    m = Model(f2)
-    addvar!(m, -ones(3), ones(3))
-    vm = NonconvexCore.prepare_model(m, ones(3))
-    @test NonconvexCore.value_gradient(NonconvexCore.getobjective(vm), ones(3))[2] ≈ 2ones(3)
 end

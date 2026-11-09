@@ -11,11 +11,23 @@ struct LyingSolver <: AbstractOptimizer end
 struct SilentSolver <: AbstractOptimizer end
 
 NonconvexCore.solver_capabilities(::DeclaredSolver) =
-    ConstraintCapabilities(eq = true, ineq = true, sd = true, box = true, integer = true, infinite_bounds = true)
+    ConstraintCapabilities(
+        linear_eq = true, nonlinear_eq = true,
+        linear_ineq = true, nonlinear_ineq = true,
+        linear_sd = true, nonlinear_sd = true,
+        box = true, continuous = true, binary = true, integer = true,
+        infinite_bounds = true,
+    )
 NonconvexCore.solver_capabilities(::PartialSolver) =
-    ConstraintCapabilities(eq = true, ineq = false, sd = true, box = true, integer = false, infinite_bounds = false)
+    ConstraintCapabilities(
+        linear_eq = true, nonlinear_eq = false,
+        linear_ineq = true, nonlinear_ineq = false,
+        linear_sd = true, nonlinear_sd = false,
+        box = true, continuous = true, binary = false, integer = false,
+        infinite_bounds = false,
+    )
 NonconvexCore.solver_capabilities(::LyingSolver) =
-    ConstraintCapabilities(eq = true, ineq = true, box = true)
+    ConstraintCapabilities(linear_eq = true, linear_ineq = true, box = true)
 
 struct ToyWorkspace <: Workspace
     model::VecModel
@@ -58,7 +70,8 @@ function _capture(f)
     return nothing
 end
 
-function make_model(; eq = false, ineq = false, sd = false, box = false, integer = false)
+function make_model(; eq = false, neq = false, ineq = false, nineq = false,
+                     sd = false, box = false, integer = false, binary = false)
     m = Model()
     if box
         addvar!(m, [-1.0, -1.0], [1.0, 1.0])
@@ -66,34 +79,46 @@ function make_model(; eq = false, ineq = false, sd = false, box = false, integer
         addvar!(m, fill(-Inf, 2), fill(Inf, 2))
     end
     integer && setinteger!(m, 1, true)
+    binary && begin
+        setinteger!(m, 1, true)
+        setmin!(m, 1, 0.0)
+        setmax!(m, 1, 1.0)
+    end
     eq && add_eq_constraint!(m, x -> sum(x) - 1)
+    neq && add_eq_constraint!(m, x -> x[1]^2 - 1)
     ineq && add_ineq_constraint!(m, x -> x[1] - 0.5)
+    nineq && add_ineq_constraint!(m, x -> x[1]^2 - 0.5)
     sd && add_sd_constraint!(m, x -> Matrix{Float64}(I, 2, 2))
     return m
 end
 
 @testset "ConstraintCapabilities" begin
     c = ConstraintCapabilities()
-    @test c.eq === missing
-    @test c.ineq === missing
-    @test c.sd === missing
+    @test c.linear_eq === missing
+    @test c.nonlinear_eq === missing
+    @test c.linear_ineq === missing
+    @test c.nonlinear_ineq === missing
+    @test c.linear_sd === missing
+    @test c.nonlinear_sd === missing
     @test c.box === missing
+    @test c.continuous === missing
+    @test c.binary === missing
     @test c.integer === missing
     @test c.infinite_bounds === missing
-    c2 = ConstraintCapabilities(eq = true, sd = false)
-    @test c2.eq === true
-    @test c2.sd === false
+    c2 = ConstraintCapabilities(linear_eq = true, nonlinear_sd = false)
+    @test c2.linear_eq === true
+    @test c2.nonlinear_sd === false
     @test c2.box === missing
 
-    merged = NonconvexCore.merge_capabilities(c2; ineq = true, integer = true)
-    @test merged.eq === true
-    @test merged.sd === false
-    @test merged.ineq === true
+    merged = NonconvexCore.merge_capabilities(c2; nonlinear_ineq = true, integer = true)
+    @test merged.linear_eq === true
+    @test merged.nonlinear_sd === false
+    @test merged.nonlinear_ineq === true
     @test merged.integer === true
     @test merged.box === missing
-    merged2 = NonconvexCore.merge_capabilities(nothing; eq = true)
-    @test merged2.eq === true
-    @test merged2.sd === missing
+    merged2 = NonconvexCore.merge_capabilities(nothing; linear_eq = true)
+    @test merged2.linear_eq === true
+    @test merged2.nonlinear_sd === missing
 end
 
 @testset "infinite bounds capability" begin
@@ -122,7 +147,7 @@ end
 
     # The merge forwards the sub-solver's declaration.
     merged = NonconvexCore.merge_capabilities(
-        NonconvexCore.solver_capabilities(PartialSolver()); ineq = true,
+        NonconvexCore.solver_capabilities(PartialSolver()); nonlinear_ineq = true,
     )
     @test merged.infinite_bounds === false
 
@@ -139,9 +164,11 @@ end
     for kwargs in (
         (;),
         (; eq = true),
+        (; neq = true),
         (; box = true),
         (; integer = true),
-        (; eq = true, ineq = true, sd = true, box = true, integer = true),
+        (; binary = true),
+        (; eq = true, ineq = true, neq = true, nineq = true, sd = true, box = true, integer = true, binary = true),
     )
         m, x0, _ = NonconvexCore.tovecmodel(make_model(; kwargs...), ones(2))
         @test checksubproblem!(m, DeclaredSolver()) === nothing
@@ -163,13 +190,13 @@ end
 
 @testset "checksubproblem! errors" begin
     # Declared-false features error with an actionable message.
-    m, x0, _ = NonconvexCore.tovecmodel(make_model(; ineq = true), ones(2))
+    m, x0, _ = NonconvexCore.tovecmodel(make_model(; nineq = true), ones(2))
     err = _capture() do
         checksubproblem!(m, PartialSolver())
     end
     @test err isa ArgumentError
     @test occursin("PartialSolver", sprint(showerror, err))
-    @test occursin("ineq", sprint(showerror, err))
+    @test occursin("nonlinear inequality", sprint(showerror, err))
 
     m, x0, _ = NonconvexCore.tovecmodel(make_model(; integer = true), ones(2))
     @test _capture(() -> checksubproblem!(m, PartialSolver())) isa ArgumentError
@@ -187,11 +214,11 @@ end
     @test checksubproblem!(
         m,
         PartialSolver();
-        assumed = ConstraintCapabilities(; ineq = true, box = true, infinite_bounds = true),
+        assumed = ConstraintCapabilities(; linear_ineq = true, box = true, continuous = true, infinite_bounds = true),
     ) === nothing
 
     # Hint text is appended to the error.
-    m, x0, _ = NonconvexCore.tovecmodel(make_model(; ineq = true), ones(2))
+    m, x0, _ = NonconvexCore.tovecmodel(make_model(; nineq = true), ones(2))
     err = _capture() do
         checksubproblem!(
             m,
@@ -205,12 +232,12 @@ end
 
 @testset "optimize integration" begin
     # Solvers with a declaration are validated by the generic optimize.
-    m = make_model(; ineq = true)
+    m = make_model(; nineq = true)
     err = _capture() do
         optimize(m, PartialSolver(), ones(2))
     end
     @test err isa ArgumentError
-    @test occursin("ineq", sprint(showerror, err))
+    @test occursin("nonlinear inequality", sprint(showerror, err))
 
     # Declared-and-supported features pass and produce a result.
     m = make_model(; box = true)

@@ -1,3 +1,11 @@
+"""
+    NonconvexCore
+
+The modelling and automatic differentiation core of the Nonconvex
+ecosystem: the optimization model types, objective and constraint functions,
+the differentiation machinery shared by the solver packages, and the solver
+capability system. See the [Introduction](index.md) for an overview.
+"""
 module NonconvexCore
 
 const debugging = Ref(false)
@@ -44,16 +52,13 @@ export Model,
     CustomGradFunction,
     CustomHessianFunction,
     LazyJacobian,
-    ImplicitFunction,
     symbolify,
     jump_symbolic_gradient,
     jump_symbolic_hessian,
     jump_symbolic_function
 
-using Parameters, Zygote, ReverseDiff, ChainRulesCore, ForwardDiff
-using LinearMaps: LinearMap
-using IterativeSolvers: gmres
-using SparseArrays, Reexport, Requires
+using Parameters, Zygote, ChainRulesCore, ForwardDiff
+using SparseArrays, Reexport
 @reexport using LinearAlgebra, OrderedCollections
 @reexport using ADTypes
 import DifferentiationInterface
@@ -128,6 +133,5 @@ include("utilities/forwarddiff_frule.jl")
 include("utilities/lazy.jl")
 include("utilities/trace.jl")
 include("utilities/custom.jl")
-include("utilities/implicit.jl")
 
 end
