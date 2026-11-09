@@ -54,8 +54,7 @@ export Model,
     LazyJacobian,
     symbolify,
     jump_symbolic_gradient,
-    jump_symbolic_hessian,
-    jump_symbolic_function
+    jump_symbolic_hessian
 
 using Parameters, Zygote, ChainRulesCore, ForwardDiff
 using SparseArrays, Reexport

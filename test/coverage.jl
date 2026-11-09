@@ -345,24 +345,88 @@ end
 end
 
 # ------------------------------------------------------------------
-# JuMP-converted wrappers (src/models/jumpsymbolic.jl)
+# Sparse gradient variants (src/functions/sparse.jl)
 # ------------------------------------------------------------------
-@testset "converted wrapper structs" begin
-    expr = MOI.ScalarNonlinearFunction(:sin, Any[MOI.VariableIndex(1)])
-    vars = MOI.VariableIndex[MOI.VariableIndex(1)]
-    jf = NC.JuMPSymbolicFunction(expr, vars)
-    xd = OrderedDict(:x => [0.5])
-    w = NC.JuMPConvertedFunction(jf, [:x])
-    @test w(xd) ≈ sin(0.5)
-    @test NC.jump_symbolic_function(w) === jf
-    nw = NC.NegatedJuMPConvertedFunction(NC.JuMPConvertedFunction(jf, [:x]), [:x], 0.2)
-    @test nw(xd) ≈ 0.2 - sin(0.5)
-    @test NC.jump_symbolic_function(nw) === jf
-    sw = NC.ShiftedJuMPConvertedFunction(NC.JuMPConvertedFunction(jf, [:x]), [:x], 0.1)
-    @test sw(xd) ≈ sin(0.5) - 0.1
-    iw = NC.IntervalJuMPConvertedFunction(NC.JuMPConvertedFunction(jf, [:x]), [:x], 0.0, 0.5)
-    @test iw(xd) ≈ [-sin(0.5), sin(0.5) - 0.5]
-    @test NC.jump_symbolic_function(iw) === jf
-    # rrule of the underlying JuMPSymbolicFunction
-    @test Zygote.gradient(z -> jf(z), [0.5])[1] ≈ [cos(0.5)]
+@testset "sparse gradient variants" begin
+    x = [1.0, 2.0, 3.0]
+    g = NC.sparse_gradient(z -> sum(abs2, z), x)
+    @test g ≈ sparsevec([2.0, 4.0, 6.0])
+    # scalar, matrix and adjoint outputs through _sparsevec
+    @test NC._sparsevec(1.0) == [1.0]
+    @test NC._sparsevec([1.0, 2.0]) == [1.0, 2.0]
+    @test NC._sparsevec([1.0 2.0; 3.0 4.0]) == [1.0, 3.0, 2.0, 4.0]
+    @test NC._sparsevec(sparsevec([1.0, 0.0, 2.0])) == [1.0, 0.0, 2.0]
+    @test NC._sparsevec([1.0 2.0]') == [1.0, 2.0]
+end
+
+# ------------------------------------------------------------------
+# Remaining live paths
+# ------------------------------------------------------------------
+@testset "remaining live paths" begin
+    # ConvergenceState default constructor
+    cs = NC.ConvergenceState{Float64}()
+    @test cs isa NC.ConvergenceState
+
+    # getdim of Objective, empty VectorOfFunctions tuple construction
+    m = Model(x -> x[1])
+    addvar!(m, [-1.0], [1.0])
+    @test NC.getdim(NC.getobjective(m)) == 1
+    @test NC.VectorOfFunctions(()) isa NC.VectorOfFunctions
+
+    # prepare_model with an equality constraint (prepares the eq jacobian)
+    m2 = Model(z -> sum(abs2, z))
+    addvar!(m2, -ones(2), ones(2))
+    add_eq_constraint!(m2, z -> z[1] + z[2])
+    vm2 = NC.prepare_model(m2, ones(2))
+    @test NC.value_jacobian(NC.geteqconstraints(vm2), ones(2))[2] ≈ reshape([1.0, 1.0], 1, 2)
+
+    # _sparse_reshape sparse-vector branch
+    @test Matrix(NC._sparse_reshape(sparsevec([1.0, 0.0, 2.0]), 3, 1))[:] == [1.0, 0.0, 2.0]
+    @test NC._sparse_reshape(sparsevec(Float64[]), 2, 2) == zeros(2, 2)
+
+    # VecModel addvar! single and vector forms
+    vm0, xv0, _ = NC.tovecmodel(m2)
+    NC.addvar!(vm0, -1.0, 1.0, init = 0.0, integer = true)
+    NC.addvar!(vm0, [-2.0, -2.0], [2.0, 2.0], init = [0.0, 0.0], integer = [false, false])
+    @test NC.getmin(vm0)[end-2:end] == [-1.0, -2.0, -2.0]
+    @test NC.getmax(vm0)[end-2:end] == [1.0, 2.0, 2.0]
+    @test vm0.integer[end-2:end] == [true, false, false]
+
+    # CustomGradFunction with g === nothing (zero gradients)
+    cg = NC.CustomGradFunction(x -> x[1] + 2x[2], nothing)
+    @test Zygote.gradient(cg, [1.0, 2.0])[1] == [0.0, 0.0]
+    cgv = NC.CustomGradFunction(x -> [x[1], x[2]], nothing)
+    @test Zygote.jacobian(cgv, [1.0, 2.0])[1] == zeros(2, 2)
+    # frule paths
+    cf = NC.CustomGradFunction(x -> x[1] + x[2], x -> [1.0, 1.0])
+    @test ForwardDiff.derivative(t -> cf([t, 0.0]), 1.0) ≈ 1.0
+    ch = NC.CustomHessianFunction(x -> sum(abs2, x), x -> 2x, x -> [2.0 0.0; 0.0 2.0])
+    @test ForwardDiff.derivative(t -> ch([t, 0.0]), 1.0) ≈ 2.0
+
+    # LazyJacobian error + symmetric-from-jtvp + transposed operators
+    @test_throws ArgumentError NC.LazyJacobian()
+    lsym = NC.LazyJacobian(; jtvp = w -> w, symmetric = true)
+    @test lsym.jvp === lsym.jtvp
+    j = NC.LazyJacobian(; jvp = v -> v, jtvp = w -> w)
+    jt = transpose(j)
+    @test transpose(jt) === j
+    @test jt * [1.0, 2.0] == [1.0, 2.0]
+    @test ([1.0, 2.0] * jt) == j.jtvp([1.0, 2.0])
+
+    # TraceFunction frule (with a function that has a ChainRules frule)
+    tr = NC.TraceFunction(exp; on_call = true, on_grad = true)
+    @test ForwardDiff.derivative(tr, 2.0) ≈ exp(2.0)
+
+    # @params with a parametrized subtype header
+    NC.@params struct ParamSub{T} <: NC.AbstractOptimizer
+        a::T
+    end
+    ps = ParamSub(1.0)
+    @test ps.a == 1.0
+    @test ps isa NC.AbstractOptimizer
+
+    # _dot with nothing
+    @test NC._dot(nothing, [1.0], [2.0]) == 0.0
+    # nvalues of nothing
+    @test NC.nvalues(nothing) == 0
 end

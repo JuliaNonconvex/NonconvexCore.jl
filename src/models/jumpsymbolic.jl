@@ -31,42 +31,6 @@ end
 
 (f::JuMPSymbolicFunction)(x) = MOI.eval_objective(f.evaluator, x)
 
-# The variable leaves of the expression, in order of appearance.
-function _variable_leaves(expr::MOI.ScalarNonlinearFunction, out = Int[])
-    for arg in expr.args
-        if arg isa MOI.VariableIndex
-            push!(out, arg.value)
-        elseif arg isa MOI.ScalarNonlinearFunction
-            _variable_leaves(arg, out)
-        elseif arg isa MOI.ScalarQuadraticFunction
-            for term in arg.quadratic_terms
-                push!(out, term.variable_1.value)
-                push!(out, term.variable_2.value)
-            end
-            for term in arg.affine_terms
-                push!(out, term.variable.value)
-            end
-        elseif arg isa MOI.ScalarAffineFunction
-            for term in arg.terms
-                push!(out, term.variable.value)
-            end
-        end
-    end
-    return out
-end
-
-"""
-    jump_symbolic_jacobian_sparsity(f::JuMPSymbolicFunction, n)
-
-Returns the column indices of the variables that the wrapped expression
-depends on, i.e. the sparsity pattern of its gradient with respect to a
-vector of length `n`.
-"""
-function jump_symbolic_jacobian_sparsity(f::JuMPSymbolicFunction, n)
-    positions = Dict(v.value => k for (k, v) in enumerate(f.vars))
-    return Int[positions[v] for v in _variable_leaves(f.expr)]
-end
-
 """
     jump_symbolic_hessian_sparsity(f::JuMPSymbolicFunction, n)
 
@@ -107,60 +71,6 @@ function jump_symbolic_hessian(f::JuMPSymbolicFunction, x)
     end
     return H
 end
-
-# A callable that evaluates a JuMP-sourced expression through its
-# JuMPSymbolicFunction on the flattened model vector. The wrapped function is
-# exposed so that sparse differentiation can use the expression graph's
-# sparsity directly.
-struct JuMPConvertedFunction{F,U} <: Function
-    f::F
-    ks::U
-end
-(g::JuMPConvertedFunction)(x) = g.f(flatten(x, g.ks)[1])
-
-"""
-    jump_symbolic_function(f::JuMPConvertedFunction)
-
-Returns the [`JuMPSymbolicFunction`](@ref) wrapped by `f`.
-"""
-jump_symbolic_function(g::JuMPConvertedFunction) = g.f
-
-# A bound that negates the expression: `lower - f(x)` for `f >= lower`. JuMP
-# may or may not have folded the bound into the expression (its nonlinear
-# interface normalizes to a zero set, affine constraints do not), so the raw
-# bound is carried explicitly.
-struct NegatedJuMPConvertedFunction{F,U,L} <: Function
-    f::F
-    ks::U
-    lower::L
-end
-(g::NegatedJuMPConvertedFunction)(x) = g.lower - g.f(x)
-jump_symbolic_function(g::NegatedJuMPConvertedFunction) = jump_symbolic_function(g.f)
-
-# A bound that shifts the expression: `f(x) - shift` for `f <= shift` or
-# `f == shift`. The shift does not affect the derivatives.
-struct ShiftedJuMPConvertedFunction{F,U,S} <: Function
-    f::F
-    ks::U
-    shift::S
-end
-(g::ShiftedJuMPConvertedFunction)(x) = g.f(x) - g.shift
-jump_symbolic_function(g::ShiftedJuMPConvertedFunction) = jump_symbolic_function(g.f)
-
-# An interval bound `lb <= f <= ub`: the two Nonconvex inequality values are
-# `[lb - f(x), f(x) - ub]`, both feasible when <= 0, both from a single
-# evaluation of the wrapped expression.
-struct IntervalJuMPConvertedFunction{F,U,L,S} <: Function
-    f::F
-    ks::U
-    lower::L
-    upper::S
-end
-function (g::IntervalJuMPConvertedFunction)(x)
-    v = g.f(x)
-    return [g.lower - v, v - g.upper]
-end
-jump_symbolic_function(g::IntervalJuMPConvertedFunction) = jump_symbolic_function(g.f)
 
 function ChainRulesCore.rrule(f::JuMPSymbolicFunction, x)
     y = f(x)
