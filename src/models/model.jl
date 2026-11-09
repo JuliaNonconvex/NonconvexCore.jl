@@ -12,9 +12,9 @@ end
 ```
 
 The `Model` structs stores information about the nonlinear optimization problem.
-- `objective`: the objective function of the problem of type [`Objective`](@ref).
-- `eq_constraints`: the equality constraints of the problem of type [`VectorOfFunctions`](@ref). Each function in `ineq_constraints` can be an instance of [`IneqConstraint`](@ref) or [`AbstractFunction`](@ref). If the function is not an `IneqConstraint`, its right-hand-side bound is assumed to be 0.
-- `ineq_constraints`: the inequality constraints of the problem of type [`VectorOfFunctions`](@ref). Each function in `ineq_constraints` can be an instance of [`IneqConstraint`](@ref) or [`AbstractFunction`](@ref). If the function is not an `IneqConstraint`, its right-hand-side bound is assumed to be 0.
+- `objective`: the objective function of the problem of type [`Objective`](@ref NonconvexCore.Objective).
+- `eq_constraints`: the equality constraints of the problem of type [`VectorOfFunctions`](@ref NonconvexCore.VectorOfFunctions). Each function in `ineq_constraints` can be an instance of [`IneqConstraint`](@ref NonconvexCore.IneqConstraint) or [`AbstractFunction`](@ref NonconvexCore.AbstractFunction). If the function is not an `IneqConstraint`, its right-hand-side bound is assumed to be 0.
+- `ineq_constraints`: the inequality constraints of the problem of type [`VectorOfFunctions`](@ref NonconvexCore.VectorOfFunctions). Each function in `ineq_constraints` can be an instance of [`IneqConstraint`](@ref NonconvexCore.IneqConstraint) or [`AbstractFunction`](@ref NonconvexCore.AbstractFunction). If the function is not an `IneqConstraint`, its right-hand-side bound is assumed to be 0.
 - `sd_constraints`: a list of matrix-valued functions which must be positive semidefinite at any feasible solution.
 """
 mutable struct Model{Tv<:AbstractVector} <: AbstractModel
@@ -39,7 +39,7 @@ Model(f::Union{Nothing,Function} = x -> 0.0) = Model(Any, f)
 """
     Model(::Type{T}, f::Union{Nothing, Function}) where {T}
 
-Constructs an empty model with objective function `f` and decision variable value type `Vector{T}`. `f` can be an instance of `Base.Function` but must return a number,  or it can be an intance of [`Objective`](@ref). `f` can also be `nothing` in which case, the objective function can be defined later using [`set_objective!`](@ref).
+Constructs an empty model with objective function `f` and decision variable value type `Vector{T}`. `f` can be an instance of `Base.Function` but must return a number,  or it can be an intance of [`Objective`](@ref NonconvexCore.Objective). `f` can also be `nothing` in which case, the objective function can be defined later using [`set_objective!`](@ref).
 """
 Model(::Type{T}, f::Function) where {T} = Model(T, Objective(f))
 function Model(::Type{T}, obj::Union{Nothing,Objective}) where {T}

@@ -1,3 +1,4 @@
+@testitem "Convergence" begin
 using Test, NonconvexCore
 using NonconvexCore:
     Solution,
@@ -65,4 +66,5 @@ end
     s3 = solution_at([0.4], [0.0], 0.16, 0.0, [-0.4])
     assess_convergence!(s3, vm, tol, GenericCriteria(), false, 1)
     @test s3.convstate.f_increased
+end
 end

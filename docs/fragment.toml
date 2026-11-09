@@ -1,0 +1,60 @@
+name = "NonconvexCore"
+modules = ["NonconvexCore"]
+doctest_setup = "using NonconvexCore, JuMP, Symbolics"
+
+[[pages]]
+title = "Introduction"
+file = "index.md"
+
+[[pages]]
+title = "Models"
+file = "models.md"
+
+[[pages]]
+title = "JuMP models"
+file = "jump.md"
+
+[[pages]]
+title = "Derivatives"
+  [[pages.children]]
+  title = "AD backends"
+  file = "derivatives/backends.md"
+  [[pages.children]]
+  title = "Sparse Jacobians and Hessians"
+  file = "derivatives/sparse.md"
+
+[[pages]]
+title = "Function modifiers"
+  [[pages.children]]
+  title = "Custom derivatives"
+  file = "modifiers/custom.md"
+  [[pages.children]]
+  title = "Lazy Jacobians"
+  file = "modifiers/lazy.md"
+  [[pages.children]]
+  title = "Tracing calls"
+  file = "modifiers/trace.md"
+
+[[pages]]
+title = "Symbolic differentiation"
+file = "symbolify.md"
+
+[[pages]]
+title = "Solver capabilities"
+file = "capabilities.md"
+
+[[pages]]
+title = "Convergence criteria"
+file = "criteria.md"
+
+[[pages]]
+title = "Model queries"
+file = "queries.md"
+
+[[pages]]
+title = "Optimization result"
+file = "result.md"
+
+[[pages]]
+title = "Docstrings"
+file = "docstrings.md"

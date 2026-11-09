@@ -1,3 +1,4 @@
+@testitem "Model" begin
 using NonconvexCore, LinearAlgebra, Test, Zygote
 
 f(x::AbstractVector) = sqrt(x[2])
@@ -41,10 +42,15 @@ vals, jac = NonconvexCore.value_jacobian(NonconvexCore.getobjectiveconstraints(m
 # test that `optimize` unflattens the result for structured variables.
 struct StubOptimizer <: NonconvexCore.AbstractOptimizer end
 NonconvexCore.solver_capabilities(::StubOptimizer) = NonconvexCore.ConstraintCapabilities(
-    eq = true,
-    ineq = true,
-    sd = true,
+    linear_eq = true,
+    nonlinear_eq = true,
+    linear_ineq = true,
+    nonlinear_ineq = true,
+    linear_sd = true,
+    nonlinear_sd = true,
     box = true,
+    continuous = true,
+    binary = true,
     integer = true,
 )
 mutable struct StubWorkspace <: NonconvexCore.Workspace
@@ -83,10 +89,15 @@ end
 # exist.
 struct StubNoFieldOptimizer <: NonconvexCore.AbstractOptimizer end
 NonconvexCore.solver_capabilities(::StubNoFieldOptimizer) = NonconvexCore.ConstraintCapabilities(
-    eq = true,
-    ineq = true,
-    sd = true,
+    linear_eq = true,
+    nonlinear_eq = true,
+    linear_ineq = true,
+    nonlinear_ineq = true,
+    linear_sd = true,
+    nonlinear_sd = true,
     box = true,
+    continuous = true,
+    binary = true,
     integer = true,
 )
 mutable struct StubNoFieldWorkspace <: NonconvexCore.Workspace
@@ -160,4 +171,5 @@ end
     # Models without an objective skip the objective check.
     empty_model = DictModel()
     NonconvexCore.check_finite_start!(empty_model, ())
+end
 end

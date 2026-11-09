@@ -1,3 +1,4 @@
+@testitem "MOI evaluator" begin
 using NonconvexCore, LinearAlgebra, Test
 import JuMP, MathOptInterface, Zygote
 const MOI = MathOptInterface
@@ -24,9 +25,9 @@ end
     problem, x0 = make_problem(; first_order = false)
     evaluator = problem.evaluator
 
-    @test MOI.features_available(evaluator) == [:Grad, :Jac, :Hess]
-    @test MOI.initialize(evaluator, [:Grad, :Jac, :Hess]) === nothing
-    @test_throws ErrorException MOI.initialize(evaluator, [:JacVec])
+    @test MOI.features_available(evaluator) == [:Grad, :Jac, :Hess, :JacVec, :HessVec]
+    @test MOI.initialize(evaluator, [:Grad, :Jac, :Hess, :JacVec, :HessVec]) === nothing
+    @test_throws ErrorException MOI.initialize(evaluator, [:Bad])
 
     @test MOI.eval_objective(evaluator, x0) == f(x0)
     grad = zeros(2)
@@ -44,10 +45,23 @@ end
     @test J ≈ [1.0, 1.0, 2.0, -1.0]
 
     hess_structure = MOI.hessian_lagrangian_structure(evaluator)
-    @test hess_structure == [(1, 1), (2, 1), (2, 2)]
-    H = zeros(3)
+    @test hess_structure == [(1, 1), (2, 2)]
+    H = zeros(2)
     MOI.eval_hessian_lagrangian(evaluator, H, x0, 1.5, [2.0, 3.0])
-    @test H ≈ [3.0, 0.0, 3.0]
+    @test H ≈ [3.0, 3.0]
+
+    # Jac-vec and Hess-vec products
+    w = [0.3, -0.7]
+    y = zeros(2)
+    MOI.eval_constraint_jacobian_product(evaluator, y, x0, w)
+    @test y ≈ [1.0 1.0; 2.0 -1.0] * w
+    z = zeros(2)
+    MOI.eval_constraint_jacobian_transpose_product(evaluator, z, x0, w)
+    @test z ≈ transpose([1.0 1.0; 2.0 -1.0]) * w
+    v = [0.2, 0.4]
+    hv = zeros(2)
+    MOI.eval_hessian_lagrangian_product(evaluator, hv, x0, v, 1.5, [2.0, 3.0])
+    @test hv ≈ [3.0 0.0; 0.0 3.0] * v
 
     @test length(problem.vars) == 2
     @test MOI.get(JuMP.backend(problem.model), MOI.NumberOfVariables()) == 2
@@ -64,4 +78,5 @@ end
     problem, x0 = make_problem(; first_order = true, integer = true)
     model = JuMP.backend(problem.model)
     @test MOI.get(model, MOI.NumberOfConstraints{MOI.VariableIndex,MOI.Integer}()) == 1
+end
 end

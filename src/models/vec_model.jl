@@ -85,6 +85,42 @@ function optimize(model::VecModel, optimizer::AbstractOptimizer, args...; kwargs
     return optimize!(workspace)
 end
 
+"""
+    FlattenedFunction
+
+A callable that evaluates the wrapped function `f` on the structure rebuilt
+by `unflattenx` from a flat vector, and flattens the output. The raw function
+and the input unflattening are exposed via [`getrawfunction`](@ref NonconvexCore.getrawfunction) and
+[`getinputunflatten`](@ref NonconvexCore.getinputunflatten) so that solvers can evaluate all model functions
+against a single reconstructed structure per point.
+"""
+struct FlattenedFunction{F,U} <: Function
+    f::F
+    unflattenx::U
+    flatteny::Bool
+end
+function (g::FlattenedFunction)(x)
+    y = g.f(g.unflattenx(x)...)
+    return g.flatteny ? maybeflatten(y)[1] : y
+end
+
+"""
+    getrawfunction(f)
+
+Returns the raw function wrapped by `f`, callable on the structure returned
+by [`getinputunflatten`](@ref NonconvexCore.getinputunflatten). For a `FlattenedFunction` this is the
+function as defined by the user before flattening.
+"""
+getrawfunction(f::FlattenedFunction) = f.f
+
+"""
+    getinputunflatten(f)
+
+Returns the callable that rebuilds the user-facing input structure of the
+function `f` from a flat vector.
+"""
+getinputunflatten(f::FlattenedFunction) = f.unflattenx
+
 function tovecfunc(f, x::AbstractVector{<:Real}; flatteny = true)
     vx = float.(x)
     y = f(x)
@@ -114,9 +150,9 @@ function tovecfunc(f, x...; flatteny = true)
         else
             unflatteny = Unflatten(y, tmp[2])
         end
-        return x -> maybeflatten(f(unflattenx(x)...))[1], float.(vx), unflatteny
+        return FlattenedFunction(f, unflattenx, true), float.(vx), unflatteny
     else
-        return x -> f(unflattenx(x)...), float.(vx), identity
+        return FlattenedFunction(f, unflattenx, false), float.(vx), identity
     end
 end
 

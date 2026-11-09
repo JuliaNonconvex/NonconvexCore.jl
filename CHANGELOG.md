@@ -5,31 +5,55 @@ The format follows the recommendation from JuliaRegistrator:
 a brief summary, then categorized lists of breaking changes,
 new features, bug fixes, and maintenance items.
 
-## Unreleased
-
-> Note: the strict capabilities system is a breaking change; it will ship as
-> v2.0.0. The version bump is intentionally kept out of this PR so merging it
-> does not trigger a release; the 2.0.0 bump and registration happen in a
-> follow-up release PR.
+## v2.0.0 (2026-11-08)
 
 ### Breaking changes
 - The capabilities system is now **strict by default**: every model feature
   present (equality/inequality/semidefinite constraints, finite variable
-  bounds, integer variables) must be declared supported by the solver via
-  `solver_capabilities`, otherwise `optimize` throws an informative
-  `ArgumentError`. Solvers that previously ignored constraints silently (or
-  with a warning) must now declare their capabilities. The
-  semidefinite-constraints warning is removed: undeclared solvers error
-  instead.
+  bounds, integer variables, infinite variable bounds) must be declared
+  supported by the solver via `solver_capabilities`, otherwise `optimize`
+  throws an informative `ArgumentError`. Solvers that previously ignored
+  constraints silently (or with a warning) must now declare their
+  capabilities. The semidefinite-constraints warning is removed: undeclared
+  solvers error instead.
+- `ConstraintCapabilities` gains an `infinite_bounds` field: solvers declare
+  whether they support variables with infinite (unbounded) bounds, and
+  `checksubproblem!` validates models with such variables against the
+  declaration.
 
 ### New features
 - Add the strict capabilities system: `ConstraintCapabilities`,
   `solver_capabilities` and `checksubproblem!` plus the
   `merge_capabilities` helper. Solvers declaring capabilities are validated
   by the generic `optimize` against the features present in the model
-  (equality/inequality/semidefinite constraints, variable bounds and integer
-  variables), with an informative `ArgumentError` for unsupported or
-  undeclared features.
+  (equality/inequality/semidefinite constraints, variable bounds, integer
+  variables and infinite bounds), with an informative `ArgumentError` for
+  unsupported or undeclared features.
+- `value_gradient`, `value_jacobian`, `value_jacobian_transpose` and the new
+  `value_hessian` accept an `ADTypes.AbstractADType` backend argument and
+  default to the package-wide backend, settable with
+  `set_ad_backend!`. The default backend is `AutoReverseDiff()`, whose
+  compiled tapes amortize the differentiation of the model functions over an
+  optimization run; first-order derivatives use the tape directly and
+  Hessians use forward-mode differentiation over the taped gradients
+  (the fastest combination on the Rosetta-OPF benchmark).
+- `sparse_jacobian` and `sparse_hessian` detect the structural sparsity
+  pattern with SparseConnectivityTracer, color it with SparseMatrixColorings
+  and evaluate the compressed derivatives through DifferentiationInterface
+  with the selected backend; both return a `SparseMatrixCSC` for any input
+  function. If the sparse pipeline fails for a function, the values are
+  assembled from per-function derivatives at the detected pattern positions.
+- The MOI evaluator detects the sparse Jacobian and Hessian structures once
+  at the initial point and evaluates derivative values with the selected
+  backend, extracting them at the detected positions.
+
+### Bug fixes
+- Reverse-mode differentiation of a whole `VectorOfFunctions` can produce
+  corrupted cotangents when the collection's functions reconstruct
+  flattened structures (the pullbacks of the flattening layer are not
+  reusable across seed applications). NonconvexCore now differentiates each
+  function in a collection separately, and the Lagrangian in the MOI
+  evaluator accumulates one term per constraint.
 
 ## v1.6.0 (2026-08-11)
 

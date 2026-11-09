@@ -103,9 +103,11 @@ function (f::VectorOfFunctions)(args...; kwargs...)
     ys = map(f.fs) do f
         return f(args...; kwargs...)
     end
-    # Note: `vcat` (not `reduce(vcat, ...)`) so that a single scalar output is
-    # still returned as a 1-element vector.
-    return vcat(ys...)
+    # `mapreduce` instead of a splatted `vcat` so the concatenation is a plain
+    # Julia call (a splat over many arguments is lowered through the `invoke`
+    # builtin, which rule-based backends cannot differentiate); scalars are
+    # promoted to 1-element vectors first.
+    return mapreduce(y -> y isa Real ? [y] : y, vcat, ys; init = Float64[])
 end
 
 function getdim(c::VectorOfFunctions)

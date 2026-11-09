@@ -135,9 +135,41 @@ Adds a new constraint `f` or multiple new constraints `fs` to `model`.
 """
 add_ineq_constraint!
 
-"""
-    init!(model::AbstractModel)
 
-Initializes the model.
 """
-init!
+    set_objective!(model::AbstractModel, f)
+
+Sets the objective function `f` of `model`.
+"""
+set_objective!
+
+"""
+    add_eq_constraint!(model::AbstractModel, f::EqConstraint)
+    add_eq_constraint!(model::AbstractModel, fs::Vector{<:EqConstraint})
+
+Adds a new equality constraint `f` or multiple new equality constraints `fs`
+to `model`.
+"""
+add_eq_constraint!
+
+"""
+    add_sd_constraint!(model::AbstractModel, f::SDConstraint)
+
+Adds a new semidefinite constraint `f` to `model`.
+"""
+add_sd_constraint!
+
+"""
+    setinteger!(model::AbstractModel, i, integer)
+
+Constrains the `i`th variable of `model` to be integer (or relaxes the
+constraint) when `integer` is `true` (`false`).
+"""
+setinteger!
+
+"""
+    getinit(model::AbstractModel)
+
+Returns the initial solution of `model`.
+"""
+getinit

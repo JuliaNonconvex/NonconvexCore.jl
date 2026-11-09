@@ -1,3 +1,4 @@
+@testitem "JuMP" begin
 using Test, NonconvexCore
 import JuMP
 
@@ -137,6 +138,48 @@ end
     @test jac2 == [1 1;]
 end
 
+@testset "nonlinear JuMP model" begin
+    model = JuMP.Model()
+    JuMP.@variable(model, x[1:2] >= 0)
+    JuMP.@objective(model, Min, x[1]^2 + sin(x[2]))
+    JuMP.@constraint(model, sin(x[1]) + x[2]^3 >= 1)
+    JuMP.@constraint(model, x[1] + cos(x[2]) == 2)
+    JuMP.@constraint(model, -2 <= sin(x[1]) + x[2] <= 3)
+
+    dict_model = DictModel(model)
+    obj = NonconvexCore.getobjective(dict_model)
+    ineq = NonconvexCore.getineqconstraints(dict_model)
+    eq = NonconvexCore.geteqconstraints(dict_model)
+    x0 = NonconvexCore.getinit(dict_model)
+    @test obj(x0) == x0[:x][1]^2 + sin(x0[:x][2])
+    @test ineq(x0) == [
+        1 - sin(x0[:x][1]) - x0[:x][2]^3,
+        -2 - sin(x0[:x][1]) - x0[:x][2],
+        sin(x0[:x][1]) + x0[:x][2] - 3,
+    ]
+    @test eq(x0) == [x0[:x][1] + cos(x0[:x][2]) - 2]
+
+    # Derivatives flow through the Nonlinear evaluator's rrule (reverse-mode
+    # backends that consult ChainRules).
+    vm, xv, _ = NonconvexCore.tovecmodel(dict_model)
+    v, g = NonconvexCore.value_gradient(vm.objective, xv, ADTypes.AutoZygote())
+    @test g ≈ [2xv[1], cos(xv[2])]
+    _, jac = NonconvexCore.value_jacobian(vm.ineq_constraints, xv, ADTypes.AutoZygote())
+    @test Matrix(jac) ≈ [
+        -cos(xv[1]) -3xv[2]^2
+        -cos(xv[1]) -1
+        cos(xv[1]) 1
+    ]
+    _, jaceq = NonconvexCore.value_jacobian(vm.eq_constraints, xv, ADTypes.AutoZygote())
+    @test Matrix(jaceq) ≈ [1 -sin(xv[2])]
+
+    # The sparse path uses the graph structure and must include the interval
+    # rows.
+    J = NonconvexCore.sparse_jacobian(vm.ineq_constraints, xv, ADTypes.AutoZygote())
+    @test Matrix(J) ≈ Matrix(jac)
+    @test size(J) == (3, 2)
+end
+
 @testset "x[(ind1, ind2)] variable names" begin
     model = JuMP.Model()
     lbs = [0.0, 0.0]
@@ -218,16 +261,13 @@ end
     @test obj(OrderedDict(:x => 3.0)) == -(9.0 + 6.0)
 end
 
-@testset "Unsupported objective type" begin
+@testset "Nonlinear objective conversion" begin
     model = JuMP.Model()
     JuMP.@variable(model, x >= 0)
     JuMP.@objective(model, Min, x^3)
-    err = try
-        DictModel(model)
-        nothing
-    catch e
-        e
-    end
-    @test err isa ErrorException
-    @test occursin("Unsupported objective", sprint(showerror, err))
+    dict_model = DictModel(model)
+    obj = NonconvexCore.getobjective(dict_model)
+    x0 = NonconvexCore.getinit(dict_model)
+    @test obj(x0) == x0[:x]^3
+end
 end

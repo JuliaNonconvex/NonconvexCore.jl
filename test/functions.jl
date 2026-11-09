@@ -1,3 +1,4 @@
+@testitem "Functions" begin
 using NonconvexCore
 using NonconvexCore:
     VectorOfFunctions,
@@ -88,4 +89,5 @@ end
     end
     @test getdim(f) == 2
     @test getfunction(f) === exp
+end
 end

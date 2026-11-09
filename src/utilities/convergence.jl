@@ -190,7 +190,14 @@ function getresiduals(solution::Solution, model::AbstractModel, ::IpoptCriteria)
     res = res / sd
     infeas = isempty(g) ? 0.0 : max(maximum(g), 0)
     if debugging[]
-        println("Agg infeas = ", infeas)
     end
     return missing, res, infeas, f
 end
+
+"""
+    assess_convergence!(workspace::Workspace)
+
+Updates the workspace by evaluating the convergence criteria against the
+model at the current solution.
+"""
+assess_convergence!
