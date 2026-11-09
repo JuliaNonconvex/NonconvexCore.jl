@@ -1,3 +1,4 @@
+@testitem "MOI evaluator" begin
 using NonconvexCore, LinearAlgebra, Test
 import JuMP, MathOptInterface, Zygote
 const MOI = MathOptInterface
@@ -77,4 +78,5 @@ end
     problem, x0 = make_problem(; first_order = true, integer = true)
     model = JuMP.backend(problem.model)
     @test MOI.get(model, MOI.NumberOfConstraints{MOI.VariableIndex,MOI.Integer}()) == 1
+end
 end

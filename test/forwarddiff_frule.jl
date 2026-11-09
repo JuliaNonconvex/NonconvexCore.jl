@@ -1,3 +1,4 @@
+@testitem "ForwardDiff frule" begin
 using NonconvexCore, Test, ForwardDiff, LinearAlgebra, SparseArrays
 using ChainRulesCore
 import DifferentiableFlatten
@@ -192,4 +193,5 @@ using DifferentiableFlatten: flatten
         g = ForwardDiff.gradient(x -> sum(VectorShift(2.0)(x)), [1.0, 2.0])
         @test g ≈ [6.0, 8.0]
     end
+end
 end

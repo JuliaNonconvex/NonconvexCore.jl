@@ -1,3 +1,4 @@
+@testitem "AD backends" begin
 using NonconvexCore, LinearAlgebra, Test, Zygote, ForwardDiff, SparseArrays
 import ADTypes
 import DifferentiationInterface as DI
@@ -137,4 +138,5 @@ end
     vg, gg = NonconvexCore.value_gradient(f2, x2)
     @test vg == sum(abs2, x2)
     @test gg ≈ 2x2
+end
 end

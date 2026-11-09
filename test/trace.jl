@@ -1,3 +1,4 @@
+@testitem "TraceFunction" begin
 using NonconvexCore, Test, Zygote, ForwardDiff, LinearAlgebra
 @testset "TraceFunction" begin
     @testset "Reverse-mode" begin
@@ -90,4 +91,5 @@ using NonconvexCore, Test, Zygote, ForwardDiff, LinearAlgebra
         ForwardDiff.gradient(f, [3.0, 3.0])
         @test f.trace == []
     end
+end
 end

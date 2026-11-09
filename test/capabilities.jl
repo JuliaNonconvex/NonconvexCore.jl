@@ -1,3 +1,4 @@
+@testitem "Capabilities" begin
 using NonconvexCore, Test
 using NonconvexCore: AbstractOptimizer, GenericResult, VecModel
 import NonconvexCore: Workspace
@@ -252,4 +253,5 @@ end
     end
     @test err isa ArgumentError
     @test occursin("solver_capabilities", sprint(showerror, err))
+end
 end

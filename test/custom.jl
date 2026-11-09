@@ -1,3 +1,4 @@
+@testitem "Custom gradients" begin
 using NonconvexCore, Test, Zygote, ForwardDiff, SparseArrays, Tracker, LinearAlgebra
 using ChainRulesCore
 using ChainRulesCore
@@ -64,4 +65,5 @@ end
     @test val == [1.0, 2.0]
     @test jac == [1.0 0.0; 0.0 1.0]
     @test calls[] == 1
+end
 end

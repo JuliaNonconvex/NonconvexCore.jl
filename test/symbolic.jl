@@ -1,3 +1,4 @@
+@testitem "Symbolics" begin
 using NonconvexCore, Test, ForwardDiff, ReverseDiff, Zygote
 using Symbolics, SparseArrays, LinearAlgebra
 
@@ -71,4 +72,5 @@ using Symbolics, SparseArrays, LinearAlgebra
         @test issparse(NonconvexCore.sparse_jacobian(vsym_model.ineq_constraints, xv))
         @test issparse(NonconvexCore.sparse_jacobian(vsym_model.eq_constraints, xv))
     end
+end
 end

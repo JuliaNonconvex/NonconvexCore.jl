@@ -176,5 +176,5 @@ end
 
 function ChainRulesCore.rrule(::typeof(_sparsevec), x)
     val = _sparsevec(x)
-    val, Δ -> (NoTangent(), _sparse_reshape(Δ, size(x)...))
+    val, Δ -> (NoTangent(), _sparse_reshape(_unthunk(Δ), size(x)...))
 end

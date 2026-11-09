@@ -1,3 +1,4 @@
+@testitem "Regressions" begin
 using Test
 import JuMP
 using NonconvexCore:
@@ -121,4 +122,5 @@ using NonconvexCore:
         s = Solution(x0 .+ 1, x0, 1.0, 2.0, 3.0, nothing, g, nothing, convstate)
         @test correctsolution!(s, vm, nothing) === s
     end
+end
 end

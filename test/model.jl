@@ -1,3 +1,4 @@
+@testitem "Model" begin
 using NonconvexCore, LinearAlgebra, Test, Zygote
 
 f(x::AbstractVector) = sqrt(x[2])
@@ -170,4 +171,5 @@ end
     # Models without an objective skip the objective check.
     empty_model = DictModel()
     NonconvexCore.check_finite_start!(empty_model, ())
+end
 end

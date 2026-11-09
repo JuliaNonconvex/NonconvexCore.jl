@@ -59,7 +59,9 @@ function ChainRulesCore.frule((_, Δx), f::CustomGradFunction, x::AbstractVector
         end
     else
         if !(∇ isa LazyJacobian) && issparse(∇) && nnz(∇) == 0
-            return v, project_to(spzeros(eltype(Δx), size(∇, 1)))
+            return v, project_to(v isa Real ? zero(eltype(v)) : spzeros(eltype(Δx), size(∇, 1)))
+        elseif v isa Real
+            return v, project_to(sum(∇ * Δx))
         else
             return v, project_to(_sparse_reshape(∇ * Δx, size(v)...))
         end

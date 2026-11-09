@@ -1,3 +1,4 @@
+@testitem "JuMP" begin
 using Test, NonconvexCore
 import JuMP
 
@@ -268,4 +269,5 @@ end
     obj = NonconvexCore.getobjective(dict_model)
     x0 = NonconvexCore.getinit(dict_model)
     @test obj(x0) == x0[:x]^3
+end
 end

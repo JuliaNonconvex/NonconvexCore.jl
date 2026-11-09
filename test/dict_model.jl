@@ -1,3 +1,4 @@
+@testitem "DictModel" begin
 using NonconvexCore, LinearAlgebra, Test, Zygote
 
 @testset "OrderedDict of reals" begin
@@ -101,4 +102,5 @@ end
     msg = sprint(showerror, err)
     @test occursin("DictModel", msg)
     @test occursin("Model instead of DictModel", msg)
+end
 end
