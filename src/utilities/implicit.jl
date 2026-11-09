@@ -6,6 +6,14 @@ _unthunk(x::NamedTuple) = map(_unthunk, x)
 _unthunk(x::Tuple) = map(_unthunk, x)
 
 # Parameters x, variables y, residuals f
+"""
+    ImplicitFunction(forward, conditions; tol = 1e-5, matrixfree = false, ...)
+
+Differentiates the function `y(x)` defined implicitly by
+`conditions(x, y) = 0` using the implicit function theorem. `forward(x)`
+returns the tuple `(y_star, df_dy)` solving the condition; `df_dy` may be
+`nothing` to compute the Jacobian by automatic differentiation.
+"""
 struct ImplicitFunction{matrixfree,F,C,L,T,B} <: Function
     # A function which takes x as input and returns a tuple (ystar, df/dy) such that f(x, ystar) = 0. df/dy is optional and can be replaced by nothing to compute it via automatic differentiation. Jacobian should only be returned if it's more cheaply available than using AD, e.g. when using BFGS approximation of the Hessian in IPOPT.
     forward::F

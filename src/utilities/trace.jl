@@ -1,3 +1,10 @@
+"""
+    TraceFunction(f; on_call = ..., on_grad = ...)
+
+Wraps `f` and records a trace of where it is evaluated (on the function call
+and/or on gradient evaluations), for debugging which part of a model calls a
+function during optimization.
+"""
 struct TraceFunction{F,V} <: Function
     f::F
     trace::V

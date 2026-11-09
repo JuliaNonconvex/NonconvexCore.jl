@@ -1,5 +1,12 @@
 import Zygote: unthunk
 
+"""
+    CustomGradFunction(f, g)
+
+Wraps the function `f` so that its gradient (or Jacobian, for vector-valued
+`f`) is computed by the user-supplied function `g` instead of automatic
+differentiation.
+"""
 struct CustomGradFunction{F,G} <: Function
     f::F
     g::G

@@ -1,3 +1,10 @@
+"""
+    LazyJacobian(; jvp = nothing, jtvp = nothing, symmetric = false)
+
+Represents a Jacobian by its matrix-free Jacobian-vector (`jvp`) and
+vector-Jacobian (`jtvp`) product operators instead of a matrix. Supports
+`adjoint`, `transpose` and matrix-vector multiplication.
+"""
 struct LazyJacobian{symmetric,J1,J2}
     jvp::J1
     jtvp::J2

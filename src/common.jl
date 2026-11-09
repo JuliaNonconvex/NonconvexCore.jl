@@ -37,14 +37,14 @@ A struct that summarizes the convergence state of a solution. The fields in this
  - `kkt_residual`: the Karush-Kuhn-Tucker (KKT) residual of the solution. If [`ScaledKKTCriteria`](@ref) is used instead of [`KKTCriteria`](@ref), the `kkt_residual` will be divided by a factor.
  - `ipopt_residual`: the modified KKT residual used in the IPOPT solver.
  - `infeas`: maximum infeasibility amount. This is 0 if the solution is feasible.
- - `x_converged`: true if `Δx` is less than the `x` tolerance in [`MMAOptions`](@ref).
- - `fabs_converged`: true if `Δf` is less than the `f` tolerance in [`MMAOptions`](@ref).
- - `frel_converged`: true if `relΔf` is less than the `f` tolerance in [`MMAOptions`](@ref).
- - `kkt_converged`: true if the `kkt_residual` is less than the KKT tolerance in [`MMAOptions`](@ref).
- - `ipopt_converged`: true if the `ipopt_residual` is less than the KKT tolerance in [`MMAOptions`](@ref).
- - `infeas_converged`: true if `infeas` is less than the infeasibility tolerance in [`MMAOptions`](@ref).
+ - `x_converged`: true if `Δx` is less than the `x` tolerance in [`Tolerance`](@ref).
+ - `fabs_converged`: true if `Δf` is less than the `f` tolerance in [`Tolerance`](@ref).
+ - `frel_converged`: true if `relΔf` is less than the `f` tolerance in [`Tolerance`](@ref).
+ - `kkt_converged`: true if the `kkt_residual` is less than the KKT tolerance in [`Tolerance`](@ref).
+ - `ipopt_converged`: true if the `ipopt_residual` is less than the KKT tolerance in [`Tolerance`](@ref).
+ - `infeas_converged`: true if `infeas` is less than the infeasibility tolerance in [`Tolerance`](@ref).
  - `f_increased`: true if the objective value of the current solution is higher than that of the previous solution.
- - `converged`: true if the solution satisfies the convergence criteria of choice. See [`ConvergenceCriteria`](@ref) for more on the different convergence criteria available.
+ - `converged`: true if the solution satisfies the convergence criteria of choice. See [`ConvergenceCriteria`](@ref NonconvexCore.ConvergenceCriteria) for more on the different convergence criteria available.
 """
 @with_kw mutable struct ConvergenceState{T}
     Δx::T = Inf
@@ -68,11 +68,11 @@ ConvergenceState(::Type{T}) where {T} = ConvergenceState{T}()
     Tolerance
 
 A struct specifying the different tolerances used to assess the convergence of the algorithms. The following are the fields of `Tolerance`:
- - `x`: the tolerance for `Δx` in [`ConvergenceState`](@ref). `x_converged` will be true if `Δx` is less than the `x` tolerance in `Tolerance`. This is used to assess convergence when the [`GenericCriteria`](@ref) is used as the convergence criteria. 
- - `fabs`: the tolerance for `Δf` in [`ConvergenceState`](@ref). `f_converged` will be true if `Δf` is less than the `fabs` tolerance in `Tolerance`. This is used to assess convergence when the [`GenericCriteria`](@ref) is used as the convergence criteria.
- - `frel`: the tolerance for `relΔf` in [`ConvergenceState`](@ref). `f_converged` will be true if `relΔf` is less than the `frel` tolerance in `Tolerance`. This is used to assess convergence when the [`GenericCriteria`](@ref) is used as the convergence criteria.
- - `kkt`: the KKT tolerance. `kkt_converged` in [`ConvergenceState`](@ref) will be true if the `kkt_residual` is less than the KKT tolerance. And `ipopt_converged` in [`ConvergenceState`](@ref) will be true if `ipopt_residual` is less than the KKT tolerance. This is used to assess convergence when the [`KKTCriteria`](@ref), the [`ScaledKKTCriteria`](@ref) or [`IpoptCriteria`](@ref) criteria is used as the convergence criteria.
- - `infeas`: the maximum infeasibility tolerance. `infeas_converged` in [`ConvergenceState`](@ref) will be true if the maximum infeasibility is less than the infeasibility tolerance. This is used to assess convergence regardless of the convergence criteria used.
+ - `x`: the tolerance for `Δx` in [`ConvergenceState`](@ref NonconvexCore.ConvergenceState). `x_converged` will be true if `Δx` is less than the `x` tolerance in `Tolerance`. This is used to assess convergence when the [`GenericCriteria`](@ref) is used as the convergence criteria. 
+ - `fabs`: the tolerance for `Δf` in [`ConvergenceState`](@ref NonconvexCore.ConvergenceState). `f_converged` will be true if `Δf` is less than the `fabs` tolerance in `Tolerance`. This is used to assess convergence when the [`GenericCriteria`](@ref) is used as the convergence criteria.
+ - `frel`: the tolerance for `relΔf` in [`ConvergenceState`](@ref NonconvexCore.ConvergenceState). `f_converged` will be true if `relΔf` is less than the `frel` tolerance in `Tolerance`. This is used to assess convergence when the [`GenericCriteria`](@ref) is used as the convergence criteria.
+ - `kkt`: the KKT tolerance. `kkt_converged` in [`ConvergenceState`](@ref NonconvexCore.ConvergenceState) will be true if the `kkt_residual` is less than the KKT tolerance. And `ipopt_converged` in [`ConvergenceState`](@ref NonconvexCore.ConvergenceState) will be true if `ipopt_residual` is less than the KKT tolerance. This is used to assess convergence when the [`KKTCriteria`](@ref), the [`ScaledKKTCriteria`](@ref) or [`IpoptCriteria`](@ref) criteria is used as the convergence criteria.
+ - `infeas`: the maximum infeasibility tolerance. `infeas_converged` in [`ConvergenceState`](@ref NonconvexCore.ConvergenceState) will be true if the maximum infeasibility is less than the infeasibility tolerance. This is used to assess convergence regardless of the convergence criteria used.
 
 For more on convergence criteria, see [`GenericCriteria`](@ref), [`KKTCriteria`](@ref), [`ScaledKKTCriteria`](@ref) and [`IpoptCriteria`](@ref).
 """
@@ -113,28 +113,28 @@ This is a generic convergence criteria that uses:
 2. The change in the objective value, `Δf`, and
 3. The change percentage in the objective value, `Δf`, and
 4. The maximum infeasibility `infeas`.
-to assess convergence. More details are given in [`assess_convergence!`](@ref).
+to assess convergence. More details are given in [`assess_convergence!`](@ref NonconvexCore.assess_convergence!).
 """
 struct GenericCriteria <: ConvergenceCriteria end
 
 """
     KKTCriteria
 
-This convergence criteria uses the Karush-Kuhn-Tucker residual and maximum infeasibility to assess convergence. More details are given in [`assess_convergence!`](@ref).
+This convergence criteria uses the Karush-Kuhn-Tucker residual and maximum infeasibility to assess convergence. More details are given in [`assess_convergence!`](@ref NonconvexCore.assess_convergence!).
 """
 struct KKTCriteria <: ConvergenceCriteria end
 
 """
     IpoptCriteria
 
-This convergence criteria uses a scaled version of the Karush-Kuhn-Tucker (KKT) residual and maximum infeasibility to assess convergence. This scaled KKT residual is used in the IPOPT nonlinear programming solver as explained in [this paper](http://cepac.cheme.cmu.edu/pasilectures/biegler/ipopt.pdf). More details are given in [`assess_convergence!`](@ref). 
+This convergence criteria uses a scaled version of the Karush-Kuhn-Tucker (KKT) residual and maximum infeasibility to assess convergence. This scaled KKT residual is used in the IPOPT nonlinear programming solver as explained in [this paper](http://cepac.cheme.cmu.edu/pasilectures/biegler/ipopt.pdf). More details are given in [`assess_convergence!`](@ref NonconvexCore.assess_convergence!). 
 """
 struct IpoptCriteria <: ConvergenceCriteria end
 
 """
     ScaledKKTCriteria
 
-This convergence criteria uses another scaled version of the Karush-Kuhn-Tucker (KKT) residual and maximum infeasibility to assess convergence. In particular if the objective was scaled by a factor `m`, the KKT residual will be scaled down by a factor `max(m, 1/m)`. This scaling was found to make the convergence criteria less sensitive to scale compared to using the traditional KKT residual. More details are given in [`assess_convergence!`](@ref). 
+This convergence criteria uses another scaled version of the Karush-Kuhn-Tucker (KKT) residual and maximum infeasibility to assess convergence. In particular if the objective was scaled by a factor `m`, the KKT residual will be scaled down by a factor `max(m, 1/m)`. This scaling was found to make the convergence criteria less sensitive to scale compared to using the traditional KKT residual. More details are given in [`assess_convergence!`](@ref NonconvexCore.assess_convergence!). 
 """
 struct ScaledKKTCriteria <: ConvergenceCriteria end
 
@@ -183,7 +183,7 @@ A summary result struct returned by [`optimize`](@ref), including following fiel
  - `iter`: number of inner iterations run
  - `maxiter_reached`: true if the algorithm stopped due to reaching the maximum number of iterations
  - `tol`: an instance of [`Tolerance`](@ref) that specifies the convergence tolerances
- - `convstate`: an instance of [`ConvergenceCriteria`](@ref) that summarizes the convergence state of the best solution found
+ - `convstate`: an instance of [`ConvergenceCriteria`](@ref NonconvexCore.ConvergenceCriteria) that summarizes the convergence state of the best solution found
  - `fcalls`: the number of times the objective and constraint functions were called during the optimization
 """
 mutable struct GenericResult{
@@ -212,24 +212,32 @@ abstract type AbstractModel end
 ```
 optimize(
     model::AbstractModel,
-    optimizer::AbstractOptimizer = MMA02(),
-    x0::AbstractVector;
+    optimizer::AbstractOptimizer,
+    x0;
     options,
     convcriteria::ConvergenceCriteria = KKTCriteria(),
-    plot_trace::Bool = false,
-    callback::Function = plot_trace ? LazyPlottingCallback() : NoCallback(),
+    callback = NoCallback(),
     kwargs...,
 )
 
 ```
 
-Optimizes `model` using the algorithm `optimizer`, e.g. an instance of [`MMA87`](@ref) or [`MMA02`](@ref). `x0` is the initial solution. The keyword arguments are:
- - `options`: used to set the optimization options. It is an instance of [`MMAOptions`](@ref) for [`MMA87`](@ref) and [`MMA02`](@ref).
- - `convcriteria`: an instance of [`ConvergenceCriteria`](@ref) that specifies the convergence criteria of the MMA algorithm.
- - `plot_trace`: a Boolean that if true specifies the callback to be an instance of [`PlottingCallback`](@ref) and plots a live trace of the last 50 solutions.
- - `callback`: a function that is called on `solution` in every iteration of the algorithm. This can be used to store information about the optimization process.
+Optimizes `model` using the algorithm `optimizer` (a solver package's
+`AbstractOptimizer` instance, e.g. `IpoptAlg()` from NonconvexIpopt). `x0` is
+the initial solution, and defaults to [`getinit`](@ref NonconvexCore.getinit)
+when omitted. The keyword arguments are:
 
- The details of the MMA optimization algorithms can be found in the original [1987 MMA paper](https://onlinelibrary.wiley.com/doi/abs/10.1002/nme.1620240207) and the [2002 paper](https://epubs.siam.org/doi/abs/10.1137/S1052623499362822).
+ - `options`: the solver options object of the selected algorithm.
+ - `convcriteria`: an instance of [`ConvergenceCriteria`](@ref NonconvexCore.ConvergenceCriteria) that
+   specifies the convergence criteria of the algorithm.
+ - `callback`: a function that is called on `solution` in every iteration of
+   the algorithm. This can be used to store information about the
+   optimization process.
+
+The model is validated against the solver's declared capabilities with
+[`checksubproblem!`](@ref) before the optimization starts, and the returned
+result contains the `minimum` and `minimizer` fields (see
+[Optimization result](result.md)).
 """
 function optimize(
     model::AbstractModel,
@@ -327,3 +335,19 @@ function clamp_and_evaluate!(model::AbstractModel, x::AbstractVector)
     x .= clamp.(x, box_min, box_max)
     model.objective(x)
 end
+
+"""
+    ConvergenceCriteria
+
+Abstract supertype of the convergence criteria passed to `optimize` (e.g.
+`GenericCriteria`, `KKTCriteria`, `ScaledKKTCriteria`, `IpoptCriteria`).
+"""
+ConvergenceCriteria
+
+"""
+    ConvergenceState
+
+The convergence state computed by a `ConvergenceCriteria` from the residuals
+of a solution, together with the tolerance and call counters.
+"""
+ConvergenceState

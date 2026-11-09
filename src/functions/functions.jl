@@ -302,3 +302,58 @@ end
 getdim(c::SDConstraint) = c.dim
 
 getfunction(c::SDConstraint) = c.f
+
+"""
+    AbstractFunction
+
+Abstract supertype of every function wrapper used in NonconvexCore models
+(objectives, constraints and function collections).
+"""
+AbstractFunction
+
+"""
+    AbstractConstraint <: AbstractFunction
+
+Abstract supertype of the constraint function wrappers.
+"""
+AbstractConstraint
+
+"""
+    Objective <: AbstractFunction
+
+The objective function of a model, with its multiplier (`multiple`) and flags.
+"""
+Objective
+
+"""
+    IneqConstraint <: AbstractConstraint
+
+An inequality constraint function, feasible when its value is `<= 0`, with a
+right-hand side offset `rhs` and flags.
+"""
+IneqConstraint
+
+"""
+    EqConstraint <: AbstractConstraint
+
+An equality constraint function, feasible when its value is `0`, with a
+right-hand side offset `rhs` and flags.
+"""
+EqConstraint
+
+"""
+    SDConstraint <: AbstractConstraint
+
+A semidefinite constraint: the matrix returned by its function (or
+reconstructed from the vector of its lower-triangular entries) must be
+positive semidefinite.
+"""
+SDConstraint
+
+"""
+    VectorOfFunctions <: AbstractFunction
+
+A collection of function wrappers evaluated as one concatenated vector-valued
+function.
+"""
+VectorOfFunctions

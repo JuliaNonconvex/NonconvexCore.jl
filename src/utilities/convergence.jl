@@ -194,3 +194,11 @@ function getresiduals(solution::Solution, model::AbstractModel, ::IpoptCriteria)
     end
     return missing, res, infeas, f
 end
+
+"""
+    assess_convergence!(workspace::Workspace)
+
+Updates the workspace by evaluating the convergence criteria against the
+model at the current solution.
+"""
+assess_convergence!

@@ -168,7 +168,7 @@ function ChainRulesCore.rrule(f::JuMPSymbolicFunction, x)
 end
 
 """
-    JumpEvaluator
+    JuMPEvaluator
 
 A single MathOptInterface `Nonlinear` evaluator over an entire JuMP model
 converted into a NonconvexCore model. The objective and every constraint are
@@ -185,7 +185,7 @@ value `sign * f_k(x) + shift` (Nonconvex convention: feasible when <= 0);
 equality row `k` has value `f_k(x) + shift` (feasible when 0). The objective
 is `objective_sign * f_obj(x)`.
 """
-mutable struct JumpEvaluator{E,V}
+mutable struct JuMPEvaluator{E,V}
     ev::E
     vars::V
     objective_sign::Float64
@@ -204,7 +204,7 @@ mutable struct JumpEvaluator{E,V}
     μ_buffer::Vector{Float64}  # Lagrangian multipliers in evaluator row order
 end
 
-function JumpEvaluator(
+function JuMPEvaluator(
     model::MOI.Nonlinear.Model,
     vars::Vector{MOI.VariableIndex},
     objective_sign::Float64,
@@ -265,7 +265,7 @@ function JumpEvaluator(
         push!(hess_rows, i)
         push!(hess_cols, j)
     end
-    return JumpEvaluator(
+    return JuMPEvaluator(
         ev,
         vars,
         objective_sign,
@@ -288,106 +288,106 @@ end
 # Model-level callables: they take the model's structured variable container
 # and evaluate the corresponding part of the single nonlinear model.
 
-struct JumpModelObjective{M,K} <: Function
+struct JuMPModelObjective{M,K} <: Function
     m::M
     ks::K
 end
-(f::JumpModelObjective)(x) = JumpModelObjectiveVector(f.m)(flatten(x, f.ks)[1])
+(f::JuMPModelObjective)(x) = JuMPModelObjectiveVector(f.m)(flatten(x, f.ks)[1])
 
-struct JumpModelIneq{M,K} <: Function
+struct JuMPModelIneq{M,K} <: Function
     m::M
     ks::K
 end
-(f::JumpModelIneq)(x) = JumpModelIneqVector(f.m)(flatten(x, f.ks)[1])
+(f::JuMPModelIneq)(x) = JuMPModelIneqVector(f.m)(flatten(x, f.ks)[1])
 
-struct JumpModelEq{M,K} <: Function
+struct JuMPModelEq{M,K} <: Function
     m::M
     ks::K
 end
-(f::JumpModelEq)(x) = JumpModelEqVector(f.m)(flatten(x, f.ks)[1])
+(f::JuMPModelEq)(x) = JuMPModelEqVector(f.m)(flatten(x, f.ks)[1])
 
 # Vector-level callables: these are what reverse-mode backends encounter
 # after the model variables are flattened, and each carries a ChainRules
 # `rrule` providing the derivatives from the evaluator directly.
 
-struct JumpModelObjectiveVector{M} <: Function
+struct JuMPModelObjectiveVector{M} <: Function
     m::M
 end
-function (f::JumpModelObjectiveVector)(x::AbstractVector)
+function (f::JuMPModelObjectiveVector)(x::AbstractVector)
     return f.m.objective_sign * MOI.eval_objective(f.m.ev, x)
 end
-function ChainRulesCore.rrule(f::JumpModelObjectiveVector, x::AbstractVector)
+function ChainRulesCore.rrule(f::JuMPModelObjectiveVector, x::AbstractVector)
     y = f(x)
     return y, Δ -> (NoTangent(), jump_objective_gradient(f.m, x) .* _unthunk(Δ))
 end
 
-struct JumpModelIneqVector{M} <: Function
+struct JuMPModelIneqVector{M} <: Function
     m::M
 end
-function (f::JumpModelIneqVector)(x::AbstractVector)
+function (f::JuMPModelIneqVector)(x::AbstractVector)
     g = zeros(f.m.nineq + f.m.neq)
     jump_constraint_values!(f.m, g, x)
     return g[1:f.m.nineq]
 end
-function ChainRulesCore.rrule(f::JumpModelIneqVector, x::AbstractVector)
+function ChainRulesCore.rrule(f::JuMPModelIneqVector, x::AbstractVector)
     y = f(x)
     J = jump_jacobian(f.m, x)[1:f.m.nineq, :]
     return y, Δ -> (NoTangent(), J' * _unthunk(Δ))
 end
 
-struct JumpModelEqVector{M} <: Function
+struct JuMPModelEqVector{M} <: Function
     m::M
 end
-function (f::JumpModelEqVector)(x::AbstractVector)
+function (f::JuMPModelEqVector)(x::AbstractVector)
     g = zeros(f.m.nineq + f.m.neq)
     jump_constraint_values!(f.m, g, x)
     return g[f.m.nineq+1:end]
 end
-function ChainRulesCore.rrule(f::JumpModelEqVector, x::AbstractVector)
+function ChainRulesCore.rrule(f::JuMPModelEqVector, x::AbstractVector)
     y = f(x)
     J = jump_jacobian(f.m, x)[f.m.nineq+1:end, :]
     return y, Δ -> (NoTangent(), J' * _unthunk(Δ))
 end
 
 """
-    jump_objective_gradient(m::JumpEvaluator, x)
+    jump_objective_gradient(m::JuMPEvaluator, x)
 
 Returns the gradient of the converted objective at `x`, computed by the
 MathOptInterface Nonlinear evaluator.
 """
-function jump_objective_gradient(m::JumpEvaluator, x)
+function jump_objective_gradient(m::JuMPEvaluator, x)
     g = zeros(length(x))
     jump_objective_gradient!(m, g, x)
     return g
 end
 
-function jump_objective_gradient!(m::JumpEvaluator, g, x)
+function jump_objective_gradient!(m::JuMPEvaluator, g, x)
     MOI.eval_objective_gradient(m.ev, g, x)
     m.objective_sign == 1.0 || (g .*= m.objective_sign)
     return g
 end
 
 """
-    jump_jacobian_structure(m::JumpEvaluator)
+    jump_jacobian_structure(m::JuMPEvaluator)
 
 Returns `(rows, columns)` of the converted model's constraint Jacobian, with
 rows ordered inequality-first like the constraint values.
 """
-jump_jacobian_structure(m::JumpEvaluator) = (m.jac_rows, m.jac_cols)
+jump_jacobian_structure(m::JuMPEvaluator) = (m.jac_rows, m.jac_cols)
 
 """
-    jump_jacobian(m::JumpEvaluator, x)
+    jump_jacobian(m::JuMPEvaluator, x)
 
 Returns the constraint Jacobian of the converted model at `x` as a sparse
 matrix, computed by the MathOptInterface Nonlinear evaluator.
 """
-function jump_jacobian(m::JumpEvaluator, x)
+function jump_jacobian(m::JuMPEvaluator, x)
     vals = zeros(length(m.jac_rows))
     jump_jacobian!(m, vals, x)
     return sparse(m.jac_rows, m.jac_cols, vals, m.nineq + m.neq, length(x))
 end
 
-function jump_jacobian!(m::JumpEvaluator, vals, x)
+function jump_jacobian!(m::JuMPEvaluator, vals, x)
     MOI.eval_constraint_jacobian(m.ev, m.jac_buffer, x)
     for (k, evrow) in enumerate(m.jac_evrows)
         vals[k] = m.ev_sign[evrow] * m.jac_buffer[k]
@@ -396,14 +396,14 @@ function jump_jacobian!(m::JumpEvaluator, vals, x)
 end
 
 """
-    jump_hessian_structure(m::JumpEvaluator)
+    jump_hessian_structure(m::JuMPEvaluator)
 
 Returns `(rows, columns)` of the converted model's Lagrangian Hessian in
 lower-triangular form.
 """
-jump_hessian_structure(m::JumpEvaluator) = (m.hess_rows, m.hess_cols)
+jump_hessian_structure(m::JuMPEvaluator) = (m.hess_rows, m.hess_cols)
 
-function jump_hessian_lagrangian!(m::JumpEvaluator, vals, x, obj_factor, lambda)
+function jump_hessian_lagrangian!(m::JuMPEvaluator, vals, x, obj_factor, lambda)
     μ = m.μ_buffer
     for k in eachindex(m.myrow_of_evrow)
         μ[k] = m.ev_sign[k] * lambda[m.myrow_of_evrow[k]]
@@ -412,7 +412,7 @@ function jump_hessian_lagrangian!(m::JumpEvaluator, vals, x, obj_factor, lambda)
     return vals
 end
 
-function jump_constraint_values!(m::JumpEvaluator, g, x)
+function jump_constraint_values!(m::JuMPEvaluator, g, x)
     MOI.eval_constraint(m.ev, m.g_buffer, x)
     for k in eachindex(m.myrow_of_evrow)
         my = m.myrow_of_evrow[k]
@@ -425,11 +425,11 @@ end
 # (its internals branch on values); the converted model's derivatives come
 # from the evaluator directly instead.
 
-function sparse_jacobian(f::JumpModelIneq, x, backend::AbstractADType = DEFAULT_AD_BACKEND[])
+function sparse_jacobian(f::JuMPModelIneq, x, backend::AbstractADType = DEFAULT_AD_BACKEND[])
     return jump_jacobian(f.m, flatten(x, f.ks)[1])[1:f.m.nineq, :]
 end
 
-function sparse_jacobian(f::JumpModelEq, x, backend::AbstractADType = DEFAULT_AD_BACKEND[])
+function sparse_jacobian(f::JuMPModelEq, x, backend::AbstractADType = DEFAULT_AD_BACKEND[])
     return jump_jacobian(f.m, flatten(x, f.ks)[1])[f.m.nineq+1:end, :]
 end
 
@@ -439,11 +439,11 @@ function sparse_jacobian(c::VectorOfFunctions, x, backend::AbstractADType = DEFA
         g = g isa FunctionWrapper ? getfunction(g) : g
         g
     end
-    if length(raws) == 1 && raws[1] isa JumpModelIneq
+    if length(raws) == 1 && raws[1] isa JuMPModelIneq
         m = raws[1].m
         xv = x isa AbstractVector ? x : flatten(x, raws[1].ks)[1]
         return jump_jacobian(m, xv)[1:m.nineq, :]
-    elseif length(raws) == 1 && raws[1] isa JumpModelEq
+    elseif length(raws) == 1 && raws[1] isa JuMPModelEq
         m = raws[1].m
         xv = x isa AbstractVector ? x : flatten(x, raws[1].ks)[1]
         return jump_jacobian(m, xv)[m.nineq+1:end, :]
@@ -455,20 +455,20 @@ end
 # the value-and-derivative family evaluates converted model functions
 # directly at the flattened vector.
 
-function value_gradient(f::FlattenedFunction{<:JumpModelObjective}, x::AbstractVector, backend::AbstractADType = DEFAULT_AD_BACKEND[])
+function value_gradient(f::FlattenedFunction{<:JuMPModelObjective}, x::AbstractVector, backend::AbstractADType = DEFAULT_AD_BACKEND[])
     jf = getrawfunction(f)
     m = jf.m
     return m.objective_sign * MOI.eval_objective(m.ev, x), jump_objective_gradient(m, x)
 end
 
-function value_jacobian(f::FlattenedFunction{<:JumpModelObjective}, x::AbstractVector, backend::AbstractADType = DEFAULT_AD_BACKEND[])
+function value_jacobian(f::FlattenedFunction{<:JuMPModelObjective}, x::AbstractVector, backend::AbstractADType = DEFAULT_AD_BACKEND[])
     jf = getrawfunction(f)
     m = jf.m
     y = m.objective_sign * MOI.eval_objective(m.ev, x)
     return y, adjoint(jump_objective_gradient(m, x))
 end
 
-function value_jacobian(f::FlattenedFunction{<:FunctionWrapper{<:JumpModelIneq}}, x::AbstractVector, backend::AbstractADType = DEFAULT_AD_BACKEND[])
+function value_jacobian(f::FlattenedFunction{<:FunctionWrapper{<:JuMPModelIneq}}, x::AbstractVector, backend::AbstractADType = DEFAULT_AD_BACKEND[])
     jf = getfunction(getrawfunction(f))
     m = jf.m
     g = zeros(m.nineq + m.neq)
@@ -477,7 +477,7 @@ function value_jacobian(f::FlattenedFunction{<:FunctionWrapper{<:JumpModelIneq}}
     return g[1:m.nineq], Adjoint(Matrix(transpose(J)))
 end
 
-function value_jacobian(f::FlattenedFunction{<:FunctionWrapper{<:JumpModelEq}}, x::AbstractVector, backend::AbstractADType = DEFAULT_AD_BACKEND[])
+function value_jacobian(f::FlattenedFunction{<:FunctionWrapper{<:JuMPModelEq}}, x::AbstractVector, backend::AbstractADType = DEFAULT_AD_BACKEND[])
     jf = getfunction(getrawfunction(f))
     m = jf.m
     g = zeros(m.nineq + m.neq)

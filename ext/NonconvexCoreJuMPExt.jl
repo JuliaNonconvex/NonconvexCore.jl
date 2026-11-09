@@ -7,8 +7,8 @@ const MOI = MathOptInterface
 using SparseArrays: sparse, sparsevec, spzeros
 using LinearAlgebra: dot, LowerTriangular
 using NonconvexCore: DictModel, addvar!, set_objective!, add_ineq_constraint!,
-    add_eq_constraint!, flatten, OrderedDict, JumpEvaluator,
-    JumpModelObjective, JumpModelIneq, JumpModelEq, get_variable_info,
+    add_eq_constraint!, flatten, OrderedDict, JuMPEvaluator,
+    JuMPModelObjective, JuMPModelIneq, JuMPModelEq, get_variable_info,
     _ordered_jump_variables, _nonlinear_constraints, VecModel, getinit,
     CountingFunction, getobjective, getmin, getmax, DEFAULT_AD_BACKEND,
     AbstractADType, sparse_jacobian, sparse_hessian, nvalues, fill_indices!,
@@ -368,10 +368,10 @@ function _dict_model_from_jump_expressions(model, dict_model, ks, nvars)
             push!(eq_shift, -set.value)
         end
     end
-    je = JumpEvaluator(nl, vars, obj_sign, ineq_cis, ineq_sign, ineq_shift, eq_cis, eq_shift)
-    set_objective!(dict_model, JumpModelObjective(je, ks))
-    je.nineq > 0 && add_ineq_constraint!(dict_model, JumpModelIneq(je, ks))
-    je.neq > 0 && add_eq_constraint!(dict_model, JumpModelEq(je, ks))
+    je = JuMPEvaluator(nl, vars, obj_sign, ineq_cis, ineq_sign, ineq_shift, eq_cis, eq_shift)
+    set_objective!(dict_model, JuMPModelObjective(je, ks))
+    je.nineq > 0 && add_ineq_constraint!(dict_model, JuMPModelIneq(je, ks))
+    je.neq > 0 && add_eq_constraint!(dict_model, JuMPModelEq(je, ks))
     return dict_model
 end
 
@@ -381,7 +381,7 @@ struct JuMPProblem{E,M,V}
     vars::V
 end
 
-struct JuMPEvaluator{XL,XU,X,CL,CU,O,C,G,J,JS,H,HS} <: MOI.AbstractNLPEvaluator
+struct JuMPProblemEvaluator{XL,XU,X,CL,CU,O,C,G,J,JS,H,HS} <: MOI.AbstractNLPEvaluator
     nvars::Int
     xlb::XL
     xub::XU
@@ -539,7 +539,7 @@ function NonconvexCore.get_jump_problem(
         end
     end
 
-    evaluator = JuMPEvaluator(
+    evaluator = JuMPProblemEvaluator(
         nvars,
         xlb,
         xub,
@@ -584,7 +584,7 @@ function NonconvexCore.get_jump_problem(
     return JuMPProblem(evaluator, jump_model, vars)
 end
 
-function MOI.initialize(d::JuMPEvaluator, requested_features::Vector{Symbol})
+function MOI.initialize(d::JuMPProblemEvaluator, requested_features::Vector{Symbol})
     for feat in requested_features
         if !(feat in MOI.features_available(d))
             error("Unsupported feature $feat")
@@ -593,36 +593,36 @@ function MOI.initialize(d::JuMPEvaluator, requested_features::Vector{Symbol})
     end
 end
 
-function MOI.features_available(::JuMPEvaluator)
+function MOI.features_available(::JuMPProblemEvaluator)
     return [:Grad, :Jac, :Hess]
 end
 
-MOI.eval_objective(d::JuMPEvaluator, x) = d.obj(x)
+MOI.eval_objective(d::JuMPProblemEvaluator, x) = d.obj(x)
 
-function MOI.eval_constraint(d::JuMPEvaluator, g, x)
+function MOI.eval_constraint(d::JuMPProblemEvaluator, g, x)
     d.eval_g(x, g)
     return
 end
 
-function MOI.eval_objective_gradient(d::JuMPEvaluator, grad_f, x)
+function MOI.eval_objective_gradient(d::JuMPProblemEvaluator, grad_f, x)
     d.eval_grad_f(x, grad_f)
     return
 end
 
-function MOI.jacobian_structure(d::JuMPEvaluator)
+function MOI.jacobian_structure(d::JuMPProblemEvaluator)
     return d.jac_structure()
 end
 # lower triangle only
-function MOI.hessian_lagrangian_structure(d::JuMPEvaluator)
+function MOI.hessian_lagrangian_structure(d::JuMPProblemEvaluator)
     return d.lag_hess_structure()
 end
 
-function MOI.eval_constraint_jacobian(d::JuMPEvaluator, J, x)
+function MOI.eval_constraint_jacobian(d::JuMPProblemEvaluator, J, x)
     d.eval_jac_g(x, J)
     return
 end
 
-function MOI.eval_hessian_lagrangian(d::JuMPEvaluator, H, x, σ, μ)
+function MOI.eval_hessian_lagrangian(d::JuMPProblemEvaluator, H, x, σ, μ)
     d.eval_h(x, σ, μ, H)
     return
 end

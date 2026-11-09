@@ -90,8 +90,8 @@ end
 
 A callable that evaluates the wrapped function `f` on the structure rebuilt
 by `unflattenx` from a flat vector, and flattens the output. The raw function
-and the input unflattening are exposed via [`getrawfunction`](@ref) and
-[`getinputunflatten`](@ref) so that solvers can evaluate all model functions
+and the input unflattening are exposed via [`getrawfunction`](@ref NonconvexCore.getrawfunction) and
+[`getinputunflatten`](@ref NonconvexCore.getinputunflatten) so that solvers can evaluate all model functions
 against a single reconstructed structure per point.
 """
 struct FlattenedFunction{F,U} <: Function
@@ -108,7 +108,7 @@ end
     getrawfunction(f)
 
 Returns the raw function wrapped by `f`, callable on the structure returned
-by [`getinputunflatten`](@ref). For a `FlattenedFunction` this is the
+by [`getinputunflatten`](@ref NonconvexCore.getinputunflatten). For a `FlattenedFunction` this is the
 function as defined by the user before flattening.
 """
 getrawfunction(f::FlattenedFunction) = f.f

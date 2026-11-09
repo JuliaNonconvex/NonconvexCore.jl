@@ -43,7 +43,7 @@ end
 """
     value_jacobian_transpose(f::Function, x::AbstractVector, [backend::ADTypes.AbstractADType])
 
-Returns the value and transpose of the Jacobian of `f` at the point `x`. This calls [`value_jacobian`](@ref) and transposes the Jacobian.
+Returns the value and transpose of the Jacobian of `f` at the point `x`. This calls [`value_jacobian`](@ref NonconvexCore.value_jacobian) and transposes the Jacobian.
 """
 function value_jacobian_transpose(f::Function, x::AbstractVector, backend::AbstractADType = DEFAULT_AD_BACKEND[])
     val, jac = value_jacobian(f, x, backend)
@@ -68,3 +68,32 @@ value_hessian(f::Function, x::AbstractVector, backend::AbstractADType = DEFAULT_
     DI.hessian(f, backend, x)
 
 
+
+"""
+    value_gradient(f, x, [backend])
+
+Returns the value and gradient of the scalar-valued function `f` at `x`.
+"""
+value_gradient
+
+"""
+    value_jacobian(f, x, [backend])
+
+Returns the value and Jacobian of the function (or `VectorOfFunctions`
+collection) `f` at `x`.
+"""
+value_jacobian
+
+"""
+    value_jacobian_transpose(f, x, [backend])
+
+Returns the value and the transpose of the Jacobian of `f` at `x`.
+"""
+value_jacobian_transpose
+
+"""
+    value_hessian(f, x, [backend])
+
+Returns the Hessian of the scalar-valued function `f` at `x`.
+"""
+value_hessian

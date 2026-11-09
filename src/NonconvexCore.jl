@@ -11,7 +11,6 @@ export Model,
     add_ineq_constraint!,
     add_eq_constraint!,
     add_sd_constraint!,
-    decompress_symmetric,
     getmin,
     getmax,
     setmin!,
@@ -74,7 +73,7 @@ const DEFAULT_AD_BACKEND = Ref{AbstractADType}(AutoZygote())
     set_ad_backend!(backend::ADTypes.AbstractADType)
 
 Sets the package-wide default automatic differentiation backend used by
-[`value_gradient`](@ref), [`value_jacobian`](@ref), `sparse_jacobian` and the
+[`value_gradient`](@ref NonconvexCore.value_gradient), [`value_jacobian`](@ref NonconvexCore.value_jacobian), `sparse_jacobian` and the
 solver-facing derivative evaluators. The package providing the backend (e.g.
 Enzyme.jl for `AutoEnzyme()`) must be loaded by the caller.
 """
