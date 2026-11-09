@@ -18,10 +18,32 @@ function value_jacobian(f::Function, x::AbstractVector, backend::AbstractADType 
     if y isa Number
         _, g = DI.value_and_gradient(f, backend, x)
         return y, g'
-    else
-        _, J = DI.value_and_jacobian(f, backend, x)
-        return y, Adjoint(Matrix(transpose(J)))
     end
+    if backend isa AutoZygote
+        # Zygote's pullback of array-valued outputs can double-accumulate
+        # entries when the function reconstructs flattened containers (e.g.
+        # dictionaries); each scalar row differentiates exactly, so assemble
+        # the Jacobian row by row.
+        g = f
+        while g isa AbstractFunction && !(g isa FlattenedFunction)
+            g = getfunction(g)
+        end
+        if g isa FlattenedFunction
+            return _value_jacobian_zygote_rows(f, x, y, backend)
+        end
+    end
+    _, J = DI.value_and_jacobian(f, backend, x)
+    return y, Adjoint(Matrix(transpose(J)))
+end
+
+function _value_jacobian_zygote_rows(f, x, y, backend)
+    m = length(y)
+    J = Matrix{Float64}(undef, m, length(x))
+    for k = 1:m
+        _, g = DI.value_and_gradient(z -> f(z)[k], backend, x)
+        J[k, :] .= g
+    end
+    return y, Adjoint(transpose(J))
 end
 function value_jacobian(c::VectorOfFunctions, x::AbstractVector, backend::AbstractADType = DEFAULT_AD_BACKEND[])
     isempty(c.fs) && return (c(x), adjoint(zeros(length(x), 0)))
