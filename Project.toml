@@ -37,6 +37,7 @@ NonconvexCoreSymbolicsExt = "Symbolics"
 [compat]
 ADTypes = "1"
 ChainRulesCore = "0.10, 1"
+ConvergencePlots = "0.1, 0.2"
 DifferentiationInterface = "0.7"
 DifferentiableFlatten = "0.1.0, 0.2"
 ForwardDiff = "0.10, 1"
