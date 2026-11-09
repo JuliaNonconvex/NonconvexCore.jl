@@ -115,3 +115,29 @@ function _dot(f::VectorOfFunctions, x, y)
     end
     return s
 end
+
+struct JuMPProblem{E,M,V}
+    evaluator::E
+    model::M
+    vars::V
+end
+
+struct JuMPProblemEvaluator{XL,XU,X,CL,CU,O,C,G,J,JS,H,HS} <: MOI.AbstractNLPEvaluator
+    nvars::Int
+    xlb::XL
+    xub::XU
+    x0::X
+    nconstr::Int
+    clb::CL
+    cub::CU
+    njacvalues::Int
+    nhessvalues::Int
+    obj::O
+    eval_g::C
+    eval_grad_f::G
+    eval_jac_g::J
+    jac_structure::JS
+    eval_h::H
+    lag_hess_structure::HS
+end
+

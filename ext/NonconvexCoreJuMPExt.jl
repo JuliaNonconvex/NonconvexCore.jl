@@ -12,7 +12,8 @@ using NonconvexCore: DictModel, addvar!, set_objective!, add_ineq_constraint!,
     _ordered_jump_variables, _nonlinear_constraints, VecModel, getinit,
     CountingFunction, getobjective, getmin, getmax, DEFAULT_AD_BACKEND,
     AbstractADType, sparse_jacobian, sparse_hessian, nvalues, fill_indices!,
-    add_values!, VectorOfFunctions, get_jump_problem, _dot, value_jacobian
+    add_values!, VectorOfFunctions, get_jump_problem, _dot, value_jacobian,
+    JuMPProblem, JuMPProblemEvaluator
 import DifferentiationInterface
 const DI = DifferentiationInterface
 using JuMP: VariableRef, is_binary, is_integer, has_lower_bound,
@@ -373,31 +374,6 @@ function _dict_model_from_jump_expressions(model, dict_model, ks, nvars)
     je.nineq > 0 && add_ineq_constraint!(dict_model, JuMPModelIneq(je, ks))
     je.neq > 0 && add_eq_constraint!(dict_model, JuMPModelEq(je, ks))
     return dict_model
-end
-
-struct JuMPProblem{E,M,V}
-    evaluator::E
-    model::M
-    vars::V
-end
-
-struct JuMPProblemEvaluator{XL,XU,X,CL,CU,O,C,G,J,JS,H,HS} <: MOI.AbstractNLPEvaluator
-    nvars::Int
-    xlb::XL
-    xub::XU
-    x0::X
-    nconstr::Int
-    clb::CL
-    cub::CU
-    njacvalues::Int
-    nhessvalues::Int
-    obj::O
-    eval_g::C
-    eval_grad_f::G
-    eval_jac_g::J
-    jac_structure::JS
-    eval_h::H
-    lag_hess_structure::HS
 end
 
 function NonconvexCore.get_jump_problem(
