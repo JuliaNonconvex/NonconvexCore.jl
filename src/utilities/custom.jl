@@ -39,7 +39,8 @@ function ChainRulesCore.rrule(f::CustomGradFunction, x::AbstractVector)
         end
     end
 end
-function ChainRulesCore.frule((_, Δx), f::CustomGradFunction, x::AbstractVector)
+function ChainRulesCore.frule(Δs::Tuple, f::CustomGradFunction, x::AbstractVector)
+    _, Δx = Δs
     v = f.f(x)
     if f.g === nothing
         if v isa Real
@@ -92,7 +93,8 @@ function ChainRulesCore.rrule(f::CustomHessianFunction, x)
     G = g(x)
     return f(x), Δ -> (NoTangent(), G * unthunk(Δ))
 end
-function ChainRulesCore.frule((_, Δx), f::CustomHessianFunction, x::AbstractVector)
+function ChainRulesCore.frule(Δs::Tuple, f::CustomHessianFunction, x::AbstractVector)
+    _, Δx = Δs
     g = CustomGradFunction(f.g, f.h)
     v, ∇ = f(x), g(x)
     project_to = ProjectTo(v)

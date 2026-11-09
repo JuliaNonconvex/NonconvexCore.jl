@@ -48,7 +48,8 @@ function ChainRulesCore.rrule(rc::RuleConfig, tf::TraceFunction, x)
         return (Δin[1], g)
     end
 end
-function ChainRulesCore.frule(rc::RuleConfig, (_, Δx), tf::TraceFunction, x)
+function ChainRulesCore.frule(rc::RuleConfig, Δs::Tuple, tf::TraceFunction, x)
+    _, Δx = Δs
     v, g = ChainRulesCore.frule(rc, (NoTangent(), Δx), tf.f, x)
 
     if tf.on_grad
@@ -62,7 +63,8 @@ function ChainRulesCore.frule(rc::RuleConfig, (_, Δx), tf::TraceFunction, x)
     end
     return v, g
 end
-function ChainRulesCore.frule((_, Δx), tf::TraceFunction, x)
+function ChainRulesCore.frule(Δs::Tuple, tf::TraceFunction, x)
+    _, Δx = Δs
     v, g = ChainRulesCore.frule((NoTangent(), Δx), tf.f, x)
 
     if tf.on_grad
