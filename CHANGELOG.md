@@ -1,82 +1,70 @@
 # Changelog
 
-All notable changes to `NonconvexCore.jl` are recorded here.
-The format follows the recommendation from JuliaRegistrator:
-a brief summary, then categorized lists of breaking changes,
-new features, bug fixes, and maintenance items.
+## 2.1.0 (unreleased)
 
-## v2.0.0 (2026-11-08)
+- Type-stability, Aqua and JET checks for the main functionality, with
+  fixes for the issues they surfaced.
+- The codebase is formatted with JuliaFormatter (BlueStyle) and a
+  format-check CI workflow enforces it.
+
+## 2.0.0
 
 ### Breaking changes
-- The capabilities system is now **strict by default**: every model feature
-  present (equality/inequality/semidefinite constraints, finite variable
-  bounds, integer variables, infinite variable bounds) must be declared
-  supported by the solver via `solver_capabilities`, otherwise `optimize`
-  throws an informative `ArgumentError`. Solvers that previously ignored
-  constraints silently (or with a warning) must now declare their
-  capabilities. The semidefinite-constraints warning is removed: undeclared
-  solvers error instead.
-- `ConstraintCapabilities` gains an `infinite_bounds` field: solvers declare
-  whether they support variables with infinite (unbounded) bounds, and
-  `checksubproblem!` validates models with such variables against the
-  declaration.
 
-### New features
-- Add the strict capabilities system: `ConstraintCapabilities`,
-  `solver_capabilities` and `checksubproblem!` plus the
-  `merge_capabilities` helper. Solvers declaring capabilities are validated
-  by the generic `optimize` against the features present in the model
-  (equality/inequality/semidefinite constraints, variable bounds, integer
-  variables and infinite bounds), with an informative `ArgumentError` for
-  unsupported or undeclared features.
-- `value_gradient`, `value_jacobian`, `value_jacobian_transpose` and the new
-  `value_hessian` accept an `ADTypes.AbstractADType` backend argument and
-  default to the package-wide backend, settable with
-  `set_ad_backend!`. The default backend is `AutoReverseDiff()`, whose
-  compiled tapes amortize the differentiation of the model functions over an
-  optimization run; first-order derivatives use the tape directly and
-  Hessians use forward-mode differentiation over the taped gradients
-  (the fastest combination on the Rosetta-OPF benchmark).
-- `sparse_jacobian` and `sparse_hessian` detect the structural sparsity
-  pattern with SparseConnectivityTracer, color it with SparseMatrixColorings
-  and evaluate the compressed derivatives through DifferentiationInterface
-  with the selected backend; both return a `SparseMatrixCSC` for any input
-  function. If the sparse pipeline fails for a function, the values are
-  assembled from per-function derivatives at the detected pattern positions.
-- The MOI evaluator detects the sparse Jacobian and Hessian structures once
-  at the initial point and evaluates derivative values with the selected
-  backend, extracting them at the detected positions.
+- **Solver capability system is strict**: `ConstraintCapabilities` now
+  declares support separately for **linear/nonlinear** equality, inequality
+  and semidefinite constraints, plus **continuous / binary / integer**
+  variables, box bounds and infinite bounds. Constraint linearity is exact
+  for JuMP-converted models and Hessian-pattern-based otherwise
+  (conservatively nonlinear when untraceable). `checksubproblem!` errors on
+  undeclared or unsupported features. Solver packages must update their
+  `solver_capabilities` declarations.
+- `value_jacobian` returns Jacobians without `Adjoint`/`transpose` wrapping:
+  dense for dense derivatives, **sparse for sparse ones**; scalar gradients
+  are reshaped to `1 x inputs` matrices.
+- The default AD backend is now `AutoZygote()` (changeable with
+  `set_ad_backend!`); Zygote's array-pullback double-accumulation through
+  flattened containers is worked around by row-by-row Jacobian assembly.
+- **NonconvexUtils is absorbed**: `CustomGradFunction`,
+  `CustomHessianFunction`, `TraceFunction`, `LazyJacobian` and
+  `@ForwardDiff_frule` now live here; `symbolify` is behind the
+  `NonconvexCoreSymbolicsExt` extension (load Symbolics). `diffiy`,
+  `sparsify` and `ImplicitFunction` were dropped as redundant/unused.
+- JuMP is an **optional dependency** (`NonconvexCoreJuMPExt`),
+  ConvergencePlots an optional dependency
+  (`NonconvexCoreConvergencePlotsExt`; the `Requires` dependency is gone),
+  and ReverseDiff a weakdep (load it to select `AutoReverseDiff()`).
+- `get_jump_problem`'s evaluator implements Jac-vec and Hess-vec products
+  (`:JacVec`, `:HessVec`).
 
-### Bug fixes
-- Reverse-mode differentiation of a whole `VectorOfFunctions` can produce
-  corrupted cotangents when the collection's functions reconstruct
-  flattened structures (the pullbacks of the flattening layer are not
-  reusable across seed applications). NonconvexCore now differentiates each
-  function in a collection separately, and the Lagrangian in the MOI
-  evaluator accumulates one term per constraint.
+### Highlights
 
-## v1.6.0 (2026-08-11)
+- **JuMP conversion** `DictModel(::JuMP.Model)`: affine/quadratic models use
+  the exact matrix path; nonlinear models are evaluated by **one shared
+  `MOI.Nonlinear` evaluator** (`JuMPEvaluator`) — values, sparse Jacobian and
+  Lagrangian Hessian each from a single evaluator pass (6x–760x faster than
+  the native closure path on the Rosetta AC-OPF cases 14/118/300).
+  `JuMPSymbolicFunction` evaluates single MOI expressions.
+- **Explicit preparation**: `prepare_gradient` / `prepare_jacobian` /
+  `prepare_hessian` / `prepare_sparse_*` / `prepare_model` (with
+  `gradient`/`hessian`/`jacobian` options) prepare backends up front, cached
+  per `(f, backend)` and used by default; `diffy` wraps a function in an
+  eagerly prepared backend.
+- **Sparse derivatives**: `sparse_jacobian` / `sparse_hessian` via
+  SparseConnectivityTracer detection + SparseMatrixColorings coloring +
+  colored DifferentiationInterface evaluation, with `second_order_backend`
+  composition; failures raise loudly.
 
-### New features
-- Accept `DifferentiableFlatten v0.2` (the release that introduced the
-  `julia = "1.10"` floor).
+### Documentation & tests
 
-### Maintenance
-- Raise the minimum Julia version to `1.10`.
-  ([#24](https://github.com/JuliaNonconvex/NonconvexCore.jl/pull/24)).
-- Standardize `[compat]` entries; stdlib bounds normalized to `"1"`.
-  Sorted multi-version compat entries
-  (e.g., dropped the unreachable `ChainRulesCore = 0.10, 0.9, 1` → `0.10, 1`).
-  ([#24](https://github.com/JuliaNonconvex/NonconvexCore.jl/pull/24)).
-- Update the GitHub handle in the convergence-plots docstring URL from
-  `mohamed82008` to `mohdibntarek`
-  ([#25](https://github.com/JuliaNonconvex/NonconvexCore.jl/pull/25)).
+- A **DocumenterFragments** docs fragment covering models, the JuMP
+  conversion, AD backends and preparation, the sparse pipeline, function
+  modifiers, symbolic differentiation, capabilities, criteria, queries and
+  results, with `checkdocs = :all` and extension-activation notes.
+- The test suite is organized into granular **TestItems** for isolated and
+  parallel debugging; coverage raised from ~41% to near-total.
 
-## v1.5.1 (2024-11-22)
+### Issues closed
 
-### Bug fixes
-- Allow `Zygote 0.7` and bump `ChainRulesCore` compat.
-
-## v1.5.0 (2024-02-...)
-
-For earlier changes see the git history.
+- #33 (unbounded-variable diagnostics), #37 (Jac-vec products), #38
+  (coverage).

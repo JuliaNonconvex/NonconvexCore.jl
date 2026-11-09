@@ -59,8 +59,9 @@ function assess_convergence!(
     verbose::Bool,
     iter::Int,
 )
-    xtol, fabstol, freltol, kkttol, infeastol =
-        tol.x, tol.fabs, tol.frel, tol.kkt, tol.infeas
+    xtol, fabstol, freltol, kkttol, infeastol = tol.x,
+    tol.fabs, tol.frel, tol.kkt,
+    tol.infeas
     Δx, Δf, infeas, f = getresiduals(solution, model, GenericCriteria())
     relΔf = Δf / (abs(f) + freltol)
     if criteria isa IpoptCriteria
@@ -135,7 +136,7 @@ end
 
 function getresiduals(solution::Solution, ::AbstractModel, ::GenericCriteria)
     @unpack prevx, x, prevf, f, g = solution
-    Δx = maximum(abs(x[j] - prevx[j]) for j = 1:length(x))
+    Δx = maximum(abs(x[j] - prevx[j]) for j in 1:length(x))
     Δf = abs(f - prevf)
     infeas = isempty(g) ? 0.0 : max(0, maximum(g))
     return Δx, Δf, infeas, f

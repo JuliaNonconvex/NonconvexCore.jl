@@ -59,7 +59,8 @@ function ChainRulesCore.frule((_, Δx), f::CustomGradFunction, x::AbstractVector
         end
     else
         if !(∇ isa LazyJacobian) && issparse(∇) && nnz(∇) == 0
-            return v, project_to(v isa Real ? zero(eltype(v)) : spzeros(eltype(Δx), size(∇, 1)))
+            return v,
+            project_to(v isa Real ? zero(eltype(v)) : spzeros(eltype(Δx), size(∇, 1)))
         elseif v isa Real
             return v, project_to(sum(∇ * Δx))
         else
@@ -80,7 +81,7 @@ struct CustomHessianFunction{F,G,H} <: Function
     f::F
     g::G
     h::H
-    function CustomHessianFunction(f::F, g::G, h::H; hvp = false) where {F,G,H}
+    function CustomHessianFunction(f::F, g::G, h::H; hvp=false) where {F,G,H}
         _h = hvp ? x -> LazyJacobian{true}(v -> h(x, v)) : h
         return new{F,G,typeof(_h)}(f, g, _h)
     end

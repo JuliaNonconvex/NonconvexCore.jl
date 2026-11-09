@@ -17,13 +17,13 @@ mutable struct VecModel{
     integer::BitVector
 end
 
-function isfeasible(model::VecModel, x::AbstractVector; ctol = 1e-4)
+function isfeasible(model::VecModel, x::AbstractVector; ctol=1e-4)
     return all(getmin(model) .<= x .<= getmax(model)) &&
            all(getineqconstraints(model)(x) .<= ctol) &&
            all(-ctol .<= geteqconstraints(model)(x) .<= ctol)
 end
 
-function addvar!(m::VecModel, lb::Real, ub::Real; init::Real = lb, integer = false)
+function addvar!(m::VecModel, lb::Real, ub::Real; init::Real=lb, integer=false)
     push!(getmin(m), lb)
     push!(getmax(m), ub)
     push!(m.init, init)
@@ -34,8 +34,8 @@ function addvar!(
     m::VecModel,
     lb::Vector{<:Real},
     ub::Vector{<:Real};
-    init::Vector{<:Real} = copy(lb),
-    integer = falses(length(lb)),
+    init::Vector{<:Real}=copy(lb),
+    integer=falses(length(lb)),
 )
     append!(getmin(m), lb)
     append!(getmax(m), ub)
@@ -121,7 +121,7 @@ function `f` from a flat vector.
 """
 getinputunflatten(f::FlattenedFunction) = f.unflattenx
 
-function tovecfunc(f, x::AbstractVector{<:Real}; flatteny = true)
+function tovecfunc(f, x::AbstractVector{<:Real}; flatteny=true)
     vx = float.(x)
     y = f(x)
     if y isa Real || y isa AbstractVector{<:Real}
@@ -138,7 +138,7 @@ function tovecfunc(f, x::AbstractVector{<:Real}; flatteny = true)
     end
 end
 
-function tovecfunc(f, x...; flatteny = true)
+function tovecfunc(f, x...; flatteny=true)
     vx, _unflattenx = flatten(x)
     unflattenx = Unflatten(x, _unflattenx)
     if flatteny
@@ -156,7 +156,7 @@ function tovecfunc(f, x...; flatteny = true)
     end
 end
 
-function tovecmodel(m::AbstractModel, _x0 = getinit(m))
+function tovecmodel(m::AbstractModel, _x0=getinit(m))
     x0 = reduce_type(_x0)
     box_min = reduce_type(m.box_min)
     box_max = reduce_type(m.box_max)
@@ -167,31 +167,39 @@ function tovecmodel(m::AbstractModel, _x0 = getinit(m))
         # objective
         Objective(tovecfunc(m.objective.f, x0)[1], m.objective.multiple, m.objective.flags),
         # eq_constraints
-        length(m.eq_constraints.fs) != 0 ?
-        VectorOfFunctions(
+        if length(m.eq_constraints.fs) != 0
+            VectorOfFunctions(
             map(Tuple(m.eq_constraints.fs)) do c
-                EqConstraint(tovecfunc(c.f, x0)[1], maybeflatten(c.rhs)[1], c.dim, c.flags)
-            end,
-        ) : VectorOfFunctions(()),
-        # ineq_constraints
-        length(m.ineq_constraints.fs) != 0 ?
-        VectorOfFunctions(
-            map(Tuple(m.ineq_constraints.fs)) do c
-                IneqConstraint(
-                    tovecfunc(c.f, x0)[1],
-                    maybeflatten(c.rhs)[1],
-                    c.dim,
-                    c.flags,
+                return EqConstraint(
+                    tovecfunc(c.f, x0)[1], maybeflatten(c.rhs)[1], c.dim, c.flags
                 )
             end,
-        ) : VectorOfFunctions(()),
-        # sd_constraints
-        length(m.sd_constraints.fs) != 0 ?
-        VectorOfFunctions(
-            map(Tuple(m.sd_constraints.fs)) do c
-                SDConstraint(tovecfunc(c.f, x0; flatteny = false)[1], c.dim)
+        )
+        else
+            VectorOfFunctions(())
+        end,
+        # ineq_constraints
+        if length(m.ineq_constraints.fs) != 0
+            VectorOfFunctions(
+            map(Tuple(m.ineq_constraints.fs)) do c
+                return IneqConstraint(
+                    tovecfunc(c.f, x0)[1], maybeflatten(c.rhs)[1], c.dim, c.flags
+                )
             end,
-        ) : VectorOfFunctions(()),
+        )
+        else
+            VectorOfFunctions(())
+        end,
+        # sd_constraints
+        if length(m.sd_constraints.fs) != 0
+            VectorOfFunctions(
+            map(Tuple(m.sd_constraints.fs)) do c
+                return SDConstraint(tovecfunc(c.f, x0; flatteny=false)[1], c.dim)
+            end,
+        )
+        else
+            VectorOfFunctions(())
+        end,
         # box_min
         float.(flatten(box_min)[1]),
         # box_max

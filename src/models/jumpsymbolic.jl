@@ -21,7 +21,9 @@ struct JuMPSymbolicFunction{E,X,V} <: Function
     vars::V
 end
 
-function JuMPSymbolicFunction(expr::MOI.AbstractScalarFunction, vars::Vector{MOI.VariableIndex})
+function JuMPSymbolicFunction(
+    expr::MOI.AbstractScalarFunction, vars::Vector{MOI.VariableIndex}
+)
     model = MOI.Nonlinear.Model()
     MOI.Nonlinear.set_objective(model, expr)
     evaluator = MOI.Nonlinear.Evaluator(model, MOI.Nonlinear.SparseReverseMode(), vars)
@@ -39,7 +41,10 @@ expression with respect to a vector of length `n`.
 """
 function jump_symbolic_hessian_sparsity(f::JuMPSymbolicFunction, n)
     positions = Dict(v.value => k for (k, v) in enumerate(f.vars))
-    return [(positions[i], positions[j]) for (i, j) in MOI.hessian_objective_structure(f.evaluator)]
+    return [
+        (positions[i], positions[j]) for
+        (i, j) in MOI.hessian_objective_structure(f.evaluator)
+    ]
 end
 
 """
@@ -280,11 +285,11 @@ end
 function (f::JuMPModelEqVector)(x::AbstractVector)
     g = zeros(f.m.nineq + f.m.neq)
     jump_constraint_values!(f.m, g, x)
-    return g[f.m.nineq+1:end]
+    return g[(f.m.nineq + 1):end]
 end
 function ChainRulesCore.rrule(f::JuMPModelEqVector, x::AbstractVector)
     y = f(x)
-    J = jump_jacobian(f.m, x)[f.m.nineq+1:end, :]
+    J = jump_jacobian(f.m, x)[(f.m.nineq + 1):end, :]
     return y, Δ -> (NoTangent(), J' * _unthunk(Δ))
 end
 
@@ -372,19 +377,21 @@ end
 # (its internals branch on values); the converted model's derivatives come
 # from the evaluator directly instead.
 
-function sparse_jacobian(f::JuMPModelIneq, x, backend::AbstractADType = DEFAULT_AD_BACKEND[])
+function sparse_jacobian(f::JuMPModelIneq, x, backend::AbstractADType=DEFAULT_AD_BACKEND[])
     return jump_jacobian(f.m, flatten(x, f.ks)[1])[1:f.m.nineq, :]
 end
 
-function sparse_jacobian(f::JuMPModelEq, x, backend::AbstractADType = DEFAULT_AD_BACKEND[])
-    return jump_jacobian(f.m, flatten(x, f.ks)[1])[f.m.nineq+1:end, :]
+function sparse_jacobian(f::JuMPModelEq, x, backend::AbstractADType=DEFAULT_AD_BACKEND[])
+    return jump_jacobian(f.m, flatten(x, f.ks)[1])[(f.m.nineq + 1):end, :]
 end
 
-function sparse_jacobian(c::VectorOfFunctions, x, backend::AbstractADType = DEFAULT_AD_BACKEND[])
+function sparse_jacobian(
+    c::VectorOfFunctions, x, backend::AbstractADType=DEFAULT_AD_BACKEND[]
+)
     raws = map(c.fs) do f
         g = f.f isa FlattenedFunction ? getrawfunction(f.f) : f.f
         g = g isa FunctionWrapper ? getfunction(g) : g
-        g
+        return g
     end
     if length(raws) == 1 && raws[1] isa JuMPModelIneq
         m = raws[1].m
@@ -393,7 +400,7 @@ function sparse_jacobian(c::VectorOfFunctions, x, backend::AbstractADType = DEFA
     elseif length(raws) == 1 && raws[1] isa JuMPModelEq
         m = raws[1].m
         xv = x isa AbstractVector ? x : flatten(x, raws[1].ks)[1]
-        return jump_jacobian(m, xv)[m.nineq+1:end, :]
+        return jump_jacobian(m, xv)[(m.nineq + 1):end, :]
     end
     return _sparse_jacobian_default(c, x, backend)
 end
@@ -402,20 +409,32 @@ end
 # the value-and-derivative family evaluates converted model functions
 # directly at the flattened vector.
 
-function value_gradient(f::FlattenedFunction{<:JuMPModelObjective}, x::AbstractVector, backend::AbstractADType = DEFAULT_AD_BACKEND[])
+function value_gradient(
+    f::FlattenedFunction{<:JuMPModelObjective},
+    x::AbstractVector,
+    backend::AbstractADType=DEFAULT_AD_BACKEND[],
+)
     jf = getrawfunction(f)
     m = jf.m
     return m.objective_sign * MOI.eval_objective(m.ev, x), jump_objective_gradient(m, x)
 end
 
-function value_jacobian(f::FlattenedFunction{<:JuMPModelObjective}, x::AbstractVector, backend::AbstractADType = DEFAULT_AD_BACKEND[])
+function value_jacobian(
+    f::FlattenedFunction{<:JuMPModelObjective},
+    x::AbstractVector,
+    backend::AbstractADType=DEFAULT_AD_BACKEND[],
+)
     jf = getrawfunction(f)
     m = jf.m
     y = m.objective_sign * MOI.eval_objective(m.ev, x)
     return y, adjoint(jump_objective_gradient(m, x))
 end
 
-function value_jacobian(f::FlattenedFunction{<:FunctionWrapper{<:JuMPModelIneq}}, x::AbstractVector, backend::AbstractADType = DEFAULT_AD_BACKEND[])
+function value_jacobian(
+    f::FlattenedFunction{<:FunctionWrapper{<:JuMPModelIneq}},
+    x::AbstractVector,
+    backend::AbstractADType=DEFAULT_AD_BACKEND[],
+)
     jf = getfunction(getrawfunction(f))
     m = jf.m
     g = zeros(m.nineq + m.neq)
@@ -424,11 +443,15 @@ function value_jacobian(f::FlattenedFunction{<:FunctionWrapper{<:JuMPModelIneq}}
     return g[1:m.nineq], J
 end
 
-function value_jacobian(f::FlattenedFunction{<:FunctionWrapper{<:JuMPModelEq}}, x::AbstractVector, backend::AbstractADType = DEFAULT_AD_BACKEND[])
+function value_jacobian(
+    f::FlattenedFunction{<:FunctionWrapper{<:JuMPModelEq}},
+    x::AbstractVector,
+    backend::AbstractADType=DEFAULT_AD_BACKEND[],
+)
     jf = getfunction(getrawfunction(f))
     m = jf.m
     g = zeros(m.nineq + m.neq)
     jump_constraint_values!(m, g, x)
-    J = jump_jacobian(m, x)[m.nineq+1:end, :]
-    return g[m.nineq+1:end], J
+    J = jump_jacobian(m, x)[(m.nineq + 1):end, :]
+    return g[(m.nineq + 1):end], J
 end

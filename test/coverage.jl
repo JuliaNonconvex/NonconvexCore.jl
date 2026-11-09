@@ -1,8 +1,8 @@
 using NonconvexCore, Test, LinearAlgebra, SparseArrays
-import ADTypes
+using ADTypes: ADTypes
 import DifferentiationInterface as DI
 using Zygote, ForwardDiff, ReverseDiff
-import ChainRulesCore
+using ChainRulesCore: ChainRulesCore
 using ChainRulesCore: NoTangent
 using ConvergencePlots
 import MathOptInterface as MOI
@@ -38,7 +38,7 @@ const NC = NonconvexCore
 
     rows2 = zeros(Int, 6)
     cols2 = zeros(Int, 6)
-    NC.fill_indices!(rows2, cols2, [1.0 0.0; 0.0 1.0], offset = 1, row_offset = 5)
+    NC.fill_indices!(rows2, cols2, [1.0 0.0; 0.0 1.0], offset=1, row_offset=5)
     @test rows2[2] == 6 && cols2[2] == 1
 
     v = zeros(4)
@@ -54,7 +54,7 @@ const NC = NonconvexCore
     NC.add_values!(v, LowerTriangular(sparse([1.0 0.0; 2.0 3.0])))
     @test v == [1.0, 2.0, 3.0]
     v = zeros(4)
-    NC.add_values!(v, sparse([1.0 0.0; 2.0 3.0]), factor = 2.0, offset = 1)
+    NC.add_values!(v, sparse([1.0 0.0; 2.0 3.0]), factor=2.0, offset=1)
     @test v == [0.0, 2.0, 4.0, 6.0]
 
     @test NC._dot(x -> [1.0, 2.0], [0.0, 0.0], [3.0, 4.0]) == 11.0
@@ -75,7 +75,7 @@ end
     cb = NC.PlottingCallback(5)
     @test cb.iter == 0
     cb(1)
-    lazy = NC.LazyPlottingCallback(10; show_plot = false, save_plot = "x.png")
+    lazy = NC.LazyPlottingCallback(10; show_plot=false, save_plot="x.png")
     @test lazy.iter == 0
 end
 
@@ -106,15 +106,15 @@ end
     add_ineq_constraint!(m, z -> z[1] + z[2])
     vm = NC.prepare_model(m, ones(3))
     @test NC.value_gradient(NC.getobjective(vm), ones(3))[2] ≈ 2ones(3)
-    vm2 = NC.prepare_model(m, ones(3); hessian = false, jacobian = false, gradient = false)
+    vm2 = NC.prepare_model(m, ones(3); hessian=false, jacobian=false, gradient=false)
     @test vm2 isa NC.VecModel
 end
 
 @testitem "Coverage: capabilities helpers" begin
     using NonconvexCore, Test
     const NC = NonconvexCore
-    base = NC.ConstraintCapabilities(linear_eq = true, nonlinear_ineq = false)
-    merged = NC.merge_capabilities(base; nonlinear_ineq = true, integer = true)
+    base = NC.ConstraintCapabilities(linear_eq=true, nonlinear_ineq=false)
+    merged = NC.merge_capabilities(base; nonlinear_ineq=true, integer=true)
     @test merged.linear_eq === true
     @test merged.nonlinear_ineq === true
     @test merged.integer === true
@@ -130,7 +130,7 @@ end
     using NonconvexCore, Test
     const NC = NonconvexCore
     m = Model(x -> x[1]^2)
-    addvar!(m, [-1.0, -1.0], [1.0, 1.0], integer = [true, false])
+    addvar!(m, [-1.0, -1.0], [1.0, 1.0], integer=[true, false])
     add_ineq_constraint!(m, x -> -x[1])
     add_eq_constraint!(m, x -> x[2])
     add_sd_constraint!(m, x -> [x[1] 0.0; 0.0 x[2]])
@@ -197,7 +197,7 @@ end
     vm5, _, _ = NC.tovecmodel(m4)
     @test NC.getinit(vm5) == [0.0]
     m6 = Model(x -> x[1])
-    addvar!(m6, 1.0, Inf, init = Inf)
+    addvar!(m6, 1.0, Inf, init=Inf)
     vm7, _, _ = NC.tovecmodel(m6)
     @test NC.getinit(vm7) == [2.0]
 end
@@ -208,11 +208,17 @@ end
 
     struct StubOpt <: NC.AbstractOptimizer end
     NC.solver_capabilities(::StubOpt) = NC.ConstraintCapabilities(
-        linear_eq = true, nonlinear_eq = true,
-        linear_ineq = true, nonlinear_ineq = true,
-        linear_sd = true, nonlinear_sd = true,
-        box = true, continuous = true, binary = true, integer = true,
-        infinite_bounds = true,
+        linear_eq=true,
+        nonlinear_eq=true,
+        linear_ineq=true,
+        nonlinear_ineq=true,
+        linear_sd=true,
+        nonlinear_sd=true,
+        box=true,
+        continuous=true,
+        binary=true,
+        integer=true,
+        infinite_bounds=true,
     )
     struct TestOptions
         tol::NC.Tolerance
@@ -230,7 +236,9 @@ end
     m = Model(x -> x[1]^2)
     addvar!(m, [-1.0], [1.0])
     vm, xv, _ = NC.tovecmodel(m)
-    w = TestWorkspace(nothing, vm, TestOptions(NC.Tolerance(), NC.KKTCriteria(), false), copy(xv), 0)
+    w = TestWorkspace(
+        nothing, vm, TestOptions(NC.Tolerance(), NC.KKTCriteria(), false), copy(xv), 0
+    )
     NC.reset!(w, xv)
     @test w.x0 == xv
     NC.reset!(w, nothing)
@@ -265,9 +273,12 @@ end
     addvar!(m, [-1.0], [1.0])
     add_ineq_constraint!(m, x -> -x[1])
     vm, xv, _ = NC.tovecmodel(m)
-    for criteria in (NC.GenericCriteria(), NC.KKTCriteria(), NC.ScaledKKTCriteria(), NC.IpoptCriteria())
+    for criteria in
+        (NC.GenericCriteria(), NC.KKTCriteria(), NC.ScaledKKTCriteria(), NC.IpoptCriteria())
         convstate = NC.ConvergenceState{Float64}()
-        sol = NC.Solution([0.0], [0.5], [0.0], 1.0, 0.25, [0.0], [0.0], reshape([-1.0], 1, 1), convstate)
+        sol = NC.Solution(
+            [0.0], [0.5], [0.0], 1.0, 0.25, [0.0], [0.0], reshape([-1.0], 1, 1), convstate
+        )
         w = TestWorkspace(sol, vm, TestOptions(NC.Tolerance(), criteria, true), copy(xv), 0)
         NC.assess_convergence!(w)
         NC.hasconverged(w.solution)
@@ -279,23 +290,23 @@ end
     using NonconvexCore, Test, LinearAlgebra, SparseArrays
     using Zygote
     const NC = NonconvexCore
-    lazy_jac = NC.LazyJacobian(; jvp = v -> [v[1] - v[2]], jtvp = w -> [w[1], -w[1]])
+    lazy_jac = NC.LazyJacobian(; jvp=v -> [v[1] - v[2]], jtvp=w -> [w[1], -w[1]])
     cf = NC.CustomGradFunction(x -> [x[1] - x[2]], x -> lazy_jac)
     @test Zygote.jacobian(cf, [1.0, 2.0])[1] ≈ [1.0 -1.0]
     hfun = x -> [2.0 0.0; 0.0 2.0]
     ch = NC.CustomHessianFunction(x -> sum(abs2, x), x -> 2x, hfun)
     @test Zygote.hessian(ch, [1.0, 2.0]) ≈ hfun([1.0, 2.0])
-    chvp = NC.CustomHessianFunction(x -> sum(abs2, x), x -> 2x, (x, v) -> 2v; hvp = true)
+    chvp = NC.CustomHessianFunction(x -> sum(abs2, x), x -> 2x, (x, v) -> 2v; hvp=true)
     @test Zygote.gradient(z -> sum(chvp(z)), [1.0, 2.0])[1] ≈ 2 .* [1.0, 2.0]
-    j = NC.LazyJacobian(; jvp = v -> [v[1] + v[2]], jtvp = w -> [w[1], w[1]])
+    j = NC.LazyJacobian(; jvp=v -> [v[1] + v[2]], jtvp=w -> [w[1], w[1]])
     @test transpose(j) * [1.0] == j' * [1.0]
     @test j * [1.0, 2.0] == [3.0]
     @test [1.0] * j == j.jtvp([1.0])'
-    jsym = NC.LazyJacobian(; jvp = v -> v, symmetric = true)
+    jsym = NC.LazyJacobian(; jvp=v -> v, symmetric=true)
     @test jsym' === jsym
     @test transpose(jsym) === jsym
     @test jsym * [1.0, 2.0] == [1.0, 2.0]
-    tr = NC.TraceFunction(sum; on_call = true, on_grad = true)
+    tr = NC.TraceFunction(sum; on_call=true, on_grad=true)
     @test tr.on_grad == true
     tr([2.0])
     Zygote.gradient(tr, [2.0])
@@ -371,13 +382,14 @@ end
     addvar!(m2, -ones(2), ones(2))
     add_eq_constraint!(m2, z -> z[1] + z[2])
     vm2 = NC.prepare_model(m2, ones(2))
-    @test NC.value_jacobian(NC.geteqconstraints(vm2), ones(2))[2] ≈ reshape([1.0, 1.0], 1, 2)
+    @test NC.value_jacobian(NC.geteqconstraints(vm2), ones(2))[2] ≈
+        reshape([1.0, 1.0], 1, 2)
     vm0, xv0, _ = NC.tovecmodel(m2)
-    NC.addvar!(vm0, -1.0, 1.0, init = 0.0, integer = true)
-    NC.addvar!(vm0, [-2.0, -2.0], [2.0, 2.0], init = [0.0, 0.0], integer = [false, false])
-    @test NC.getmin(vm0)[end-2:end] == [-1.0, -2.0, -2.0]
-    @test NC.getmax(vm0)[end-2:end] == [1.0, 2.0, 2.0]
-    @test vm0.integer[end-2:end] == [true, false, false]
+    NC.addvar!(vm0, -1.0, 1.0, init=0.0, integer=true)
+    NC.addvar!(vm0, [-2.0, -2.0], [2.0, 2.0], init=[0.0, 0.0], integer=[false, false])
+    @test NC.getmin(vm0)[(end - 2):end] == [-1.0, -2.0, -2.0]
+    @test NC.getmax(vm0)[(end - 2):end] == [1.0, 2.0, 2.0]
+    @test vm0.integer[(end - 2):end] == [true, false, false]
     cg = NC.CustomGradFunction(x -> x[1] + 2x[2], nothing)
     @test Zygote.gradient(cg, [1.0, 2.0])[1] == [0.0, 0.0]
     cgv = NC.CustomGradFunction(x -> [x[1], x[2]], nothing)
@@ -387,41 +399,65 @@ end
     ch = NC.CustomHessianFunction(x -> sum(abs2, x), x -> 2x, x -> [2.0 0.0; 0.0 2.0])
     @test ForwardDiff.derivative(t -> ch([t, 0.0]), 1.0) ≈ 2.0
     @test_throws ArgumentError NC.LazyJacobian()
-    lsym = NC.LazyJacobian(; jtvp = w -> w, symmetric = true)
+    lsym = NC.LazyJacobian(; jtvp=w -> w, symmetric=true)
     @test lsym.jvp === lsym.jtvp
-    j = NC.LazyJacobian(; jvp = v -> v, jtvp = w -> w)
+    j = NC.LazyJacobian(; jvp=v -> v, jtvp=w -> w)
     jt = transpose(j)
     @test transpose(jt) === j
     @test jt * [1.0, 2.0] == [1.0, 2.0]
     @test ([1.0, 2.0] * jt) == j.jtvp([1.0, 2.0])
-    tr = NC.TraceFunction(exp; on_call = true, on_grad = true)
+    tr = NC.TraceFunction(exp; on_call=true, on_grad=true)
     @test ForwardDiff.derivative(tr, 2.0) ≈ exp(2.0)
     rc = Zygote.ZygoteRuleConfig()
     v, g = ChainRulesCore.frule(rc, (NoTangent(), 1.0), tr, 2.0)
     @test v == exp(2.0)
     @test g ≈ exp(2.0)
-    f = x -> (a = x[1] + 1, b = x[2] + 1)
+    f = x -> (a=x[1] + 1, b=x[2] + 1)
     flat_f, vx, unf = NC.tovecfunc(f, [1.0, 2.0])
     @test unf(flat_f(vx)) == f([1.0, 2.0])
     gg = (x, y) -> x[1] + y
     flat_g, vxg, unfg = NC.tovecfunc(gg, [1.0, 2.0], 3.0)
     @test unfg(flat_g(vxg)) ≈ gg([1.0, 2.0], 3.0)
-    sol = NC.Solution([0.0], [0.5], [0.0], 1.0, 0.25, [0.0], [0.0], reshape([-1.0], 1, 1), NC.ConvergenceState{Float64}())
+    sol = NC.Solution(
+        [0.0],
+        [0.5],
+        [0.0],
+        1.0,
+        0.25,
+        [0.0],
+        [0.0],
+        reshape([-1.0], 1, 1),
+        NC.ConvergenceState{Float64}(),
+    )
     m3 = Model(x -> x[1]^2)
     addvar!(m3, [-1.0], [1.0])
     struct UnsupportedCriteria <: NC.ConvergenceCriteria end
-    @test_throws String NC.assess_convergence!(sol, m3, NC.Tolerance(), UnsupportedCriteria(), false, 0)
+    @test_throws String NC.assess_convergence!(
+        sol, m3, NC.Tolerance(), UnsupportedCriteria(), false, 0
+    )
     NC.debugging[] = true
     for crit in (NC.KKTCriteria(), NC.IpoptCriteria(), NC.GenericCriteria())
         NC.getresiduals(sol, m3, crit)
     end
     NC.debugging[] = false
-    cfg, dcfg = ChainRulesCore.frule((NoTangent(), [1.0, 0.0]), NC.CustomGradFunction(x -> x[1] + x[2], nothing), [0.5, 0.5])
+    cfg, dcfg = ChainRulesCore.frule(
+        (NoTangent(), [1.0, 0.0]),
+        NC.CustomGradFunction(x -> x[1] + x[2], nothing),
+        [0.5, 0.5],
+    )
     @test cfg == 1.0
     @test dcfg == 0.0
-    _, dcgv = ChainRulesCore.frule((NoTangent(), [1.0, 0.0]), NC.CustomGradFunction(x -> [x[1], x[2]], nothing), [0.5, 0.5])
+    _, dcgv = ChainRulesCore.frule(
+        (NoTangent(), [1.0, 0.0]),
+        NC.CustomGradFunction(x -> [x[1], x[2]], nothing),
+        [0.5, 0.5],
+    )
     @test dcgv == [0.0, 0.0]
-    _, dch = ChainRulesCore.frule((NoTangent(), [1.0, 0.0]), NC.CustomHessianFunction(x -> sum(abs2, x), x -> 2x, x -> [2.0 0.0; 0.0 2.0]), [0.5, 0.5])
+    _, dch = ChainRulesCore.frule(
+        (NoTangent(), [1.0, 0.0]),
+        NC.CustomHessianFunction(x -> sum(abs2, x), x -> 2x, x -> [2.0 0.0; 0.0 2.0]),
+        [0.5, 0.5],
+    )
     @test dch ≈ 1.0
 end
 
@@ -431,11 +467,17 @@ end
 
     struct StubOpt <: NC.AbstractOptimizer end
     NC.solver_capabilities(::StubOpt) = NC.ConstraintCapabilities(
-        linear_eq = true, nonlinear_eq = true,
-        linear_ineq = true, nonlinear_ineq = true,
-        linear_sd = true, nonlinear_sd = true,
-        box = true, continuous = true, binary = true, integer = true,
-        infinite_bounds = true,
+        linear_eq=true,
+        nonlinear_eq=true,
+        linear_ineq=true,
+        nonlinear_ineq=true,
+        linear_sd=true,
+        nonlinear_sd=true,
+        box=true,
+        continuous=true,
+        binary=true,
+        integer=true,
+        infinite_bounds=true,
     )
     struct TestOptions
         tol::NC.Tolerance
@@ -449,13 +491,20 @@ end
         x0::Vector{Float64}
         iter::Int
     end
-    NC.Workspace(model::NC.VecModel, ::StubOpt, x0; kwargs...) =
-        TestWorkspace(nothing, model, TestOptions(NC.Tolerance(), NC.KKTCriteria(), false), collect(float.(x0)), 0)
+    NC.Workspace(model::NC.VecModel, ::StubOpt, x0; kwargs...) = TestWorkspace(
+        nothing,
+        model,
+        TestOptions(NC.Tolerance(), NC.KKTCriteria(), false),
+        collect(float.(x0)),
+        0,
+    )
     function NC.optimize!(w::TestWorkspace)
         x = w.x0
         f = w.model.objective(x)
         fv = f isa Real ? f : sum(f)
-        return NC.GenericResult(nothing, copy(x), copy(x), fv, 1, false, NC.Tolerance(), nothing, 1)
+        return NC.GenericResult(
+            nothing, copy(x), copy(x), fv, 1, false, NC.Tolerance(), nothing, 1
+        )
     end
     m = Model(x -> x[1]^2)
     addvar!(m, [-1.0], [1.0])
@@ -468,7 +517,7 @@ end
     end
     NC.optimize!(w::TestWorkspace) = InitResult(copy(w.x0), copy(w.x0))
     m2 = Model(x -> x.a + sum(x.b))
-    addvar!(m2, (a = 0.0, b = [0.0, 0.0]), (a = 1.0, b = [1.0, 1.0]))
-    r2 = NC.optimize(m2, StubOpt(), (a = 0.3, b = [0.4, 0.6]))
-    @test r2.initial_x == (a = 0.3, b = [0.4, 0.6])
+    addvar!(m2, (a=0.0, b=[0.0, 0.0]), (a=1.0, b=[1.0, 1.0]))
+    r2 = NC.optimize(m2, StubOpt(), (a=0.3, b=[0.4, 0.6]))
+    @test r2.initial_x == (a=0.3, b=[0.4, 0.6])
 end

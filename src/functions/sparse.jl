@@ -36,7 +36,7 @@ Returns the gradient of the scalar-valued function `f` at `x` computed with the
 automatic differentiation backend `backend` (defaults to the package-wide
 backend, see [`get_ad_backend`](@ref)).
 """
-function sparse_gradient(f, x, backend::AbstractADType = DEFAULT_AD_BACKEND[])
+function sparse_gradient(f, x, backend::AbstractADType=DEFAULT_AD_BACKEND[])
     _, g = DI.value_and_gradient(f, backend, x)
     return _sparsevec(g)
 end
@@ -54,7 +54,7 @@ derivatives at the detected pattern positions. Failures (for example,
 sparsity detection on functions whose internals branch on values) raise
 errors rather than degrading silently.
 """
-function sparse_jacobian(f, x, backend::AbstractADType = DEFAULT_AD_BACKEND[])
+function sparse_jacobian(f, x, backend::AbstractADType=DEFAULT_AD_BACKEND[])
     return _sparse_jacobian_default(f, x, backend)
 end
 
@@ -81,7 +81,6 @@ function _sparse_jacobian_default(f, x, backend::AbstractADType)
     return DI.jacobian(f2, prep, sb, x)
 end
 
-
 function _assemble_sparse_jacobian(f, x, pattern, backend)
     m, n = size(pattern)
     I = Int[]
@@ -95,7 +94,7 @@ function _assemble_sparse_jacobian(f, x, pattern, backend)
     offset = 0
     for bi in blocks
         dim = size(bi, 1)
-        sub = pattern[(offset+1):(offset+dim), :]
+        sub = pattern[(offset + 1):(offset + dim), :]
         for (lr, c) in zip(findnz(sub)[1], findnz(sub)[2])
             push!(I, offset + lr)
             push!(J, c)
@@ -116,7 +115,7 @@ are computed by forward-mode differentiation of the gradient computed with
 `backend` (defaults to the package-wide backend, see [`get_ad_backend`](@ref)).
 Failures raise errors rather than degrading silently.
 """
-function sparse_hessian(f, x, backend::AbstractADType = DEFAULT_AD_BACKEND[])
+function sparse_hessian(f, x, backend::AbstractADType=DEFAULT_AD_BACKEND[])
     key = (f, backend)
     entry = get(_SPARSE_HESSIAN_PREP_CACHE, key, nothing)
     if entry === nothing
@@ -139,8 +138,8 @@ function _sparsevec(x::SparseMatrixCSC)
     m, n = size(x)
     linear_inds = zeros(Int, length(x.nzval))
     count = 1
-    for colind = 1:length(x.colptr)-1
-        for ind = x.colptr[colind]:x.colptr[colind+1]-1
+    for colind in 1:(length(x.colptr) - 1)
+        for ind in x.colptr[colind]:(x.colptr[colind + 1] - 1)
             rowind = x.rowval[ind]
             val = x.nzval[ind]
             linear_inds[count] = rowind + (colind - 1) * m
@@ -176,5 +175,5 @@ end
 
 function ChainRulesCore.rrule(::typeof(_sparsevec), x)
     val = _sparsevec(x)
-    val, Δ -> (NoTangent(), _sparse_reshape(_unthunk(Δ), size(x)...))
+    return val, Δ -> (NoTangent(), _sparse_reshape(_unthunk(Δ), size(x)...))
 end

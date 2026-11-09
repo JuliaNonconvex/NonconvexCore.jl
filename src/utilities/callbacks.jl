@@ -11,7 +11,7 @@ mutable struct PlottingCallback <: Function
     n::Int
     iter::Int
 end
-PlottingCallback(n = 1000) = PlottingCallback(nothing, n, 0)
+PlottingCallback(n=1000) = PlottingCallback(nothing, n, 0)
 
 (callback::PlottingCallback)(solution) = nothing
 
@@ -30,8 +30,9 @@ mutable struct LazyPlottingCallback <: Function
     show_plot::Bool
     save_plot::Union{Nothing,String}
 end
-LazyPlottingCallback(n = 10^10; show_plot = true, save_plot = nothing) =
-    LazyPlottingCallback(nothing, n, 0, show_plot, save_plot)
+function LazyPlottingCallback(n=10^10; show_plot=true, save_plot=nothing)
+    return LazyPlottingCallback(nothing, n, 0, show_plot, save_plot)
+end
 
 (callback::LazyPlottingCallback)(args...; kwargs...) = nothing
 

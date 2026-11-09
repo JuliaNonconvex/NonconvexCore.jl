@@ -12,9 +12,7 @@ struct TraceFunction{F,V} <: Function
     on_grad::Bool
 end
 function TraceFunction(
-    f;
-    on_call::Union{Bool,Nothing} = nothing,
-    on_grad::Union{Bool,Nothing} = nothing,
+    f; on_call::Union{Bool,Nothing}=nothing, on_grad::Union{Bool,Nothing}=nothing
 )
     if on_call === on_grad === nothing
         _on_call = true
@@ -34,19 +32,18 @@ end
 function (tf::TraceFunction)(x)
     v = tf.f(x)
     if tf.on_call
-        push!(tf.trace, (input = copy(x), output = copy(v)))
+        push!(tf.trace, (input=copy(x), output=copy(v)))
     end
     return v
 end
 function ChainRulesCore.rrule(rc::RuleConfig, tf::TraceFunction, x)
     v, pb = ChainRulesCore.rrule_via_ad(rc, tf.f, x)
-    return v,
-    Δ -> begin
+    return v, Δ -> begin
         Δin = pb(Δ)
         g = ChainRulesCore.unthunk(Δin[2])
         if tf.on_grad
             grad = g isa Union{AbstractArray,Number} ? copy(g) : g
-            push!(tf.trace, (input = copy(x), output = copy(v), grad = grad))
+            push!(tf.trace, (input=copy(x), output=copy(v), grad=grad))
         end
         return (Δin[1], g)
     end
@@ -56,11 +53,11 @@ function ChainRulesCore.frule(rc::RuleConfig, (_, Δx), tf::TraceFunction, x)
 
     if tf.on_grad
         if !isempty(tf.trace) &&
-           x == tf.trace[end].input &&
-           hasproperty(tf.trace[end], :grad)
+            x == tf.trace[end].input &&
+            hasproperty(tf.trace[end], :grad)
             push!(tf.trace[end].grad, g)
         else
-            push!(tf.trace, (input = copy(x), output = copy(v), grad = [copy(g)]))
+            push!(tf.trace, (input=copy(x), output=copy(v), grad=[copy(g)]))
         end
     end
     return v, g
@@ -70,11 +67,11 @@ function ChainRulesCore.frule((_, Δx), tf::TraceFunction, x)
 
     if tf.on_grad
         if !isempty(tf.trace) &&
-           x == tf.trace[end].input &&
-           hasproperty(tf.trace[end], :grad)
+            x == tf.trace[end].input &&
+            hasproperty(tf.trace[end], :grad)
             push!(tf.trace[end].grad, g)
         else
-            push!(tf.trace, (input = copy(x), output = copy(v), grad = [copy(g)]))
+            push!(tf.trace, (input=copy(x), output=copy(v), grad=[copy(g)]))
         end
     end
     return v, g
