@@ -2,3 +2,7 @@
 *.jl.cov
 *.jl.mem
 /Manifest.toml
+
+# Documentation build artifacts
+docs/build/
+docs/Manifest.toml
