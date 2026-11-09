@@ -288,18 +288,39 @@ end
 # Model-level callables: they take the model's structured variable container
 # and evaluate the corresponding part of the single nonlinear model.
 
+"""
+    JuMPModelObjective(m::JuMPEvaluator, ks)
+
+The objective of a JuMP-converted model: evaluates the converted objective
+expression on the model's variable container through the shared
+`JuMPEvaluator`.
+"""
 struct JuMPModelObjective{M,K} <: Function
     m::M
     ks::K
 end
 (f::JuMPModelObjective)(x) = JuMPModelObjectiveVector(f.m)(flatten(x, f.ks)[1])
 
+"""
+    JuMPModelIneq(m::JuMPEvaluator, ks)
+
+The inequality constraints of a JuMP-converted model: a single vector-valued
+function evaluating every converted inequality row (in the converted row
+order) through the shared `JuMPEvaluator`.
+"""
 struct JuMPModelIneq{M,K} <: Function
     m::M
     ks::K
 end
 (f::JuMPModelIneq)(x) = JuMPModelIneqVector(f.m)(flatten(x, f.ks)[1])
 
+"""
+    JuMPModelEq(m::JuMPEvaluator, ks)
+
+The equality constraints of a JuMP-converted model: a single vector-valued
+function evaluating every converted equality row through the shared
+`JuMPEvaluator`.
+"""
 struct JuMPModelEq{M,K} <: Function
     m::M
     ks::K

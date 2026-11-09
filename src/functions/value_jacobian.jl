@@ -32,7 +32,12 @@ function value_jacobian(f::Function, x::AbstractVector, backend::AbstractADType 
             return _value_jacobian_zygote_rows(f, x, y, backend)
         end
     end
-    _, J = DI.value_and_jacobian(f, backend, x)
+    prep = get(_PREP_CACHES.jacobian, (f, backend), nothing)
+    if prep === nothing
+        _, J = DI.value_and_jacobian(f, backend, x)
+    else
+        _, J = DI.value_and_jacobian(f, prep, backend, x)
+    end
     return y, Adjoint(Matrix(transpose(J)))
 end
 
@@ -63,21 +68,13 @@ function value_jacobian(c::VectorOfFunctions, x::AbstractVector, backend::Abstra
 end
 
 """
-    value_jacobian_transpose(f::Function, x::AbstractVector, [backend::ADTypes.AbstractADType])
-
-Returns the value and transpose of the Jacobian of `f` at the point `x`. This calls [`value_jacobian`](@ref NonconvexCore.value_jacobian) and transposes the Jacobian.
-"""
-function value_jacobian_transpose(f::Function, x::AbstractVector, backend::AbstractADType = DEFAULT_AD_BACKEND[])
-    val, jac = value_jacobian(f, x, backend)
-    return val, jac'
-end
-
-"""
     value_gradient(f::Function, x::AbstractVector, [backend::ADTypes.AbstractADType])
 
 Returns the value and gradient of the scalar-valued function `f` at the point `x`, computed with the automatic differentiation backend `backend` (defaults to the package-wide backend returned by [`get_ad_backend`](@ref)).
 """
 function value_gradient(f::Function, x::AbstractVector, backend::AbstractADType = DEFAULT_AD_BACKEND[])
+    prep = get(_PREP_CACHES.gradient, (f, backend), nothing)
+    prep === nothing || return DI.value_and_gradient(f, prep, backend, x)
     return DI.value_and_gradient(f, backend, x)
 end
 
@@ -86,8 +83,11 @@ end
 
 Returns the Hessian of the scalar-valued function `f` at the point `x`, computed with the automatic differentiation backend `backend` (defaults to the package-wide backend returned by [`get_ad_backend`](@ref)).
 """
-value_hessian(f::Function, x::AbstractVector, backend::AbstractADType = DEFAULT_AD_BACKEND[]) =
-    DI.hessian(f, backend, x)
+function value_hessian(f::Function, x::AbstractVector, backend::AbstractADType = DEFAULT_AD_BACKEND[])
+    prep = get(_PREP_CACHES.hessian, (f, backend), nothing)
+    prep === nothing || return DI.hessian(f, prep, backend, x)
+    return DI.hessian(f, backend, x)
+end
 
 
 
@@ -105,13 +105,6 @@ Returns the value and Jacobian of the function (or `VectorOfFunctions`
 collection) `f` at `x`.
 """
 value_jacobian
-
-"""
-    value_jacobian_transpose(f, x, [backend])
-
-Returns the value and the transpose of the Jacobian of `f` at `x`.
-"""
-value_jacobian_transpose
 
 """
     value_hessian(f, x, [backend])

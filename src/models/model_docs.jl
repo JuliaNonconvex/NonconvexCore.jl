@@ -166,3 +166,10 @@ Constrains the `i`th variable of `model` to be integer (or relaxes the
 constraint) when `integer` is `true` (`false`).
 """
 setinteger!
+
+"""
+    getinit(model::AbstractModel)
+
+Returns the initial solution of `model`.
+"""
+getinit

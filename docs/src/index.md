@@ -32,7 +32,7 @@ inequality, equality and semidefinite constraints can be added with
 ## JuMP models
 
 JuMP models can be converted to `DictModel`s with
-[`DictModel(::JuMP.Model)`](@ref) when JuMP is loaded. Models with nonlinear
+`DictModel(::JuMP.Model)` when JuMP is loaded. Models with nonlinear
 expressions are evaluated through one MathOptInterface `Nonlinear`
 evaluator, so the values, sparse Jacobian and Lagrangian Hessian of the whole
 model come from single evaluator passes. See [JuMP models](jump.md).

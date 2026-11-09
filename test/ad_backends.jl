@@ -40,9 +40,6 @@ const x = [0.3, -0.7, 1.2, 0.5, -0.4]
     @test isempty(ve)
     @test size(je) == (0, 5)
 
-    vt, gt = NonconvexCore.value_jacobian_transpose(f, x)
-    @test vt == f(x)
-    @test gt ≈ g0
 end
 
 @testset "AD backends - sparse derivatives" begin
@@ -121,4 +118,28 @@ end
     g = z -> [z[1] + z[2], z[1]^2, 3z[2]]
     J = Matrix(NonconvexCore.sparse_jacobian(g, [1.0, 2.0], ADTypes.AutoZygote()))
     @test J ≈ [1.0 1.0; 2.0 0.0; 0.0 3.0]
+end
+
+@testset "AD backends - explicit preparation" begin
+    g2 = z -> [z[1] + z[2], z[3]^2]
+    x2 = [1.0, 2.0, 3.0]
+    NonconvexCore.prepare_jacobian(g2, x2, ADTypes.AutoForwardDiff())
+    v, J = NonconvexCore.value_jacobian(g2, x2, ADTypes.AutoForwardDiff())
+    @test v == [3.0, 9.0]
+    @test Matrix(J) ≈ [1.0 1.0 0.0; 0.0 0.0 6.0]
+
+    F = NonconvexCore.diffy(g2, x2, ADTypes.AutoForwardDiff())
+    @test F(x2) == g2(x2)
+    @test Zygote.jacobian(F, x2)[1] ≈ [1.0 1.0 0.0; 0.0 0.0 6.0]
+
+    f2 = z -> sum(abs2, z)
+    NonconvexCore.prepare_gradient(f2, x2)
+    vg, gg = NonconvexCore.value_gradient(f2, x2)
+    @test vg == sum(abs2, x2)
+    @test gg ≈ 2x2
+
+    m = Model(f2)
+    addvar!(m, -ones(3), ones(3))
+    vm = NonconvexCore.prepare_model(m, ones(3))
+    @test NonconvexCore.value_gradient(NonconvexCore.getobjective(vm), ones(3))[2] ≈ 2ones(3)
 end

@@ -27,13 +27,51 @@ The generic derivative entry points are:
   a scalar-valued function.
 - [`value_jacobian`](@ref NonconvexCore.value_jacobian): value and Jacobian of
   a (possibly vector-valued) function or a `VectorOfFunctions` collection.
-- [`value_jacobian_transpose`](@ref NonconvexCore.value_jacobian_transpose):
-  value and the transpose of the Jacobian.
 - [`value_hessian`](@ref NonconvexCore.value_hessian): Hessian of a
   scalar-valued function.
 
 All of them take an optional backend argument defaulting to the package-wide
 backend.
+
+## Explicit preparation
+
+The differentiation backend of a function can be prepared explicitly (chunk
+selection, tape compilation, sparsity detection and coloring) before any
+optimization, and the preparation is then used by default:
+
+```julia
+prepare_gradient(f, x, backend)
+prepare_jacobian(f, x, backend)
+prepare_hessian(f, x, backend)
+prepare_sparse_jacobian(f, x, backend)
+prepare_sparse_hessian(f, x, backend)
+```
+
+`x` is a representative point at which the preparation is computed; the
+prepared objects are cached per `(f, backend)` and consulted by
+[`value_gradient`](@ref NonconvexCore.value_gradient),
+[`value_jacobian`](@ref NonconvexCore.value_jacobian),
+[`value_hessian`](@ref NonconvexCore.value_hessian),
+[`sparse_jacobian`](@ref NonconvexCore.sparse_jacobian) and
+[`sparse_hessian`](@ref NonconvexCore.sparse_hessian) thereafter.
+
+An entire model can be prepared at once with
+[`prepare_model`](@ref NonconvexCore.prepare_model), which prepares the
+objective gradient and Hessian and every constraint Jacobian of the
+vectorized model and returns it.
+
+## The `diffy` modifier
+
+[`diffy`](@ref NonconvexCore.diffy) wraps a function so that it evaluates
+through an eagerly prepared backend, and any ChainRules-compatible outer
+differentiation uses that prepared backend:
+
+```julia
+F = diffy(f, x, backend)
+F(x)
+```
+
+`F` can be used in place of `f` in objectives and constraints.
 
 ## Second-order composition
 

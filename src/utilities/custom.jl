@@ -67,6 +67,13 @@ function ChainRulesCore.frule((_, Δx), f::CustomGradFunction, x::AbstractVector
 end
 @ForwardDiff_frule (f::CustomGradFunction)(x::AbstractVector{<:ForwardDiff.Dual})
 
+"""
+    CustomHessianFunction(f, g, h; hvp = false)
+
+Wraps the scalar-valued function `f` so that its gradient is computed by `g`
+and its Hessian by `h` (or, with `hvp = true`, by a Hessian-vector product
+operator).
+"""
 struct CustomHessianFunction{F,G,H} <: Function
     f::F
     g::G

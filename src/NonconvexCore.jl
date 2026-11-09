@@ -32,6 +32,13 @@ export Model,
     checksubproblem!,
     set_ad_backend!,
     get_ad_backend,
+    prepare_gradient,
+    prepare_jacobian,
+    prepare_hessian,
+    prepare_sparse_jacobian,
+    prepare_sparse_hessian,
+    prepare_model,
+    diffy,
     JuMPSymbolicFunction,
     TraceFunction,
     CustomGradFunction,
@@ -112,6 +119,7 @@ include("models/model_docs.jl")
 include("models/jump.jl")
 include("models/jumpsymbolic.jl")
 include("models/moi.jl")
+include("functions/prepare.jl")
 
 # Utilities that depend on the model layer
 
