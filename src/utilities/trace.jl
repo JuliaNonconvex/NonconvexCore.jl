@@ -18,16 +18,16 @@ function TraceFunction(
         _on_call = true
         _on_grad = true
     elseif on_call === nothing
-        _on_call = !on_grad
+        _on_call = !something(on_grad, true)
         _on_grad = on_grad
     elseif on_grad === nothing
         _on_call = on_call
-        _on_grad = !on_call
+        _on_grad = !something(on_call, true)
     else
         _on_call = on_call
         _on_grad = on_grad
     end
-    return TraceFunction(f, Any[], _on_call, _on_grad)
+    return TraceFunction(f, Any[], _on_call::Bool, _on_grad::Bool)
 end
 function (tf::TraceFunction)(x)
     v = tf.f(x)

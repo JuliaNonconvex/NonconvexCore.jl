@@ -158,8 +158,13 @@ function checksubproblem!(
     eq_lin = _constraint_linearity(model.eq_constraints, x)
     ineq_lin = _constraint_linearity(model.ineq_constraints, x)
     sd_lin = _constraint_linearity(model.sd_constraints, x)
-    discrete = model.integer .!= 0
-    binary_flag = discrete .&& (model.box_min .>= 0) .&& (model.box_max .<= 1)
+    n = length(model.integer)
+    discrete = BitVector(undef, n)
+    binary_flag = BitVector(undef, n)
+    for i = 1:n
+        discrete[i] = model.integer[i] != 0
+        binary_flag[i] = discrete[i] && model.box_min[i] >= 0 && model.box_max[i] <= 1
+    end
     features = Dict{Symbol,Bool}(
         :linear_eq => any(eq_lin),
         :nonlinear_eq => any(.!eq_lin),

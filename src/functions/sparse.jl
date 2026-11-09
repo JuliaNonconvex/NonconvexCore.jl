@@ -77,9 +77,13 @@ function _sparse_jacobian_default(f, x, backend::AbstractADType)
         entry = (f_, sb, DI.prepare_jacobian(f_, sb, x))
         _SPARSE_JACOBIAN_PREP_CACHE[key] = entry
     end
-    f2, sb, prep = entry
-    return DI.jacobian(f2, prep, sb, x)
+    f2, sb, prep = entry::Tuple{Any,Any,Any}
+    return _di_jacobian(f2, prep, sb, x)
 end
+
+# Function barrier over the prepared sparse jacobian call: the preparation
+# object's concrete type depends on the backend.
+_di_jacobian(f, prep, sb, x) = DI.jacobian(f, prep, sb, x)
 
 function _assemble_sparse_jacobian(f, x, pattern, backend)
     m, n = size(pattern)
@@ -123,9 +127,11 @@ function sparse_hessian(f, x, backend::AbstractADType=DEFAULT_AD_BACKEND[])
         entry = (sb, DI.prepare_hessian(f, sb, x))
         _SPARSE_HESSIAN_PREP_CACHE[key] = entry
     end
-    sb, prep = entry
-    return DI.hessian(f, prep, sb, x)
+    sb, prep = entry::Tuple{Any,Any}
+    return _di_hessian(f, prep, sb, x)
 end
+
+_di_hessian(f, prep, sb, x) = DI.hessian(f, prep, sb, x)
 
 _sparsevec(x::Real) = [x]
 _sparsevec(x::Vector) = copy(x)
