@@ -1,6 +1,20 @@
 # Changelog
 
-## 2.1.0 (unreleased)
+## 2.1.1
+
+### Documentation
+
+- The docs now deploy to GitHub Pages: **dev** docs on every master push,
+  **stable** docs on version tags, and **PR preview** docs at
+  `preview/PR<n>/` with a comment linking each preview. The README gains
+  stable/dev documentation badges.
+
+### Fixes
+
+- Dropped a stale reference to the removed `jump_symbolic_jacobian_sparsity`
+  from the docstrings page.
+
+## 2.1.0
 
 ### Static analysis and type stability
 
@@ -24,6 +38,11 @@
 - The whole codebase (src, ext, test, docs) is formatted with
   JuliaFormatter **BlueStyle**, pinned by `.JuliaFormatter.toml` and
   enforced by a `format-check` CI workflow.
+
+### Fixes
+
+- `addvar!`: fixed multi-scalar chunking and integer-flag initialization
+  (#48).
 
 ## 2.0.0
 
