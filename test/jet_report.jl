@@ -22,9 +22,7 @@ for arg in ARGS
 end
 
 # Run JET analysis
-report = JET.report_package(
-    NonconvexCore; target_modules=(NonconvexCore,)
-)
+report = JET.report_package(NonconvexCore; target_modules=(NonconvexCore,))
 
 # Restrict the report to issues that originate in NonconvexCore's own
 # source. `report_package` also analyzes the dependency closure, surfacing
