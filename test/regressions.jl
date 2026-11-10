@@ -118,15 +118,21 @@ end
     model = Model(x -> 0.0)
     addvar!(model, [fill(-Inf, 1), zeros(2)], [fill(Inf, 1), fill(Inf, 2)])
     add_sd_constraint!(model, x -> [x[1]^2 + 1.0 0.0; 0.0 x[2] + 1.0], 2)
-    vm, x0, _ = tovecmodel(model)
+    vm, x0, _ = NonconvexCore.tovecmodel(model)
     @test length(vm.integer) == 3
     struct ChunkSolver <: NonconvexCore.AbstractOptimizer end
     NonconvexCore.solver_capabilities(::ChunkSolver) = ConstraintCapabilities(
-        linear_eq = true, nonlinear_eq = true,
-        linear_ineq = true, nonlinear_ineq = true,
-        linear_sd = true, nonlinear_sd = true,
-        box = true, continuous = true, binary = true, integer = true,
-        infinite_bounds = true,
+        linear_eq=true,
+        nonlinear_eq=true,
+        linear_ineq=true,
+        nonlinear_ineq=true,
+        linear_sd=true,
+        nonlinear_sd=true,
+        box=true,
+        continuous=true,
+        binary=true,
+        integer=true,
+        infinite_bounds=true,
     )
-    @test checksubproblem!(vm, ChunkSolver()) === nothing
+    @test NonconvexCore.checksubproblem!(vm, ChunkSolver()) === nothing
 end
