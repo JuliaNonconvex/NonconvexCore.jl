@@ -49,38 +49,38 @@ jobs:
 
       - name: Instantiate PR environment
         run: |
-          julia --project=pr/test -e '
+          julia --project=pr -e '
             using Pkg
-            Pkg.develop(PackageSpec(path="pr"))
+            Pkg.add(["JET", "JSON"])
             Pkg.instantiate()
             Pkg.precompile()'
 
       - name: Instantiate master environment
         run: |
-          julia --project=master/test -e '
+          julia --project=master -e '
             using Pkg
-            Pkg.develop(PackageSpec(path="master"))
+            Pkg.add(["JET", "JSON"])
             Pkg.instantiate()
             Pkg.precompile()'
 
       - name: Run JET on PR branch
-        run: julia --project=test test/jet_report.jl --output ../pr_jet.json
+        run: julia --project=pr test/jet_report.jl --output ../pr_jet.json
         working-directory: pr
 
       - name: Copy JET script to master checkout
         run: cp pr/test/jet_report.jl master/test/jet_report.jl
 
       - name: Run JET on master
-        run: julia --project=test test/jet_report.jl --output ../master_jet.json
+        run: julia --project=master test/jet_report.jl --output ../master_jet.json
         working-directory: master
 
       - name: Compare JET reports (PR)
-        run: julia --project=test test/jet_compare.jl ../master_jet.json ../pr_jet.json
+        run: julia --project=pr test/jet_compare.jl ../master_jet.json ../pr_jet.json
         working-directory: pr
 
       - name: List JET issues (push to master)
         if: github.event_name == 'push'
-        run: julia --project=test test/jet_compare.jl ../master_jet.json ../pr_jet.json --full
+        run: julia --project=pr test/jet_compare.jl ../master_jet.json ../pr_jet.json --full
         working-directory: pr
 
       - name: Post JET comparison comment (PR)
