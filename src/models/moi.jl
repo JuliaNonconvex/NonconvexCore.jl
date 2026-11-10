@@ -2,7 +2,7 @@
 # solver packages.
 nvalues(::Nothing) = 0
 nvalues(J::Matrix) = length(J)
-nvalues(H::LowerTriangular{<:Real,<:Matrix}) = (size(H, 1) + 1) * size(H, 1) ÷ 2
+nvalues(H::LowerTriangular{<:Real,<:Matrix}) = (n=last(axes(H, 1)); n * (n + 1) ÷ 2)
 nvalues(H::SparseMatrixCSC) = length(H.nzval)
 function nvalues(HL::LowerTriangular{<:Real,<:SparseMatrixCSC})
     nvalues = 0
@@ -27,7 +27,7 @@ end
 function fill_indices!(
     rows, cols, HL::LowerTriangular{<:Real,<:Matrix}; offset=0, row_offset=0
 )
-    nvars = size(HL, 1)
+    nvars = last(axes(HL, 1))
     for j in 1:nvars
         cols[(offset + 1):(offset + nvars - j + 1)] .= j
         rows[(offset + 1):(offset + nvars - j + 1)] .= (row_offset + j):(row_offset + nvars)
@@ -65,7 +65,7 @@ function add_values!(values, J::Matrix; offset=0)
     return values
 end
 function add_values!(values, HL::LowerTriangular{<:Real,<:Matrix}; factor=1, offset=0)
-    nvars = size(HL, 1)
+    nvars = last(axes(HL, 1))
     for j in 1:nvars
         values[(offset + 1):(offset + nvars - j + 1)] .+= HL[j:nvars, j] .* factor
         offset += nvars - j + 1
