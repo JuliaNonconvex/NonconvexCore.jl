@@ -1,14 +1,14 @@
 module NonconvexCoreSymbolicsExt
 
-import NonconvexCore
-import Symbolics
-import ForwardDiff
-import ChainRulesCore
+using NonconvexCore: NonconvexCore
+using Symbolics: Symbolics
+using ForwardDiff: ForwardDiff
+using ChainRulesCore: ChainRulesCore
 using ChainRulesCore: NoTangent, ProjectTo
-import SparseArrays
+using SparseArrays: SparseArrays
 using SparseArrays: SparseMatrixCSC, nnz, sparse, spzeros, dropzeros!
-using NonconvexCore: tovecfunc, flatten, getmin, _sparsevec, _unthunk,
-    symbolify, var"@ForwardDiff_frule"
+using NonconvexCore:
+    tovecfunc, flatten, getmin, _sparsevec, _unthunk, symbolify, var"@ForwardDiff_frule"
 
 struct UnflattennedFunction{F1,F2,V,U} <: Function
     f::F1
@@ -18,11 +18,13 @@ struct UnflattennedFunction{F1,F2,V,U} <: Function
     flatteny::Bool
 end
 (f::UnflattennedFunction)(x...) = f.f(x...)
-function NonconvexCore.tovecfunc(f::UnflattennedFunction, x...; flatteny = true)
+function NonconvexCore.tovecfunc(f::UnflattennedFunction, x...; flatteny=true)
     @assert flatteny == f.flatteny
     return f.flat_f, f.v, f.unflatten
 end
-function NonconvexCore.tovecfunc(f::UnflattennedFunction, x::AbstractVector{<:Real}...; flatteny = true)
+function NonconvexCore.tovecfunc(
+    f::UnflattennedFunction, x::AbstractVector{<:Real}...; flatteny=true
+)
     @assert flatteny == f.flatteny
     return f.flat_f, f.v, f.unflatten
 end
@@ -35,11 +37,7 @@ struct SymbolicFunction{F,G,H,X} <: Function
 end
 
 function SymbolicFunction(
-    f,
-    _x::AbstractVector;
-    hessian = false,
-    sparse = false,
-    simplify = false,
+    f, _x::AbstractVector; hessian=false, sparse=false, simplify=false
 )
     N = length(_x)
     val = f(_x)
@@ -54,15 +52,15 @@ function SymbolicFunction(
         end
     end
     Symbolics.@variables tmpx[1:N]
-    x = [tmpx[i] for i = 1:N]
+    x = [tmpx[i] for i in 1:N]
     if val isa Real
         if sparse
             sgrad = Symbolics.sparsejacobian([f(x)], x; simplify)
-            _g, _ = Symbolics.build_function(sgrad, x; expression = Val{false})
+            _g, _ = Symbolics.build_function(sgrad, x; expression=Val{false})
             g = x -> _sparsevec(T(_g(x)))
         else
             sgrad = Symbolics.jacobian([f(x)], x; simplify)
-            _g, _ = Symbolics.build_function(sgrad, x; expression = Val{false})
+            _g, _ = Symbolics.build_function(sgrad, x; expression=Val{false})
             g = x -> vec(T(_g(x)))
         end
         if hessian
@@ -71,7 +69,7 @@ function SymbolicFunction(
             else
                 shess = Symbolics.jacobian(g(x), x; simplify)
             end
-            _h, _ = Symbolics.build_function(shess, x; expression = Val{false})
+            _h, _ = Symbolics.build_function(shess, x; expression=Val{false})
             h = x -> T(_h(x))
         else
             h = nothing
@@ -79,11 +77,11 @@ function SymbolicFunction(
     else
         if sparse
             sjac = Symbolics.sparsejacobian(f(x), x; simplify)
-            _g, _ = Symbolics.build_function(sjac, x; expression = Val{false})
+            _g, _ = Symbolics.build_function(sjac, x; expression=Val{false})
             g = x -> T(_g(x))
         else
             sjac = Symbolics.jacobian(f(x), x; simplify)
-            _g, _ = Symbolics.build_function(sjac, x; expression = Val{false})
+            _g, _ = Symbolics.build_function(sjac, x; expression=Val{false})
             g = x -> T(_g(x))
         end
         if hessian
@@ -92,7 +90,7 @@ function SymbolicFunction(
             else
                 shess = Symbolics.jacobian(vec(g(x)), x; simplify)
             end
-            _h, _ = Symbolics.build_function(shess, x; expression = Val{false})
+            _h, _ = Symbolics.build_function(shess, x; expression=Val{false})
             h = x -> T(_h(x))
         else
             h = nothing
@@ -134,36 +132,28 @@ function ChainRulesCore.frule((_, Δx), f::SymbolicFunction, x::AbstractVector)
 end
 @ForwardDiff_frule (f::SymbolicFunction)(x::AbstractVector{<:ForwardDiff.Dual})
 
-function NonconvexCore.symbolify(f, x...; flatteny = true, kwargs...)
+function NonconvexCore.symbolify(f, x...; flatteny=true, kwargs...)
     flat_f, vx, unflatteny = tovecfunc(f, x...; flatteny)
     if length(x) == 1 && x[1] isa AbstractVector
         flat_f = f
         sym_flat_f = SymbolicFunction(flat_f, vx; kwargs...)
         return UnflattennedFunction(
-            x -> unflatteny(sym_flat_f(x)),
-            sym_flat_f,
-            vx,
-            unflatteny,
-            flatteny,
+            x -> unflatteny(sym_flat_f(x)), sym_flat_f, vx, unflatteny, flatteny
         )
     else
         sym_flat_f = SymbolicFunction(flat_f, vx; kwargs...)
         return UnflattennedFunction(
-            x -> unflatteny(sym_flat_f(flatten(x)[1])),
-            sym_flat_f,
-            vx,
-            unflatteny,
-            flatteny,
+            x -> unflatteny(sym_flat_f(flatten(x)[1])), sym_flat_f, vx, unflatteny, flatteny
         )
     end
 end
 
 function NonconvexCore.symbolify(
     model::NonconvexCore.AbstractModel;
-    objective = true,
-    ineq_constraints = true,
-    eq_constraints = true,
-    sd_constraints = true,
+    objective=true,
+    ineq_constraints=true,
+    eq_constraints=true,
+    sd_constraints=true,
     kwargs...,
 )
     x = getmin(model)
@@ -177,48 +167,47 @@ function NonconvexCore.symbolify(
         obj = model.objective
     end
     if ineq_constraints
-        ineq =
-            length(model.ineq_constraints.fs) != 0 ?
+        ineq = if length(model.ineq_constraints.fs) != 0
             NonconvexCore.VectorOfFunctions(
-                map(model.ineq_constraints.fs) do c
-                    return NonconvexCore.IneqConstraint(
-                        symbolify(c.f, x; kwargs...),
-                        c.rhs,
-                        c.dim,
-                        c.flags,
-                    )
-                end,
-            ) : NonconvexCore.VectorOfFunctions(NonconvexCore.IneqConstraint[])
+            map(model.ineq_constraints.fs) do c
+                return NonconvexCore.IneqConstraint(
+                    symbolify(c.f, x; kwargs...), c.rhs, c.dim, c.flags
+                )
+            end,
+        )
+        else
+            NonconvexCore.VectorOfFunctions(NonconvexCore.IneqConstraint[])
+        end
     else
         ineq = model.ineq_constraints
     end
     if eq_constraints
-        eq =
-            length(model.eq_constraints.fs) != 0 ?
+        eq = if length(model.eq_constraints.fs) != 0
             NonconvexCore.VectorOfFunctions(
-                map(model.eq_constraints.fs) do c
-                    return NonconvexCore.EqConstraint(
-                        symbolify(c.f, x; kwargs...),
-                        c.rhs,
-                        c.dim,
-                        c.flags,
-                    )
-                end,
-            ) : NonconvexCore.VectorOfFunctions(NonconvexCore.EqConstraint[])
+            map(model.eq_constraints.fs) do c
+                return NonconvexCore.EqConstraint(
+                    symbolify(c.f, x; kwargs...), c.rhs, c.dim, c.flags
+                )
+            end,
+        )
+        else
+            NonconvexCore.VectorOfFunctions(NonconvexCore.EqConstraint[])
+        end
     else
         eq = model.eq_constraints
     end
     if sd_constraints
-        sd =
-            length(model.sd_constraints.fs) != 0 ?
+        sd = if length(model.sd_constraints.fs) != 0
             NonconvexCore.VectorOfFunctions(
-                map(model.sd_constraints.fs) do c
-                    return NonconvexCore.SDConstraint(
-                        symbolify(c.f, x; flatteny = false, kwargs...),
-                        c.dim,
-                    )
-                end,
-            ) : NonconvexCore.VectorOfFunctions(NonconvexCore.SDConstraint[])
+            map(model.sd_constraints.fs) do c
+                return NonconvexCore.SDConstraint(
+                    symbolify(c.f, x; flatteny=false, kwargs...), c.dim
+                )
+            end,
+        )
+        else
+            NonconvexCore.VectorOfFunctions(NonconvexCore.SDConstraint[])
+        end
     else
         sd = model.sd_constraints
     end
@@ -230,14 +219,7 @@ function NonconvexCore.symbolify(
         throw("Unsupported model type.")
     end
     return ModelT(
-        obj,
-        eq,
-        ineq,
-        sd,
-        model.box_min,
-        model.box_max,
-        model.init,
-        model.integer,
+        obj, eq, ineq, sd, model.box_min, model.box_max, model.init, model.integer
     )
 end
 end # module NonconvexCoreSymbolicsExt

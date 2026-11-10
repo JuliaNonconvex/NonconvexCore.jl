@@ -20,7 +20,7 @@ Abstract Workspace, which is a struct that stores states and information needed 
 Implementation depends on specific algorithm.
 """
 abstract type Workspace end
-function reset!(w::Workspace, x0 = nothing)
+function reset!(w::Workspace, x0=nothing)
     if x0 !== nothing
         w.x0 .= x0
     end
@@ -83,8 +83,8 @@ struct Tolerance{Tx,Tf,Tkkt,Tinfeas}
     kkt::Tkkt
     infeas::Tinfeas
 end
-function Tolerance(; x = 0.0, f = 1e-5, fabs = f, frel = f, kkt = 1e-5, infeas = 1e-5)
-    Tolerance(x, fabs, frel, kkt, infeas)
+function Tolerance(; x=0.0, f=1e-5, fabs=f, frel=f, kkt=1e-5, infeas=1e-5)
+    return Tolerance(x, fabs, frel, kkt, infeas)
 end
 function (tol::Tolerance{<:Function,<:Function,<:Function})(i)
     return Tolerance(tol.x(i), tol.fabs(i), tol.frel(i), tol.kkt(i), tol.infeas)
@@ -138,7 +138,6 @@ This convergence criteria uses another scaled version of the Karush-Kuhn-Tucker 
 """
 struct ScaledKKTCriteria <: ConvergenceCriteria end
 
-
 """
     Solution
 
@@ -187,12 +186,7 @@ A summary result struct returned by [`optimize`](@ref), including following fiel
  - `fcalls`: the number of times the objective and constraint functions were called during the optimization
 """
 mutable struct GenericResult{
-    O,
-    I,
-    M1,
-    M2<:Real,
-    T<:Tolerance,
-    C<:Union{ConvergenceState,Nothing},
+    O,I,M1,M2<:Real,T<:Tolerance,C<:Union{ConvergenceState,Nothing}
 } <: AbstractResult
     optimizer::O
     initial_x::I
@@ -206,7 +200,6 @@ mutable struct GenericResult{
 end
 
 abstract type AbstractModel end
-
 
 """
 ```
@@ -240,11 +233,7 @@ result contains the `minimum` and `minimizer` fields (see
 [Optimization result](result.md)).
 """
 function optimize(
-    model::AbstractModel,
-    optimizer::AbstractOptimizer,
-    x0,
-    args...;
-    kwargs...,
+    model::AbstractModel, optimizer::AbstractOptimizer, x0, args...; kwargs...
 )
     _optimize_precheck(model, optimizer, x0, args...; kwargs...)
     _model, _x0, unflatten = tovecmodel(model, x0)
@@ -261,14 +250,11 @@ function optimize(
 end
 
 function _optimize_precheck(
-    model::AbstractModel,
-    optimizer::AbstractOptimizer,
-    args...;
-    kwargs...,
+    model::AbstractModel, optimizer::AbstractOptimizer, args...; kwargs...
 )
     # Constraint support is validated strictly by `checksubproblem!` in
     # `optimize` against the solver's `solver_capabilities` declaration.
-    check_finite_start!(model, args)
+    return check_finite_start!(model, args)
 end
 
 """
@@ -290,10 +276,8 @@ function check_finite_start!(model::AbstractModel, args)
             )
         end
     end
-    for (kind, fs) in (
-        ("inequality", getineqconstraints(model)),
-        ("equality", geteqconstraints(model)),
-    )
+    for (kind, fs) in
+        (("inequality", getineqconstraints(model)), ("equality", geteqconstraints(model)))
         vals = fs(x)
         for (i, v) in enumerate(vals)
             if !isfinite(v)
@@ -307,7 +291,7 @@ function check_finite_start!(model::AbstractModel, args)
 end
 
 function optimize!(::Workspace)
-    throw("Method not implemented for this type.")
+    return throw("Method not implemented for this type.")
 end
 
 """
@@ -326,12 +310,11 @@ function optimize(model::AbstractModel, optimizer::AbstractOptimizer, args...; k
     end
 end
 
-
 """
 Clamp the box constraint and evaluate objective function at point x
 """
 function clamp_and_evaluate!(model::AbstractModel, x::AbstractVector)
     @unpack box_min, box_max = model
     x .= clamp.(x, box_min, box_max)
-    model.objective(x)
+    return model.objective(x)
 end

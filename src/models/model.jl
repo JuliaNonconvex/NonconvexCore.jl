@@ -34,7 +34,7 @@ end
 
 Constructs an empty model or a model with objective function `f`. The decision variables are assumed to be of type `Vector{Any}`.
 """
-Model(f::Union{Nothing,Function} = x -> 0.0) = Model(Any, f)
+Model(f::Union{Nothing,Function}=x -> 0.0) = Model(Any, f)
 
 """
     Model(::Type{T}, f::Union{Nothing, Function}) where {T}
@@ -63,19 +63,14 @@ geteqconstraints(m::AbstractModel) = m.eq_constraints
 
 getsdconstraints(m::AbstractModel) = m.sd_constraints
 
-function getobjectiveconstraints(m::AbstractModel; sd = false)
+function getobjectiveconstraints(m::AbstractModel; sd=false)
     if sd
         return VectorOfFunctions((
-            getobjective(m),
-            getineqconstraints(m),
-            geteqconstraints(m),
-            getsdconstraints(m),
+            getobjective(m), getineqconstraints(m), geteqconstraints(m), getsdconstraints(m)
         ))
     else
         return VectorOfFunctions((
-            getobjective(m),
-            getineqconstraints(m),
-            geteqconstraints(m),
+            getobjective(m), getineqconstraints(m), geteqconstraints(m)
         ))
     end
 end
@@ -91,7 +86,7 @@ getneqconstraints(m::AbstractModel) = length(geteqconstraints(m))
 getnsdconstraints(m::AbstractModel) = length(getsdconstraints(m))
 
 function getnconstraints(m::AbstractModel)
-    getnineqconstraints(m) + getneqconstraints(m) + getnsdconstraints(m)
+    return getnineqconstraints(m) + getneqconstraints(m) + getnsdconstraints(m)
 end
 
 getnvars(m::AbstractModel) = length(getmin(m))
@@ -107,7 +102,7 @@ function reduce_type(d::AbstractVector)
     return reduce_type.(d)
 end
 function reduce_type(d::OrderedDict)
-    OrderedDict(identity.(keys(d)) .=> reduce_type.(values(d)))
+    return OrderedDict(identity.(keys(d)) .=> reduce_type.(values(d)))
 end
 reduce_type(d) = d
 
@@ -154,7 +149,7 @@ function setinteger!(m::AbstractModel, i, integer)
     return m
 end
 
-function addvar!(m::Model, lb, ub; init = deepcopy(lb), integer = false)
+function addvar!(m::Model, lb, ub; init=deepcopy(lb), integer=false)
     push!(getmin(m), lb)
     push!(getmax(m), ub)
     push!(m.init, init)
@@ -162,11 +157,7 @@ function addvar!(m::Model, lb, ub; init = deepcopy(lb), integer = false)
     return m
 end
 function addvar!(
-    m::Model,
-    lb::Vector,
-    ub::Vector;
-    init = deepcopy(lb),
-    integer = falses(length(lb)),
+    m::Model, lb::Vector, ub::Vector; init=deepcopy(lb), integer=falses(length(lb))
 )
     append!(getmin(m), lb)
     append!(getmax(m), ub)
@@ -193,13 +184,13 @@ end
 function add_ineq_constraint!(
     m::AbstractModel,
     f::Function,
-    s = 0.0;
-    dim = length(flatten(f(reduce_type(getinit(m))))[1]),
+    s=0.0;
+    dim=length(flatten(f(reduce_type(getinit(m))))[1]),
     kwargs...,
 )
     return add_ineq_constraint!(m, FunctionWrapper(f, dim), s; kwargs...)
 end
-function add_ineq_constraint!(m::AbstractModel, f::AbstractFunction, s = 0.0; kwargs...)
+function add_ineq_constraint!(m::AbstractModel, f::AbstractFunction, s=0.0; kwargs...)
     return add_ineq_constraint!(m, IneqConstraint(f, s; kwargs...))
 end
 function add_ineq_constraint!(m::AbstractModel, f::IneqConstraint)
@@ -214,13 +205,13 @@ end
 function add_eq_constraint!(
     m::AbstractModel,
     f::Function,
-    s = 0.0;
-    dim = length(flatten(f(reduce_type(getinit(m))))[1]),
+    s=0.0;
+    dim=length(flatten(f(reduce_type(getinit(m))))[1]),
     kwargs...,
 )
     return add_eq_constraint!(m, FunctionWrapper(f, dim), s; kwargs...)
 end
-function add_eq_constraint!(m::AbstractModel, f::AbstractFunction, s = 0.0; kwargs...)
+function add_eq_constraint!(m::AbstractModel, f::AbstractFunction, s=0.0; kwargs...)
     return add_eq_constraint!(m, EqConstraint(f, s; kwargs...))
 end
 function add_eq_constraint!(m::AbstractModel, f::EqConstraint)
@@ -233,9 +224,7 @@ function add_eq_constraint!(m::AbstractModel, fs::Vector{<:EqConstraint})
 end
 
 function add_sd_constraint!(
-    m::AbstractModel,
-    f::Function,
-    dim = size(f(reduce_type(getinit(m))), 1),
+    m::AbstractModel, f::Function, dim=size(f(reduce_type(getinit(m))), 1)
 )
     return add_sd_constraint!(m, SDConstraint(f, dim))
 end

@@ -43,17 +43,17 @@ struct ConstraintCapabilities
     infinite_bounds::Union{Bool,Missing}
 end
 function ConstraintCapabilities(;
-    linear_eq = missing,
-    nonlinear_eq = missing,
-    linear_ineq = missing,
-    nonlinear_ineq = missing,
-    linear_sd = missing,
-    nonlinear_sd = missing,
-    box = missing,
-    continuous = missing,
-    binary = missing,
-    integer = missing,
-    infinite_bounds = missing,
+    linear_eq=missing,
+    nonlinear_eq=missing,
+    linear_ineq=missing,
+    nonlinear_ineq=missing,
+    linear_sd=missing,
+    nonlinear_sd=missing,
+    box=missing,
+    continuous=missing,
+    binary=missing,
+    integer=missing,
+    infinite_bounds=missing,
 )
     return ConstraintCapabilities(
         linear_eq,
@@ -100,17 +100,17 @@ function merge_capabilities(base::Union{ConstraintCapabilities,Nothing}; kwargs.
     end
     merge!(d, Dict{Symbol,Union{Bool,Missing}}(kwargs))
     return ConstraintCapabilities(;
-        linear_eq = d[:linear_eq],
-        nonlinear_eq = d[:nonlinear_eq],
-        linear_ineq = d[:linear_ineq],
-        nonlinear_ineq = d[:nonlinear_ineq],
-        linear_sd = d[:linear_sd],
-        nonlinear_sd = d[:nonlinear_sd],
-        box = d[:box],
-        continuous = d[:continuous],
-        binary = d[:binary],
-        integer = d[:integer],
-        infinite_bounds = d[:infinite_bounds],
+        linear_eq=d[:linear_eq],
+        nonlinear_eq=d[:nonlinear_eq],
+        linear_ineq=d[:linear_ineq],
+        nonlinear_ineq=d[:nonlinear_ineq],
+        linear_sd=d[:linear_sd],
+        nonlinear_sd=d[:nonlinear_sd],
+        box=d[:box],
+        continuous=d[:continuous],
+        binary=d[:binary],
+        integer=d[:integer],
+        infinite_bounds=d[:infinite_bounds],
     )
 end
 
@@ -149,9 +149,9 @@ Keyword arguments:
 function checksubproblem!(
     model::VecModel,
     optimizer::AbstractOptimizer;
-    assumed::Union{ConstraintCapabilities,Nothing} = nothing,
-    hint::String = "",
-    context::String = "the model",
+    assumed::Union{ConstraintCapabilities,Nothing}=nothing,
+    hint::String="",
+    context::String="the model",
 )
     caps = assumed === nothing ? solver_capabilities(optimizer) : assumed
     x = getinit(model)
@@ -191,20 +191,22 @@ function checksubproblem!(
         v = caps === nothing ? missing : getfield(caps, f)
         v === true && continue
         solvername = string(nameof(typeof(optimizer)))
-        msg = "The solver $solvername cannot solve $context which has " *
-              featurenames[f] * "."
+        msg =
+            "The solver $solvername cannot solve $context which has " *
+            featurenames[f] *
+            "."
         if v === false
             msg *= " $solvername does not support this feature."
         else
-            msg *= " $solvername must declare whether it supports this " *
-                   "feature by specializing `solver_capabilities`."
+            msg *=
+                " $solvername must declare whether it supports this " *
+                "feature by specializing `solver_capabilities`."
         end
         isempty(hint) || (msg *= " " * hint)
         throw(ArgumentError(msg))
     end
     return nothing
 end
-
 
 # Classify the constraints of a collection as linear (true) or nonlinear
 # (false) per output row. JuMP-converted constraints use the linearity of

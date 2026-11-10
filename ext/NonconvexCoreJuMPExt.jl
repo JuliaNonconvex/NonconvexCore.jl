@@ -1,24 +1,62 @@
 module NonconvexCoreJuMPExt
 
-import NonconvexCore
-import JuMP
-import MathOptInterface
+using NonconvexCore: NonconvexCore
+using JuMP: JuMP
+using MathOptInterface: MathOptInterface
 const MOI = MathOptInterface
 using SparseArrays: sparse, sparsevec, spzeros
 using LinearAlgebra: dot, LowerTriangular, mul!
-using NonconvexCore: DictModel, addvar!, set_objective!, add_ineq_constraint!,
-    add_eq_constraint!, flatten, OrderedDict, JuMPEvaluator,
-    JuMPModelObjective, JuMPModelIneq, JuMPModelEq, get_variable_info,
-    _ordered_jump_variables, _nonlinear_constraints, VecModel, getinit,
-    CountingFunction, getobjective, getmin, getmax, DEFAULT_AD_BACKEND,
-    AbstractADType, sparse_jacobian, sparse_hessian, nvalues, fill_indices!,
-    add_values!, VectorOfFunctions, get_jump_problem, _dot, value_jacobian,
-    JuMPProblem, JuMPProblemEvaluator
-import DifferentiationInterface
+using NonconvexCore:
+    DictModel,
+    addvar!,
+    set_objective!,
+    add_ineq_constraint!,
+    add_eq_constraint!,
+    flatten,
+    OrderedDict,
+    JuMPEvaluator,
+    JuMPModelObjective,
+    JuMPModelIneq,
+    JuMPModelEq,
+    get_variable_info,
+    _ordered_jump_variables,
+    _nonlinear_constraints,
+    VecModel,
+    getinit,
+    CountingFunction,
+    getobjective,
+    getmin,
+    getmax,
+    DEFAULT_AD_BACKEND,
+    AbstractADType,
+    sparse_jacobian,
+    sparse_hessian,
+    nvalues,
+    fill_indices!,
+    add_values!,
+    VectorOfFunctions,
+    get_jump_problem,
+    _dot,
+    value_jacobian,
+    JuMPProblem,
+    JuMPProblemEvaluator
+using DifferentiationInterface: DifferentiationInterface
 const DI = DifferentiationInterface
-using JuMP: VariableRef, is_binary, is_integer, has_lower_bound,
-    has_upper_bound, lower_bound, upper_bound, start_value, ConstraintRef,
-    constraint_object, AffExpr, QuadExpr, objective_function, objective_sense
+using JuMP:
+    VariableRef,
+    is_binary,
+    is_integer,
+    has_lower_bound,
+    has_upper_bound,
+    lower_bound,
+    upper_bound,
+    start_value,
+    ConstraintRef,
+    constraint_object,
+    AffExpr,
+    QuadExpr,
+    objective_function,
+    objective_sense
 
 function NonconvexCore.get_variable_info(model::JuMP.Model)
     varinds = OrderedDict()
@@ -68,9 +106,11 @@ function NonconvexCore.get_variable_info(model::JuMP.Model)
             # structured form, but flattening heterogeneous array-typed dict
             # values is not supported by the flattening machinery.
             ints = map(vs) do v
-                is_binary(v) || is_integer(v)
+                return is_binary(v) || is_integer(v)
             end
-            integer[k] = BitVector(vec(ints isa JuMP.Containers.DenseAxisArray ? ints.data : collect(ints)))
+            integer[k] = BitVector(
+                vec(ints isa JuMP.Containers.DenseAxisArray ? ints.data : collect(ints))
+            )
             lb[k] = map(vs) do v
                 if has_lower_bound(v)
                     lower_bound(v)
@@ -269,7 +309,7 @@ function NonconvexCore.DictModel(model::JuMP.Model)
     ks = collect(keys(inits))
     dict_model = DictModel()
     for k in ks
-        addvar!(dict_model, k, lb[k], ub[k], init = inits[k], integer = integer[k])
+        addvar!(dict_model, k, lb[k], ub[k]; init=inits[k], integer=integer[k])
     end
     if _has_nonlinear(model)
         # Uniform expression path: every objective and constraint is evaluated
@@ -311,7 +351,7 @@ end
 # Nonlinear (ScalarNonlinearFunction) constraints with their sets.
 function NonconvexCore._nonlinear_constraints(model::JuMP.Model)
     out = Tuple{MOI.ScalarNonlinearFunction,Any}[]
-    for c in JuMP.all_constraints(model; include_variable_in_set_constraints = true)
+    for c in JuMP.all_constraints(model; include_variable_in_set_constraints=true)
         func = constraint_object(c).func
         func isa JuMP.GenericNonlinearExpr && (func = JuMP.moi_function(func))
         func isa QuadExpr && (func = JuMP.moi_function(func))
@@ -323,8 +363,8 @@ end
 
 function _has_nonlinear(model::JuMP.Model)
     objective_function(model) isa JuMP.GenericNonlinearExpr && return true
-    return any(JuMP.all_constraints(model; include_variable_in_set_constraints = true)) do c
-        constraint_object(c).func isa JuMP.GenericNonlinearExpr
+    return any(JuMP.all_constraints(model; include_variable_in_set_constraints=true)) do c
+        return constraint_object(c).func isa JuMP.GenericNonlinearExpr
     end
 end
 
@@ -334,7 +374,9 @@ function _dict_model_from_jump_expressions(model, dict_model, ks, nvars)
     # evaluator computes shared subexpressions once per pass.
     nl = MOI.Nonlinear.Model()
     obj_expr = objective_function(model)
-    if obj_expr isa JuMP.GenericNonlinearExpr || obj_expr isa QuadExpr || obj_expr isa AffExpr
+    if obj_expr isa JuMP.GenericNonlinearExpr ||
+        obj_expr isa QuadExpr ||
+        obj_expr isa AffExpr
         obj_expr = JuMP.moi_function(obj_expr)
     end
     MOI.Nonlinear.set_objective(nl, obj_expr)
@@ -363,7 +405,9 @@ function _dict_model_from_jump_expressions(model, dict_model, ks, nvars)
             push!(ineq_shift, -set.upper)
             push!(ineq_linear, linear)
         elseif set isa MOI.Interval
-            push!(ineq_cis, MOI.Nonlinear.add_constraint(nl, expr, MOI.GreaterThan(set.lower)))
+            push!(
+                ineq_cis, MOI.Nonlinear.add_constraint(nl, expr, MOI.GreaterThan(set.lower))
+            )
             push!(ineq_sign, -1.0)
             push!(ineq_shift, set.lower)
             push!(ineq_linear, linear)
@@ -377,7 +421,18 @@ function _dict_model_from_jump_expressions(model, dict_model, ks, nvars)
             push!(eq_linear, linear)
         end
     end
-    je = JuMPEvaluator(nl, vars, obj_sign, ineq_cis, ineq_sign, ineq_shift, eq_cis, eq_shift, ineq_linear, eq_linear)
+    je = JuMPEvaluator(
+        nl,
+        vars,
+        obj_sign,
+        ineq_cis,
+        ineq_sign,
+        ineq_shift,
+        eq_cis,
+        eq_shift,
+        ineq_linear,
+        eq_linear,
+    )
     set_objective!(dict_model, JuMPModelObjective(je, ks))
     je.nineq > 0 && add_ineq_constraint!(dict_model, JuMPModelIneq(je, ks))
     je.neq > 0 && add_eq_constraint!(dict_model, JuMPModelEq(je, ks))
@@ -386,10 +441,10 @@ end
 
 function NonconvexCore.get_jump_problem(
     model::VecModel,
-    x0 = getinit(model);
+    x0=getinit(model);
     optimizer,
     first_order,
-    backend::AbstractADType = DEFAULT_AD_BACKEND[],
+    backend::AbstractADType=DEFAULT_AD_BACKEND[],
     kwargs...,
 )
     integers = model.integer
@@ -428,7 +483,7 @@ function NonconvexCore.get_jump_problem(
     xub,
     first_order,
     optimizer,
-    backend::AbstractADType = DEFAULT_AD_BACKEND[],
+    backend::AbstractADType=DEFAULT_AD_BACKEND[],
 )
     nvars = length(x0)
     if ineq_constr !== nothing
@@ -455,13 +510,13 @@ function NonconvexCore.get_jump_problem(
     jac_cols = zeros(Int, njacvals)
     ineqJ0 === nothing || fill_indices!(jac_rows, jac_cols, ineqJ0)
     eqJ0 === nothing ||
-        fill_indices!(jac_rows, jac_cols, eqJ0, offset = Joffset, row_offset = ineq_nconstr)
+        fill_indices!(jac_rows, jac_cols, eqJ0; offset=Joffset, row_offset=ineq_nconstr)
     jac_structure_data = tuple.(jac_rows, jac_cols)
     lag(factor, y) =
         x -> begin
             factor * obj(x) +
             _dot(ineq_constr, x, @view(y[1:ineq_nconstr])) +
-            _dot(eq_constr, x, @view(y[ineq_nconstr+1:end]))
+            _dot(eq_constr, x, @view(y[(ineq_nconstr + 1):end]))
         end
     clb = [fill(-Inf, ineq_nconstr); zeros(eq_nconstr)]
     cub = zeros(ineq_nconstr + eq_nconstr)
@@ -471,25 +526,25 @@ function NonconvexCore.get_jump_problem(
             g[1:ineq_nconstr] .= ineq_constr(x)
         end
         if eq_constr !== nothing
-            g[ineq_nconstr+1:end] .= eq_constr(x)
+            g[(ineq_nconstr + 1):end] .= eq_constr(x)
         end
         return g
     end
     function eval_grad_f(x::AbstractVector{Float64}, grad_f::AbstractVector{Float64})
-        grad_f .= DI.gradient(obj, backend, x)
+        return grad_f .= DI.gradient(obj, backend, x)
     end
     jac_structure() = jac_structure_data
     function eval_jac_g(x::AbstractVector{Float64}, values::AbstractVector{Float64})
         if ineq_constr !== nothing
             J = Matrix(value_jacobian(ineq_constr, x, backend)[2])
-            for k = 1:Joffset
+            for k in 1:Joffset
                 values[k] = J[jac_rows[k], jac_cols[k]]
             end
         end
         if eq_constr !== nothing
             J = Matrix(value_jacobian(eq_constr, x, backend)[2])
-            for k = (Joffset+1):njacvals
-                values[k] = J[jac_rows[k]-ineq_nconstr, jac_cols[k]]
+            for k in (Joffset + 1):njacvals
+                values[k] = J[jac_rows[k] - ineq_nconstr, jac_cols[k]]
             end
         end
         return values
@@ -502,7 +557,9 @@ function NonconvexCore.get_jump_problem(
     else
         # The Hessian structure is detected once at `x0` with all constraint
         # multipliers active so that it contains every possible entry.
-        HL0 = LowerTriangular(sparse_hessian(lag(1.0, ones(ineq_nconstr + eq_nconstr)), x0, backend))
+        HL0 = LowerTriangular(
+            sparse_hessian(lag(1.0, ones(ineq_nconstr + eq_nconstr)), x0, backend)
+        )
         Hnvalues = nvalues(HL0)
         h_rows = zeros(Int, Hnvalues)
         h_cols = zeros(Int, Hnvalues)
@@ -516,7 +573,7 @@ function NonconvexCore.get_jump_problem(
             values::AbstractVector{Float64},
         )
             H = DI.hessian(lag(obj_factor, lambda), backend, x)
-            for k = 1:Hnvalues
+            for k in 1:Hnvalues
                 values[k] = H[h_rows[k], h_cols[k]]
             end
             return values
@@ -584,12 +641,12 @@ MOI.eval_objective(d::JuMPProblemEvaluator, x) = d.obj(x)
 
 function MOI.eval_constraint(d::JuMPProblemEvaluator, g, x)
     d.eval_g(x, g)
-    return
+    return nothing
 end
 
 function MOI.eval_objective_gradient(d::JuMPProblemEvaluator, grad_f, x)
     d.eval_grad_f(x, grad_f)
-    return
+    return nothing
 end
 
 function MOI.jacobian_structure(d::JuMPProblemEvaluator)
@@ -602,12 +659,12 @@ end
 
 function MOI.eval_constraint_jacobian(d::JuMPProblemEvaluator, J, x)
     d.eval_jac_g(x, J)
-    return
+    return nothing
 end
 
 function MOI.eval_hessian_lagrangian(d::JuMPProblemEvaluator, H, x, σ, μ)
     d.eval_h(x, σ, μ, H)
-    return
+    return nothing
 end
 
 # Jacobian-vector and Hessian-vector products, computed from the full sparse
@@ -650,6 +707,5 @@ function MOI.eval_hessian_lagrangian_product(d::JuMPProblemEvaluator, h, x, v, �
     mul!(h, _dense_hessian(d, x, σ, μ), v)
     return h
 end
-
 
 end # module NonconvexCoreJuMPExt

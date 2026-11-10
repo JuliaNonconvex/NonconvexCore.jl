@@ -17,7 +17,7 @@ mutable struct DictModel <: AbstractModel
     integer::OrderedDict
 end
 
-function DictModel(f = nothing)
+function DictModel(f=nothing)
     return DictModel(
         Objective(f),
         VectorOfFunctions(EqConstraint[]),
@@ -31,12 +31,7 @@ function DictModel(f = nothing)
 end
 
 function addvar!(
-    m::DictModel,
-    k::Union{Symbol,String},
-    lb,
-    ub;
-    init = deepcopy(lb),
-    integer = false,
+    m::DictModel, k::Union{Symbol,String}, lb, ub; init=deepcopy(lb), integer=false
 )
     getmin(m)[k] = lb
     getmax(m)[k] = ub
@@ -53,7 +48,7 @@ dict-like structure with the variable names as keys. This method throws a
 descriptive error instead of failing deep inside the flattening machinery.
 """
 function tovecmodel(m::DictModel, x0::AbstractVector)
-    error(
+    return error(
         "The initial solution of a DictModel must be a dict-like structure with the " *
         "variable names as keys. Got an AbstractVector of length $(length(x0)); use " *
         "Model instead of DictModel for vector-valued variables.",
