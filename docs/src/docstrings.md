@@ -67,7 +67,6 @@ NonconvexCore.hasconverged(::NonconvexCore.Solution)
 NonconvexCore.hasconverged(::NonconvexCore.ConvergenceState)
 NonconvexCore.correctsolution!(::NonconvexCore.Solution, ::NonconvexCore.AbstractModel, ::Any)
 NonconvexCore.clamp_and_evaluate!(::NonconvexCore.AbstractModel, ::AbstractVector)
-NonconvexCore.jump_symbolic_jacobian_sparsity
 NonconvexCore.jump_symbolic_hessian_sparsity
 NonconvexCore.get_objective_multiple
 NonconvexCore.set_objective_multiple!

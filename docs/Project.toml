@@ -4,3 +4,11 @@ DocumenterFragments = "862d714e-9826-4bb1-afc7-f2d363bba08c"
 JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
 NonconvexCore = "035190e5-69f1-488f-aaab-becca2889735"
 Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"
+
+[compat]
+Documenter = "1"
+DocumenterFragments = "0.1"
+JuMP = "1"
+NonconvexCore = "2"
+Symbolics = "6, 7"
+julia = "1.10"
