@@ -2,10 +2,28 @@
 
 ## 2.1.0 (unreleased)
 
-- Type-stability, Aqua and JET checks for the main functionality, with
-  fixes for the issues they surfaced.
-- The codebase is formatted with JuliaFormatter (BlueStyle) and a
-  format-check CI workflow enforces it.
+### Static analysis and type stability
+
+- **JET**: `JET.test_package` runs over the whole package and passes. Fixed
+  the issues it found: the broadcasted binary/continuous classification in
+  `checksubproblem!`, the `TraceFunction` constructor's `nothing`-handling,
+  a concrete-parameter `VectorOfFunctions` constructor, and static-matrix
+  `size` sentinels in the LowerTriangular bookkeeping utilities.
+- **Aqua**: `Aqua.test_all` passes. Fixed 22 method ambiguities (the `frule`
+  tangent arguments of `TraceFunction`, `CustomGradFunction` and
+  `CustomHessianFunction` are now typed as `Tuple`) and added the missing
+  `[compat]` entries for dependencies and test extras.
+- **Type stability**: a `@inferred`-based test item checks model
+  construction, flattening, evaluation and the function modifiers. Function
+  barriers and typed cache destructuring keep the prepared `value_*` and
+  `sparse_*` paths clean; their return-type inference remains bounded by
+  DifferentiationInterface's own lazy preparation.
+
+### Formatting
+
+- The whole codebase (src, ext, test, docs) is formatted with
+  JuliaFormatter **BlueStyle**, pinned by `.JuliaFormatter.toml` and
+  enforced by a `format-check` CI workflow.
 
 ## 2.0.0
 
