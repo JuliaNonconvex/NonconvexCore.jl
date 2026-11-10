@@ -1,273 +1,271 @@
 @testitem "JuMP" begin
-using Test, NonconvexCore
-import JuMP
+    using Test, NonconvexCore
+    import JuMP
 
-@testset "Symbol variable names" begin
-    model = JuMP.Model()
-    JuMP.@variable(model, x >= 0)
-    JuMP.@variable(model, 0 <= y <= 3)
-    JuMP.@objective(model, Min, 20y)
-    JuMP.@constraint(model, c1, 6x + 8y >= 100)
-    JuMP.@constraint(model, c2, 7x + 12y >= 120)
-    JuMP.@constraint(model, c3, x + y == 25)
-    JuMP.@constraint(model, c4, x + y <= 50)
+    @testset "Symbol variable names" begin
+        model = JuMP.Model()
+        JuMP.@variable(model, x >= 0)
+        JuMP.@variable(model, 0 <= y <= 3)
+        JuMP.@objective(model, Min, 20y)
+        JuMP.@constraint(model, c1, 6x + 8y >= 100)
+        JuMP.@constraint(model, c2, 7x + 12y >= 120)
+        JuMP.@constraint(model, c3, x + y == 25)
+        JuMP.@constraint(model, c4, x + y <= 50)
 
-    dict_model = DictModel(model)
-    obj = NonconvexCore.getobjective(dict_model)
-    ineq = NonconvexCore.getineqconstraints(dict_model)
-    eq = NonconvexCore.geteqconstraints(dict_model)
-    x = NonconvexCore.getinit(dict_model)
+        dict_model = DictModel(model)
+        obj = NonconvexCore.getobjective(dict_model)
+        ineq = NonconvexCore.getineqconstraints(dict_model)
+        eq = NonconvexCore.geteqconstraints(dict_model)
+        x = NonconvexCore.getinit(dict_model)
 
-    @test getmin(dict_model) == OrderedDict(:x => 0.0, :y => 0.0)
-    @test getmax(dict_model) == OrderedDict(:x => Inf, :y => 3.0)
-    @test obj(x) == 20 * x[:y]
-    @test ineq(x) ==
-          [100 - 6 * x[:x] - 8 * x[:y], 120 - 7 * x[:x] - 12 * x[:y], x[:x] + x[:y] - 50]
-    @test eq(x) == [x[:x] + x[:y] - 25]
+        @test getmin(dict_model) == OrderedDict(:x => 0.0, :y => 0.0)
+        @test getmax(dict_model) == OrderedDict(:x => Inf, :y => 3.0)
+        @test obj(x) == 20 * x[:y]
+        @test ineq(x) == [
+            100 - 6 * x[:x] - 8 * x[:y], 120 - 7 * x[:x] - 12 * x[:y], x[:x] + x[:y] - 50
+        ]
+        @test eq(x) == [x[:x] + x[:y] - 25]
 
-    vec_model, _, _ = NonconvexCore.tovecmodel(dict_model)
-    vec_x = NonconvexCore.getinit(vec_model)
-    vec_obj = NonconvexCore.getobjective(vec_model)
-    vec_ineq = NonconvexCore.getineqconstraints(vec_model)
-    vec_eq = NonconvexCore.geteqconstraints(vec_model)
+        vec_model, _, _ = NonconvexCore.tovecmodel(dict_model)
+        vec_x = NonconvexCore.getinit(vec_model)
+        vec_obj = NonconvexCore.getobjective(vec_model)
+        vec_ineq = NonconvexCore.getineqconstraints(vec_model)
+        vec_eq = NonconvexCore.geteqconstraints(vec_model)
 
-    val0, grad0 = NonconvexCore.value_gradient(vec_obj, vec_x)
-    val1, jac1 = NonconvexCore.value_jacobian(vec_ineq, vec_x)
-    val2, jac2 = NonconvexCore.value_jacobian(vec_eq, vec_x)
+        val0, grad0 = NonconvexCore.value_gradient(vec_obj, vec_x)
+        val1, jac1 = NonconvexCore.value_jacobian(vec_ineq, vec_x)
+        val2, jac2 = NonconvexCore.value_jacobian(vec_eq, vec_x)
 
-    @test val0 == obj(x)
-    @test val1 == ineq(x)
-    @test val2 == eq(x)
+        @test val0 == obj(x)
+        @test val1 == ineq(x)
+        @test val2 == eq(x)
 
-    @test grad0 == [0, 20]
-    @test jac1 == [-6 -8; -7 -12; 1 1]
-    @test jac2 == [1 1;]
-end
+        @test grad0 == [0, 20]
+        @test jac1 == [-6 -8; -7 -12; 1 1]
+        @test jac2 == [1 1;]
+    end
 
-@testset "x[ind] variable names 1" begin
-    model = JuMP.Model()
-    lbs = [0.0, 0.0]
-    ubs = [Inf, 3.0]
-    JuMP.@variable(model, x[i = 1:2], lower_bound = lbs[i], upper_bound = ubs[i])
-    JuMP.@objective(model, Min, 12x[1])
-    JuMP.@constraint(model, c1, 6x[1] + 8x[2] >= 100)
-    JuMP.@constraint(model, c2, 7x[1] + 12x[2] >= 120)
-    JuMP.@constraint(model, c3, x[1] + x[2] == 25)
-    JuMP.@constraint(model, c4, x[1] + x[2] <= 50)
+    @testset "x[ind] variable names 1" begin
+        model = JuMP.Model()
+        lbs = [0.0, 0.0]
+        ubs = [Inf, 3.0]
+        JuMP.@variable(model, x[i = 1:2], lower_bound=lbs[i], upper_bound=ubs[i])
+        JuMP.@objective(model, Min, 12x[1])
+        JuMP.@constraint(model, c1, 6x[1] + 8x[2] >= 100)
+        JuMP.@constraint(model, c2, 7x[1] + 12x[2] >= 120)
+        JuMP.@constraint(model, c3, x[1] + x[2] == 25)
+        JuMP.@constraint(model, c4, x[1] + x[2] <= 50)
 
-    dict_model = DictModel(model)
-    obj = NonconvexCore.getobjective(dict_model)
-    ineq = NonconvexCore.getineqconstraints(dict_model)
-    eq = NonconvexCore.geteqconstraints(dict_model)
-    x = NonconvexCore.getinit(dict_model)
+        dict_model = DictModel(model)
+        obj = NonconvexCore.getobjective(dict_model)
+        ineq = NonconvexCore.getineqconstraints(dict_model)
+        eq = NonconvexCore.geteqconstraints(dict_model)
+        x = NonconvexCore.getinit(dict_model)
 
-    @test getmin(dict_model) == OrderedDict(:x => [0.0, 0.0])
-    @test getmax(dict_model) == OrderedDict(:x => [Inf, 3.0])
-    @test obj(x) == 12 * x[:x][1]
-    @test ineq(x) == [
-        100 - 6 * x[:x][1] - 8 * x[:x][2],
-        120 - 7 * x[:x][1] - 12 * x[:x][2],
-        x[:x][1] + x[:x][2] - 50,
-    ]
-    @test eq(x) == [x[:x][1] + x[:x][2] - 25]
+        @test getmin(dict_model) == OrderedDict(:x => [0.0, 0.0])
+        @test getmax(dict_model) == OrderedDict(:x => [Inf, 3.0])
+        @test obj(x) == 12 * x[:x][1]
+        @test ineq(x) == [
+            100 - 6 * x[:x][1] - 8 * x[:x][2],
+            120 - 7 * x[:x][1] - 12 * x[:x][2],
+            x[:x][1] + x[:x][2] - 50,
+        ]
+        @test eq(x) == [x[:x][1] + x[:x][2] - 25]
 
-    vec_model, _, _ = NonconvexCore.tovecmodel(dict_model)
-    vec_x = NonconvexCore.getinit(vec_model)
-    vec_obj = NonconvexCore.getobjective(vec_model)
-    vec_ineq = NonconvexCore.getineqconstraints(vec_model)
-    vec_eq = NonconvexCore.geteqconstraints(vec_model)
+        vec_model, _, _ = NonconvexCore.tovecmodel(dict_model)
+        vec_x = NonconvexCore.getinit(vec_model)
+        vec_obj = NonconvexCore.getobjective(vec_model)
+        vec_ineq = NonconvexCore.getineqconstraints(vec_model)
+        vec_eq = NonconvexCore.geteqconstraints(vec_model)
 
-    val0, grad0 = NonconvexCore.value_gradient(vec_obj, vec_x)
-    val1, jac1 = NonconvexCore.value_jacobian(vec_ineq, vec_x)
-    val2, jac2 = NonconvexCore.value_jacobian(vec_eq, vec_x)
+        val0, grad0 = NonconvexCore.value_gradient(vec_obj, vec_x)
+        val1, jac1 = NonconvexCore.value_jacobian(vec_ineq, vec_x)
+        val2, jac2 = NonconvexCore.value_jacobian(vec_eq, vec_x)
 
-    @test val0 == obj(x)
-    @test val1 == ineq(x)
-    @test val2 == eq(x)
+        @test val0 == obj(x)
+        @test val1 == ineq(x)
+        @test val2 == eq(x)
 
-    @test grad0 == [12, 0]
-    @test jac1 == [-6 -8; -7 -12; 1 1]
-    @test jac2 == [1 1;]
-end
+        @test grad0 == [12, 0]
+        @test jac1 == [-6 -8; -7 -12; 1 1]
+        @test jac2 == [1 1;]
+    end
 
-@testset "x[ind] variable names 2" begin
-    model = JuMP.Model()
-    lbs = [0.0, 0.0]
-    ubs = [Inf, 3.0]
-    JuMP.@variable(model, x[i = 2:-1:1], lower_bound = lbs[i], upper_bound = ubs[i])
-    JuMP.@objective(model, Min, 12x[1])
-    JuMP.@constraint(model, c1, 6x[1] + 8x[2] >= 100)
-    JuMP.@constraint(model, c2, 7x[1] + 12x[2] >= 120)
-    JuMP.@constraint(model, c3, x[1] + x[2] == 25)
-    JuMP.@constraint(model, c4, x[1] + x[2] <= 50)
+    @testset "x[ind] variable names 2" begin
+        model = JuMP.Model()
+        lbs = [0.0, 0.0]
+        ubs = [Inf, 3.0]
+        JuMP.@variable(model, x[i = 2:-1:1], lower_bound=lbs[i], upper_bound=ubs[i])
+        JuMP.@objective(model, Min, 12x[1])
+        JuMP.@constraint(model, c1, 6x[1] + 8x[2] >= 100)
+        JuMP.@constraint(model, c2, 7x[1] + 12x[2] >= 120)
+        JuMP.@constraint(model, c3, x[1] + x[2] == 25)
+        JuMP.@constraint(model, c4, x[1] + x[2] <= 50)
 
-    dict_model = DictModel(model)
-    obj = NonconvexCore.getobjective(dict_model)
-    ineq = NonconvexCore.getineqconstraints(dict_model)
-    eq = NonconvexCore.geteqconstraints(dict_model)
-    x = NonconvexCore.getinit(dict_model)
+        dict_model = DictModel(model)
+        obj = NonconvexCore.getobjective(dict_model)
+        ineq = NonconvexCore.getineqconstraints(dict_model)
+        eq = NonconvexCore.geteqconstraints(dict_model)
+        x = NonconvexCore.getinit(dict_model)
 
-    @test getmin(dict_model) ==
-          OrderedDict(:x => JuMP.Containers.DenseAxisArray(lbs[end:-1:1], 2:-1:1))
-    @test getmax(dict_model) ==
-          OrderedDict(:x => JuMP.Containers.DenseAxisArray(ubs[end:-1:1], 2:-1:1))
-    @test obj(x) == 12 * x[:x][1]
-    @test ineq(x) == [
-        100 - 6 * x[:x][1] - 8 * x[:x][2],
-        120 - 7 * x[:x][1] - 12 * x[:x][2],
-        x[:x][1] + x[:x][2] - 50,
-    ]
-    @test eq(x) == [x[:x][1] + x[:x][2] - 25]
+        @test getmin(dict_model) ==
+            OrderedDict(:x => JuMP.Containers.DenseAxisArray(lbs[end:-1:1], 2:-1:1))
+        @test getmax(dict_model) ==
+            OrderedDict(:x => JuMP.Containers.DenseAxisArray(ubs[end:-1:1], 2:-1:1))
+        @test obj(x) == 12 * x[:x][1]
+        @test ineq(x) == [
+            100 - 6 * x[:x][1] - 8 * x[:x][2],
+            120 - 7 * x[:x][1] - 12 * x[:x][2],
+            x[:x][1] + x[:x][2] - 50,
+        ]
+        @test eq(x) == [x[:x][1] + x[:x][2] - 25]
 
-    vec_model, _, _ = NonconvexCore.tovecmodel(dict_model)
-    vec_x = NonconvexCore.getinit(vec_model)
-    vec_obj = NonconvexCore.getobjective(vec_model)
-    vec_ineq = NonconvexCore.getineqconstraints(vec_model)
-    vec_eq = NonconvexCore.geteqconstraints(vec_model)
+        vec_model, _, _ = NonconvexCore.tovecmodel(dict_model)
+        vec_x = NonconvexCore.getinit(vec_model)
+        vec_obj = NonconvexCore.getobjective(vec_model)
+        vec_ineq = NonconvexCore.getineqconstraints(vec_model)
+        vec_eq = NonconvexCore.geteqconstraints(vec_model)
 
-    val0, grad0 = NonconvexCore.value_gradient(vec_obj, vec_x)
-    val1, jac1 = NonconvexCore.value_jacobian(vec_ineq, vec_x)
-    val2, jac2 = NonconvexCore.value_jacobian(vec_eq, vec_x)
+        val0, grad0 = NonconvexCore.value_gradient(vec_obj, vec_x)
+        val1, jac1 = NonconvexCore.value_jacobian(vec_ineq, vec_x)
+        val2, jac2 = NonconvexCore.value_jacobian(vec_eq, vec_x)
 
-    @test val0 == obj(x)
-    @test val1 == ineq(x)
-    @test val2 == eq(x)
+        @test val0 == obj(x)
+        @test val1 == ineq(x)
+        @test val2 == eq(x)
 
-    @test grad0 == [0, 12]
-    @test jac1 == [-8 -6; -12 -7; 1 1]
-    @test jac2 == [1 1;]
-end
+        @test grad0 == [0, 12]
+        @test jac1 == [-8 -6; -12 -7; 1 1]
+        @test jac2 == [1 1;]
+    end
 
-@testset "nonlinear JuMP model" begin
-    model = JuMP.Model()
-    JuMP.@variable(model, x[1:2] >= 0)
-    JuMP.@objective(model, Min, x[1]^2 + sin(x[2]))
-    JuMP.@constraint(model, sin(x[1]) + x[2]^3 >= 1)
-    JuMP.@constraint(model, x[1] + cos(x[2]) == 2)
-    JuMP.@constraint(model, -2 <= sin(x[1]) + x[2] <= 3)
+    @testset "nonlinear JuMP model" begin
+        model = JuMP.Model()
+        JuMP.@variable(model, x[1:2] >= 0)
+        JuMP.@objective(model, Min, x[1]^2 + sin(x[2]))
+        JuMP.@constraint(model, sin(x[1]) + x[2]^3 >= 1)
+        JuMP.@constraint(model, x[1] + cos(x[2]) == 2)
+        JuMP.@constraint(model, -2 <= sin(x[1]) + x[2] <= 3)
 
-    dict_model = DictModel(model)
-    obj = NonconvexCore.getobjective(dict_model)
-    ineq = NonconvexCore.getineqconstraints(dict_model)
-    eq = NonconvexCore.geteqconstraints(dict_model)
-    x0 = NonconvexCore.getinit(dict_model)
-    @test obj(x0) == x0[:x][1]^2 + sin(x0[:x][2])
-    @test ineq(x0) == [
-        1 - sin(x0[:x][1]) - x0[:x][2]^3,
-        -2 - sin(x0[:x][1]) - x0[:x][2],
-        sin(x0[:x][1]) + x0[:x][2] - 3,
-    ]
-    @test eq(x0) == [x0[:x][1] + cos(x0[:x][2]) - 2]
+        dict_model = DictModel(model)
+        obj = NonconvexCore.getobjective(dict_model)
+        ineq = NonconvexCore.getineqconstraints(dict_model)
+        eq = NonconvexCore.geteqconstraints(dict_model)
+        x0 = NonconvexCore.getinit(dict_model)
+        @test obj(x0) == x0[:x][1]^2 + sin(x0[:x][2])
+        @test ineq(x0) == [
+            1 - sin(x0[:x][1]) - x0[:x][2]^3,
+            -2 - sin(x0[:x][1]) - x0[:x][2],
+            sin(x0[:x][1]) + x0[:x][2] - 3,
+        ]
+        @test eq(x0) == [x0[:x][1] + cos(x0[:x][2]) - 2]
 
-    # Derivatives flow through the Nonlinear evaluator's rrule (reverse-mode
-    # backends that consult ChainRules).
-    vm, xv, _ = NonconvexCore.tovecmodel(dict_model)
-    v, g = NonconvexCore.value_gradient(vm.objective, xv, ADTypes.AutoZygote())
-    @test g ≈ [2xv[1], cos(xv[2])]
-    _, jac = NonconvexCore.value_jacobian(vm.ineq_constraints, xv, ADTypes.AutoZygote())
-    @test Matrix(jac) ≈ [
-        -cos(xv[1]) -3xv[2]^2
-        -cos(xv[1]) -1
-        cos(xv[1]) 1
-    ]
-    _, jaceq = NonconvexCore.value_jacobian(vm.eq_constraints, xv, ADTypes.AutoZygote())
-    @test Matrix(jaceq) ≈ [1 -sin(xv[2])]
+        # Derivatives flow through the Nonlinear evaluator's rrule (reverse-mode
+        # backends that consult ChainRules).
+        vm, xv, _ = NonconvexCore.tovecmodel(dict_model)
+        v, g = NonconvexCore.value_gradient(vm.objective, xv, ADTypes.AutoZygote())
+        @test g ≈ [2xv[1], cos(xv[2])]
+        _, jac = NonconvexCore.value_jacobian(vm.ineq_constraints, xv, ADTypes.AutoZygote())
+        @test Matrix(jac) ≈ [
+            -cos(xv[1]) -3xv[2]^2
+            -cos(xv[1]) -1
+            cos(xv[1]) 1
+        ]
+        _, jaceq = NonconvexCore.value_jacobian(vm.eq_constraints, xv, ADTypes.AutoZygote())
+        @test Matrix(jaceq) ≈ [1 -sin(xv[2])]
 
-    # The sparse path uses the graph structure and must include the interval
-    # rows.
-    J = NonconvexCore.sparse_jacobian(vm.ineq_constraints, xv, ADTypes.AutoZygote())
-    @test Matrix(J) ≈ Matrix(jac)
-    @test size(J) == (3, 2)
-end
+        # The sparse path uses the graph structure and must include the interval
+        # rows.
+        J = NonconvexCore.sparse_jacobian(vm.ineq_constraints, xv, ADTypes.AutoZygote())
+        @test Matrix(J) ≈ Matrix(jac)
+        @test size(J) == (3, 2)
+    end
 
-@testset "x[(ind1, ind2)] variable names" begin
-    model = JuMP.Model()
-    lbs = [0.0, 0.0]
-    ubs = [Inf, 3.0]
-    inds = [(1, 1), (2, 1)]
-    JuMP.@variable(
-        model,
-        x[ind = inds],
-        lower_bound = lbs[ind[1]],
-        upper_bound = ubs[ind[1]]
-    )
-    JuMP.@objective(model, Min, 12x[(1, 1)] + 20x[(2, 1)])
-    JuMP.@constraint(model, c1, 6x[(1, 1)] + 8x[(2, 1)] >= 100)
-    JuMP.@constraint(model, c2, 7x[(1, 1)] + 12x[(2, 1)] >= 120)
-    JuMP.@constraint(model, c3, x[(1, 1)] + x[(2, 1)] == 25)
-    JuMP.@constraint(model, c4, x[(1, 1)] + x[(2, 1)] <= 50)
+    @testset "x[(ind1, ind2)] variable names" begin
+        model = JuMP.Model()
+        lbs = [0.0, 0.0]
+        ubs = [Inf, 3.0]
+        inds = [(1, 1), (2, 1)]
+        JuMP.@variable(
+            model, x[ind = inds], lower_bound=lbs[ind[1]], upper_bound=ubs[ind[1]]
+        )
+        JuMP.@objective(model, Min, 12x[(1, 1)] + 20x[(2, 1)])
+        JuMP.@constraint(model, c1, 6x[(1, 1)] + 8x[(2, 1)] >= 100)
+        JuMP.@constraint(model, c2, 7x[(1, 1)] + 12x[(2, 1)] >= 120)
+        JuMP.@constraint(model, c3, x[(1, 1)] + x[(2, 1)] == 25)
+        JuMP.@constraint(model, c4, x[(1, 1)] + x[(2, 1)] <= 50)
 
-    dict_model = DictModel(model)
-    obj = NonconvexCore.getobjective(dict_model)
-    ineq = NonconvexCore.getineqconstraints(dict_model)
-    eq = NonconvexCore.geteqconstraints(dict_model)
-    x = NonconvexCore.getinit(dict_model)
+        dict_model = DictModel(model)
+        obj = NonconvexCore.getobjective(dict_model)
+        ineq = NonconvexCore.getineqconstraints(dict_model)
+        eq = NonconvexCore.geteqconstraints(dict_model)
+        x = NonconvexCore.getinit(dict_model)
 
-    @test getmin(dict_model) ==
-          OrderedDict(:x => JuMP.Containers.DenseAxisArray(lbs, [(1, 1), (2, 1)]))
-    @test getmax(dict_model) ==
-          OrderedDict(:x => JuMP.Containers.DenseAxisArray(ubs, [(1, 1), (2, 1)]))
-    @test obj(x) == 12 * x[:x][(1, 1)] + 20 * x[:x][(2, 1)]
-    @test ineq(x) == [
-        100 - 6 * x[:x][(1, 1)] - 8 * x[:x][(2, 1)],
-        120 - 7 * x[:x][(1, 1)] - 12 * x[:x][(2, 1)],
-        x[:x][(1, 1)] + x[:x][(2, 1)] - 50,
-    ]
-    @test eq(x) == [x[:x][(1, 1)] + x[:x][(2, 1)] - 25]
+        @test getmin(dict_model) ==
+            OrderedDict(:x => JuMP.Containers.DenseAxisArray(lbs, [(1, 1), (2, 1)]))
+        @test getmax(dict_model) ==
+            OrderedDict(:x => JuMP.Containers.DenseAxisArray(ubs, [(1, 1), (2, 1)]))
+        @test obj(x) == 12 * x[:x][(1, 1)] + 20 * x[:x][(2, 1)]
+        @test ineq(x) == [
+            100 - 6 * x[:x][(1, 1)] - 8 * x[:x][(2, 1)],
+            120 - 7 * x[:x][(1, 1)] - 12 * x[:x][(2, 1)],
+            x[:x][(1, 1)] + x[:x][(2, 1)] - 50,
+        ]
+        @test eq(x) == [x[:x][(1, 1)] + x[:x][(2, 1)] - 25]
 
-    vec_model, _, _ = NonconvexCore.tovecmodel(dict_model)
-    vec_x = NonconvexCore.getinit(vec_model)
-    vec_obj = NonconvexCore.getobjective(vec_model)
-    vec_ineq = NonconvexCore.getineqconstraints(vec_model)
-    vec_eq = NonconvexCore.geteqconstraints(vec_model)
+        vec_model, _, _ = NonconvexCore.tovecmodel(dict_model)
+        vec_x = NonconvexCore.getinit(vec_model)
+        vec_obj = NonconvexCore.getobjective(vec_model)
+        vec_ineq = NonconvexCore.getineqconstraints(vec_model)
+        vec_eq = NonconvexCore.geteqconstraints(vec_model)
 
-    val0, grad0 = NonconvexCore.value_gradient(vec_obj, vec_x)
-    val1, jac1 = NonconvexCore.value_jacobian(vec_ineq, vec_x)
-    val2, jac2 = NonconvexCore.value_jacobian(vec_eq, vec_x)
+        val0, grad0 = NonconvexCore.value_gradient(vec_obj, vec_x)
+        val1, jac1 = NonconvexCore.value_jacobian(vec_ineq, vec_x)
+        val2, jac2 = NonconvexCore.value_jacobian(vec_eq, vec_x)
 
-    @test val0 == obj(x)
-    @test val1 == ineq(x)
-    @test val2 == eq(x)
+        @test val0 == obj(x)
+        @test val1 == ineq(x)
+        @test val2 == eq(x)
 
-    @test grad0 == [12, 20]
-    @test jac1 == [-6 -8; -7 -12; 1 1]
-    @test jac2 == [1 1;]
-end
+        @test grad0 == [12, 20]
+        @test jac1 == [-6 -8; -7 -12; 1 1]
+        @test jac2 == [1 1;]
+    end
 
-@testset "Quadratic objective" begin
-    model = JuMP.Model()
-    JuMP.@variable(model, x >= 0)
-    JuMP.@variable(model, y >= 0)
-    JuMP.@objective(model, Min, x^2 + 2x * y + 3y^2 + x + 2y)
+    @testset "Quadratic objective" begin
+        model = JuMP.Model()
+        JuMP.@variable(model, x >= 0)
+        JuMP.@variable(model, y >= 0)
+        JuMP.@objective(model, Min, x^2 + 2x * y + 3y^2 + x + 2y)
 
-    dict_model = DictModel(model)
-    obj = NonconvexCore.getobjective(dict_model)
-    p = OrderedDict(:x => 1.0, :y => 2.0)
-    @test obj(p) == 1.0 + 2 * 1.0 * 2.0 + 3 * 4.0 + 1.0 + 4.0
+        dict_model = DictModel(model)
+        obj = NonconvexCore.getobjective(dict_model)
+        p = OrderedDict(:x => 1.0, :y => 2.0)
+        @test obj(p) == 1.0 + 2 * 1.0 * 2.0 + 3 * 4.0 + 1.0 + 4.0
 
-    vec_model, _, _ = NonconvexCore.tovecmodel(dict_model)
-    vec_obj = NonconvexCore.getobjective(vec_model)
-    val, grad = NonconvexCore.value_gradient(vec_obj, [1.0, 2.0])
-    @test val == 22.0
-    @test grad == [2 * 1.0 + 2 * 2.0 + 1.0, 2 * 1.0 + 6 * 2.0 + 2.0]
-end
+        vec_model, _, _ = NonconvexCore.tovecmodel(dict_model)
+        vec_obj = NonconvexCore.getobjective(vec_model)
+        val, grad = NonconvexCore.value_gradient(vec_obj, [1.0, 2.0])
+        @test val == 22.0
+        @test grad == [2 * 1.0 + 2 * 2.0 + 1.0, 2 * 1.0 + 6 * 2.0 + 2.0]
+    end
 
-@testset "Quadratic objective with max sense" begin
-    model = JuMP.Model()
-    JuMP.@variable(model, x >= 0)
-    JuMP.@objective(model, Max, x^2 + 2x)
-    dict_model = DictModel(model)
-    obj = NonconvexCore.getobjective(dict_model)
-    @test obj(OrderedDict(:x => 3.0)) == -(9.0 + 6.0)
-end
+    @testset "Quadratic objective with max sense" begin
+        model = JuMP.Model()
+        JuMP.@variable(model, x >= 0)
+        JuMP.@objective(model, Max, x^2 + 2x)
+        dict_model = DictModel(model)
+        obj = NonconvexCore.getobjective(dict_model)
+        @test obj(OrderedDict(:x => 3.0)) == -(9.0 + 6.0)
+    end
 
-@testset "Nonlinear objective conversion" begin
-    model = JuMP.Model()
-    JuMP.@variable(model, x >= 0)
-    JuMP.@objective(model, Min, x^3)
-    dict_model = DictModel(model)
-    obj = NonconvexCore.getobjective(dict_model)
-    x0 = NonconvexCore.getinit(dict_model)
-    @test obj(x0) == x0[:x]^3
-end
+    @testset "Nonlinear objective conversion" begin
+        model = JuMP.Model()
+        JuMP.@variable(model, x >= 0)
+        JuMP.@objective(model, Min, x^3)
+        dict_model = DictModel(model)
+        obj = NonconvexCore.getobjective(dict_model)
+        x0 = NonconvexCore.getinit(dict_model)
+        @test obj(x0) == x0[:x]^3
+    end
 end

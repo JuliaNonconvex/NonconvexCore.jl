@@ -71,7 +71,7 @@ end
 A struct for a collection of instances of `AbstractFunction`. The dimension of this function is the sum of the dimensions of the individual functions and the outputs are concatenated in a vector.
 """
 struct VectorOfFunctions{
-    F<:Union{AbstractVector{<:AbstractFunction},Tuple{Vararg{AbstractFunction}}},
+    F<:Union{AbstractVector{<:AbstractFunction},Tuple{Vararg{AbstractFunction}}}
 } <: AbstractFunction
     fs::F
 end
@@ -107,7 +107,7 @@ function (f::VectorOfFunctions)(args...; kwargs...)
     # Julia call (a splat over many arguments is lowered through the `invoke`
     # builtin, which rule-based backends cannot differentiate); scalars are
     # promoted to 1-element vectors first.
-    return mapreduce(y -> y isa Real ? [y] : y, vcat, ys; init = Float64[])
+    return mapreduce(y -> y isa Real ? [y] : y, vcat, ys; init=Float64[])
 end
 
 function getdim(c::VectorOfFunctions)
@@ -158,7 +158,7 @@ end
 
 Constructs an instance of `Objective` wrapping `f`. When an instance of `Objective`, it calls `f` returning the output multiplied by `multiple`. `f` must return a number.
 """
-function Objective(f, multiple::Number = 1.0; flags = Set{Symbol}())
+function Objective(f, multiple::Number=1.0; flags=Set{Symbol}())
     return Objective(f, Ref(multiple), Set(flags))
 end
 
@@ -206,10 +206,10 @@ end
 
 Constructs an instance of `IneqConstraint` with a left-hand-side function `f` and right-hand-side bound `rhs`. If `f` is an instance of `AbstractFunction`, the dimension of the constraint will be `getdim(f)`, otherwise it is assumed to be `length(rhs)` by default.
 """
-function IneqConstraint(f, rhs; flags = Set{Symbol}())
+function IneqConstraint(f, rhs; flags=Set{Symbol}())
     return IneqConstraint(f, rhs, length(rhs), Set(flags))
 end
-function IneqConstraint(f::AbstractFunction, rhs; flags = Set{Symbol}())
+function IneqConstraint(f::AbstractFunction, rhs; flags=Set{Symbol}())
     return IneqConstraint(f, rhs, getdim(f), Set(flags))
 end
 
@@ -257,10 +257,10 @@ end
 
 Constructs an instance of `EqConstraint` with a left-hand-side function `f` and right-hand-side bound `rhs`. If `f` is an instance of `AbstractFunction`, the dimension of the constraint will be `getdim(f)`, otherwise it is assumed to be `length(rhs)` by default.
 """
-function EqConstraint(f, rhs; flags = Set{Symbol}())
+function EqConstraint(f, rhs; flags=Set{Symbol}())
     return EqConstraint(f, rhs, length(rhs), Set(flags))
 end
-function EqConstraint(f::AbstractFunction, rhs; flags = Set{Symbol}())
+function EqConstraint(f::AbstractFunction, rhs; flags=Set{Symbol}())
     return EqConstraint(f, rhs, getdim(f), Set(flags))
 end
 

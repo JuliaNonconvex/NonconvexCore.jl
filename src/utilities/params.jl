@@ -32,7 +32,7 @@ macro params(struct_expr)
     header = struct_expr.args[2]
     fields = @view struct_expr.args[3].args[2:2:end]
     params = []
-    for i = 1:length(fields)
+    for i in 1:length(fields)
         x = fields[i]
         T = gensym()
         if x isa Symbol
@@ -61,5 +61,5 @@ macro params(struct_expr)
     else
         error("Unidentified type definition.")
     end
-    esc(struct_expr)
+    return esc(struct_expr)
 end

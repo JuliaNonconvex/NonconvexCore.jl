@@ -5,9 +5,7 @@
 # sparse_hessian).
 
 const _PREP_CACHES = (
-    gradient = Dict{Any,Any}(),
-    jacobian = Dict{Any,Any}(),
-    hessian = Dict{Any,Any}(),
+    gradient=Dict{Any,Any}(), jacobian=Dict{Any,Any}(), hessian=Dict{Any,Any}()
 )
 
 """
@@ -23,7 +21,7 @@ compilation, sparsity detection and coloring, ...) is cached by
 [`value_jacobian`](@ref NonconvexCore.value_jacobian) and
 [`value_hessian`](@ref NonconvexCore.value_hessian) afterwards.
 """
-function prepare_gradient(f, x, backend::AbstractADType = DEFAULT_AD_BACKEND[])
+function prepare_gradient(f, x, backend::AbstractADType=DEFAULT_AD_BACKEND[])
     key = (f, backend)
     prep = get(_PREP_CACHES.gradient, key, nothing)
     prep === nothing || return prep
@@ -32,7 +30,7 @@ function prepare_gradient(f, x, backend::AbstractADType = DEFAULT_AD_BACKEND[])
     return prep
 end
 
-function prepare_jacobian(f, x, backend::AbstractADType = DEFAULT_AD_BACKEND[])
+function prepare_jacobian(f, x, backend::AbstractADType=DEFAULT_AD_BACKEND[])
     key = (f, backend)
     prep = get(_PREP_CACHES.jacobian, key, nothing)
     prep === nothing || return prep
@@ -41,7 +39,7 @@ function prepare_jacobian(f, x, backend::AbstractADType = DEFAULT_AD_BACKEND[])
     return prep
 end
 
-function prepare_hessian(f, x, backend::AbstractADType = DEFAULT_AD_BACKEND[])
+function prepare_hessian(f, x, backend::AbstractADType=DEFAULT_AD_BACKEND[])
     key = (f, backend)
     prep = get(_PREP_CACHES.hessian, key, nothing)
     prep === nothing || return prep
@@ -61,7 +59,7 @@ The preparation is cached by `(f, backend)` and used by default by
 [`sparse_jacobian`](@ref NonconvexCore.sparse_jacobian) and
 [`sparse_hessian`](@ref NonconvexCore.sparse_hessian).
 """
-function prepare_sparse_jacobian(f, x, backend::AbstractADType = DEFAULT_AD_BACKEND[])
+function prepare_sparse_jacobian(f, x, backend::AbstractADType=DEFAULT_AD_BACKEND[])
     key = (f, backend)
     entry = get(_SPARSE_JACOBIAN_PREP_CACHE, key, nothing)
     entry === nothing || return entry
@@ -73,7 +71,7 @@ function prepare_sparse_jacobian(f, x, backend::AbstractADType = DEFAULT_AD_BACK
     return entry
 end
 
-function prepare_sparse_hessian(f, x, backend::AbstractADType = DEFAULT_AD_BACKEND[])
+function prepare_sparse_hessian(f, x, backend::AbstractADType=DEFAULT_AD_BACKEND[])
     key = (f, backend)
     entry = get(_SPARSE_HESSIAN_PREP_CACHE, key, nothing)
     entry === nothing || return entry
@@ -99,7 +97,7 @@ struct PreparedFunction{F,B,P} <: Function
 end
 (f::PreparedFunction)(x) = f.f(x)
 
-function diffy(f, x, backend::AbstractADType = DEFAULT_AD_BACKEND[])
+function diffy(f, x, backend::AbstractADType=DEFAULT_AD_BACKEND[])
     y = f(x)
     if y isa Number
         prep = prepare_gradient(f, x, backend)
@@ -135,11 +133,11 @@ model.
 """
 function prepare_model(
     model::AbstractModel,
-    x = getinit(model),
-    backend::AbstractADType = DEFAULT_AD_BACKEND[];
-    gradient = true,
-    hessian = true,
-    jacobian = true,
+    x=getinit(model),
+    backend::AbstractADType=DEFAULT_AD_BACKEND[];
+    gradient=true,
+    hessian=true,
+    jacobian=true,
 )
     vm, xv, _ = tovecmodel(model, x)
     obj = getobjective(vm)
@@ -201,4 +199,3 @@ Explicitly prepares the sparse Hessian pipeline of `f`; cached and used by
 default by `sparse_hessian`.
 """
 prepare_sparse_hessian
-

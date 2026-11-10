@@ -60,9 +60,9 @@ using Parameters, Zygote, ChainRulesCore, ForwardDiff
 using SparseArrays, Reexport
 @reexport using LinearAlgebra, OrderedCollections
 @reexport using ADTypes
-import DifferentiationInterface
+using DifferentiationInterface: DifferentiationInterface
 const DI = DifferentiationInterface
-import MacroTools
+using MacroTools: MacroTools
 using SparseConnectivityTracer: TracerSparsityDetector, jacobian_sparsity, hessian_sparsity
 using SparseMatrixColorings: GreedyColoringAlgorithm
 using Reexport, Setfield
@@ -98,7 +98,7 @@ Returns the package-wide default automatic differentiation backend, see
 """
 get_ad_backend() = DEFAULT_AD_BACKEND[]
 
-import MathOptInterface
+using MathOptInterface: MathOptInterface
 const MOI = MathOptInterface
 using SolverCore: log_header, log_row
 using DifferentiableFlatten: flatten, maybeflatten, Unflatten

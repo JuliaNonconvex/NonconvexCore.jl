@@ -1,7 +1,7 @@
 name = "NonconvexCore"
 uuid = "035190e5-69f1-488f-aaab-becca2889735"
 authors = ["Mohamed Tarek <mohdibntarek@gmail.com> and contributors"]
-version = "2.0.0"
+version = "2.1.0"
 
 [deps]
 ADTypes = "47edcb42-4c32-4615-8424-f2b9edc5f35b"
@@ -36,14 +36,20 @@ NonconvexCoreSymbolicsExt = "Symbolics"
 
 [compat]
 ADTypes = "1"
+Aqua = "0.8"
 ChainRulesCore = "0.10, 1"
+Distributions = "0.25"
 ConvergencePlots = "0.1, 0.2"
 DifferentiationInterface = "0.7"
 DifferentiableFlatten = "0.1.0, 0.2"
 ForwardDiff = "0.10, 1"
+JET = "0.9, 0.10, 0.11, 0.12, 0.13"
 JuMP = "0.22, 0.23, 1"
+LinearAlgebra = "1"
 MacroTools = "0.5"
 MathOptInterface = "0.10, 1"
+NamedTupleTools = "0.13, 0.14"
+NLsolve = "4"
 OrderedCollections = "1.4, 2"
 Parameters = "0.12, 0.13"
 Random = "1"
@@ -51,16 +57,25 @@ Reexport = "1"
 Setfield = "0.7, 0.8, 1"
 SolverCore = "0.2, 0.3"
 SparseConnectivityTracer = "1"
+SafeTestsets = "0.1, 0.2, 0.3, 0.4"
+SparseArrays = "1"
 SparseMatrixColorings = "0.4"
+StableRNGs = "1"
 Symbolics = "6, 7"
+Test = "1"
+TestItemRunner = "0.1, 0.2, 1"
+TestItems = "0.1, 1"
+Tracker = "0.2"
 ReverseDiff = "1"
 Zygote = "0.6, 0.7"
 julia = "1.10"
 
 [extras]
+Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 ConvergencePlots = "e9c76d45-d282-4a42-92e1-2fa9292d7569"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 NamedTupleTools = "d9ec5142-1e00-5aa0-9d6a-321866360f50"
+JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
 JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
 NLsolve = "2774e3e8-f4cf-5e23-947b-6d7e65073b56"
 SafeTestsets = "1bc83da4-3b8d-516f-aca4-4fe02f6d838f"
@@ -73,4 +88,4 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 Tracker = "9f7883ad-71c0-57eb-9f7f-b5c9e6d3789c"
 
 [targets]
-test = ["SafeTestsets", "ConvergencePlots", "Distributions", "JuMP", "NLsolve", "NamedTupleTools", "ReverseDiff", "StableRNGs", "Symbolics", "Test", "TestItemRunner", "TestItems", "Tracker"]
+test = ["SafeTestsets", "Aqua", "ConvergencePlots", "Distributions", "JET", "JuMP", "NLsolve", "NamedTupleTools", "ReverseDiff", "StableRNGs", "Symbolics", "Test", "TestItemRunner", "TestItems", "Tracker"]

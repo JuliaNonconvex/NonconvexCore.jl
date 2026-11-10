@@ -135,7 +135,6 @@ Adds a new constraint `f` or multiple new constraints `fs` to `model`.
 """
 add_ineq_constraint!
 
-
 """
     set_objective!(model::AbstractModel, f)
 
