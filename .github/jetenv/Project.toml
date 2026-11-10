@@ -1,0 +1,4 @@
+[deps]
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
+NonconvexCore = "035190e5-69f1-488f-aaab-becca2889735"
