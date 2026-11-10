@@ -35,7 +35,7 @@ function addvar!(
     lb::Vector{<:Real},
     ub::Vector{<:Real};
     init::Vector{<:Real}=copy(lb),
-    integer=falses(length(lb)),
+    integer=falses(sum(length, lb)),
 )
     append!(getmin(m), lb)
     append!(getmax(m), ub)

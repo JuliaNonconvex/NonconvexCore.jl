@@ -157,7 +157,7 @@ function addvar!(m::Model, lb, ub; init=deepcopy(lb), integer=false)
     return m
 end
 function addvar!(
-    m::Model, lb::Vector, ub::Vector; init=deepcopy(lb), integer=falses(length(lb))
+    m::Model, lb::Vector, ub::Vector; init=deepcopy(lb), integer=falses(sum(length, lb))
 )
     append!(getmin(m), lb)
     append!(getmax(m), ub)
