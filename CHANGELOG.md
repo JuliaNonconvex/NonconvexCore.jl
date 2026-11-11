@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.1.2
+
+### Documentation
+
+- The "Gradients, Jacobians and Hessians" section moved from Nonconvex.jl:
+  user-defined derivatives, ChainRules-in-ForwardDiff and gradient tracing
+  are documented here where they are implemented, and appear in the
+  assembled Nonconvex.jl documentation through the Core fragment. The
+  "other AD packages" page was superseded by the DifferentiationInterface
+  [AD backends](../docs/src/derivatives/backends.md) documentation.
+- The landing page logo is small and centered instead of full-width.
+
 ## 2.1.1
 
 ### Documentation
