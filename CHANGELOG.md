@@ -9,7 +9,7 @@
   are documented here where they are implemented, and appear in the
   assembled Nonconvex.jl documentation through the Core fragment. The
   "other AD packages" page was superseded by the DifferentiationInterface
-  [AD backends](../docs/src/derivatives/backends.md) documentation.
+  [AD backends](docs/src/derivatives/backends.md) documentation.
 - The landing page logo is small and centered instead of full-width.
 
 ## 2.1.1
