@@ -268,4 +268,85 @@
         x0 = NonconvexCore.getinit(dict_model)
         @test obj(x0) == x0[:x]^3
     end
+
+    @testset "Closed-form channel: affine and quadratic rows" begin
+        # Quadratic objective, affine and quadratic inequality rows, and a
+        # nonlinear equality row: the affine/quadratic parts must be evaluated
+        # in closed form (out of the Nonlinear evaluator).
+        model = JuMP.Model()
+        JuMP.@variable(model, x[1:3])
+        JuMP.@objective(model, Min, 2x[1]^2 + x[1] * x[2] + 3x[2] + x[3])
+        JuMP.@constraint(model, x[1] + 2x[2] - x[3] >= 1)
+        JuMP.@constraint(model, x[2]^2 + x[3]^2 <= 2)
+        JuMP.@constraint(model, sin(x[1]) + x[2] == 0.5)
+
+        dict_model = DictModel(model)
+        obj = NonconvexCore.getobjective(dict_model)
+        ineq = NonconvexCore.getineqconstraints(dict_model)
+        eq = NonconvexCore.geteqconstraints(dict_model)
+        x0 = NonconvexCore.getinit(dict_model)
+        xv = NonconvexCore.flatten(x0)[1]
+
+        # Values.
+        @test obj(x0) ≈ 2xv[1]^2 + xv[1] * xv[2] + 3xv[2] + xv[3]
+        @test ineq(x0) ≈ [1 - xv[1] - 2xv[2] + xv[3], xv[2]^2 + xv[3]^2 - 2]
+        @test eq(x0) ≈ [sin(xv[1]) + xv[2] - 0.5]
+
+        # The evaluator holds only the nonlinear row.
+        objraw = obj.f
+        m = objraw.m
+        @test length(m.ev.ordered_constraints) == 1
+
+        vm, _, _ = NonconvexCore.tovecmodel(dict_model)
+        v, g = NonconvexCore.value_gradient(vm.objective, xv)
+        @test v ≈ obj(x0)
+        @test g ≈ [4xv[1] + xv[2], xv[1] + 3, 1]
+
+        _, Jineq = NonconvexCore.value_jacobian(vm.ineq_constraints, xv)
+        @test Matrix(Jineq) ≈ [-1 -2 1; 0 2xv[2] 2xv[3]]
+
+        _, Jeq = NonconvexCore.value_jacobian(vm.eq_constraints, xv)
+        @test Matrix(Jeq) ≈ [cos(xv[1]) 1 0]
+
+        # The sparse Jacobian of the merged channel matches the dense one.
+        Jsp = NonconvexCore.sparse_jacobian(vm.ineq_constraints, xv)
+        @test Matrix(Jsp) == Matrix(Jineq)
+
+        # Lagrangian Hessian: σ∇²f + λ2∇²g2 + λ3∇²g3 (the affine row adds
+        # nothing) with all multipliers and the objective factor set to one.
+        H = zeros(3, 3)
+        hvals = zeros(length(m.hess_rows))
+        NonconvexCore.jump_hessian_lagrangian!(m, hvals, xv, 1.0, ones(3))
+        for (k, (i, j)) in enumerate(zip(m.hess_rows, m.hess_cols))
+            H[i, j] = hvals[k]
+            H[j, i] = hvals[k]
+        end
+        Hexact = [4 - sin(xv[1]) 1 0; 1 2 0; 0 0 2]
+        @test H ≈ Hexact
+    end
+
+    @testset "Closed-form channel: interval and equality rows" begin
+        model = JuMP.Model()
+        JuMP.@variable(model, x[1:2])
+        JuMP.@objective(model, Min, x[1]^2)
+        JuMP.@constraint(model, -1 <= x[1] + x[2] <= 2)
+        JuMP.@constraint(model, x[1] * x[2] + x[2] == 0)
+        # A nonlinear row forces the expression path (the matrix path does not
+        # cover anonymous or interval constraints).
+        JuMP.@constraint(model, sin(x[1]) >= -1.5)
+        dict_model = DictModel(model)
+        ineq = NonconvexCore.getineqconstraints(dict_model)
+        eq = NonconvexCore.geteqconstraints(dict_model)
+        x0 = NonconvexCore.getinit(dict_model)
+        xv = NonconvexCore.flatten(x0)[1]
+        # The converted rows follow `all_constraints`, which lists the
+        # nonlinear block rows before the scalar affine rows.
+        @test ineq(x0) == [-1.5 - sin(xv[1]), -1 - xv[1] - xv[2], xv[1] + xv[2] - 2]
+        @test eq(x0) == [xv[1] * xv[2] + xv[2]]
+        vm, _, _ = NonconvexCore.tovecmodel(dict_model)
+        _, Jineq = NonconvexCore.value_jacobian(vm.ineq_constraints, xv)
+        @test Matrix(Jineq) == [-cos(xv[1]) 0; -1 -1; 1 1]
+        _, Jeq = NonconvexCore.value_jacobian(vm.eq_constraints, xv)
+        @test Matrix(Jeq) == [xv[2] xv[1] + 1]
+    end
 end
