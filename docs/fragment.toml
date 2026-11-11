@@ -24,6 +24,19 @@ title = "Derivatives"
   file = "derivatives/sparse.md"
 
 [[pages]]
+title = "Gradients, Jacobians and Hessians"
+file = "gradients/gradients.md"
+  [[pages.children]]
+  title = "User-defined derivatives"
+  file = "gradients/user_defined.md"
+  [[pages.children]]
+  title = "ChainRules in ForwardDiff"
+  file = "gradients/chainrules_fd.md"
+  [[pages.children]]
+  title = "Storing history of gradients"
+  file = "gradients/history.md"
+
+[[pages]]
 title = "Function modifiers"
   [[pages.children]]
   title = "Custom derivatives"
