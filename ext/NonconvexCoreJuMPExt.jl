@@ -393,13 +393,13 @@ function _dict_model_from_jump_expressions(model, dict_model, ks, nvars)
         obj_expr = JuMP.moi_function(obj_expr)
     end
     obj_sign = objective_sense(model) == MathOptInterface.MAX_SENSE ? -1.0 : 1.0
-    obj_closed = if obj_expr isa MOI.ScalarAffineFunction ||
-        obj_expr isa MOI.ScalarQuadraticFunction
-        obj_expr
-    else
-        MOI.Nonlinear.set_objective(nl, obj_expr)
-        nothing
-    end
+    obj_closed =
+        if obj_expr isa MOI.ScalarAffineFunction || obj_expr isa MOI.ScalarQuadraticFunction
+            obj_expr
+        else
+            MOI.Nonlinear.set_objective(nl, obj_expr)
+            nothing
+        end
     # Nonconvex inequality constraints are feasible when their value is <= 0,
     # so each row stores `sign * f(x) + shift`. JuMP may have folded the
     # bound into the expression (its nonlinear interface normalizes to zero
@@ -412,34 +412,48 @@ function _dict_model_from_jump_expressions(model, dict_model, ks, nvars)
             ci = closed ? nothing : MOI.Nonlinear.add_constraint(nl, expr, set)
             push!(
                 rows,
-                JuMPConvertedRow(true, -1.0, set.lower, linear, ci, closed ? expr : nothing),
+                JuMPConvertedRow(
+                    true, -1.0, set.lower, linear, ci, closed ? expr : nothing
+                ),
             )
         elseif set isa MOI.LessThan
             ci = closed ? nothing : MOI.Nonlinear.add_constraint(nl, expr, set)
             push!(
                 rows,
-                JuMPConvertedRow(true, 1.0, -set.upper, linear, ci, closed ? expr : nothing),
+                JuMPConvertedRow(
+                    true, 1.0, -set.upper, linear, ci, closed ? expr : nothing
+                ),
             )
         elseif set isa MOI.Interval
-            ci_lo =
-                closed ? nothing :
+            ci_lo = if closed
+                nothing
+            else
                 MOI.Nonlinear.add_constraint(nl, expr, MOI.GreaterThan(set.lower))
-            ci_hi =
-                closed ? nothing :
+            end
+            ci_hi = if closed
+                nothing
+            else
                 MOI.Nonlinear.add_constraint(nl, expr, MOI.LessThan(set.upper))
+            end
             push!(
                 rows,
-                JuMPConvertedRow(true, -1.0, set.lower, linear, ci_lo, closed ? expr : nothing),
+                JuMPConvertedRow(
+                    true, -1.0, set.lower, linear, ci_lo, closed ? expr : nothing
+                ),
             )
             push!(
                 rows,
-                JuMPConvertedRow(true, 1.0, -set.upper, linear, ci_hi, closed ? expr : nothing),
+                JuMPConvertedRow(
+                    true, 1.0, -set.upper, linear, ci_hi, closed ? expr : nothing
+                ),
             )
         elseif set isa MOI.EqualTo
             ci = closed ? nothing : MOI.Nonlinear.add_constraint(nl, expr, set)
             push!(
                 rows,
-                JuMPConvertedRow(false, 1.0, -set.value, linear, ci, closed ? expr : nothing),
+                JuMPConvertedRow(
+                    false, 1.0, -set.value, linear, ci, closed ? expr : nothing
+                ),
             )
         end
     end

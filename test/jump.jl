@@ -1,6 +1,6 @@
 @testitem "JuMP" begin
     using Test, NonconvexCore
-    import JuMP
+    using JuMP: JuMP
 
     @testset "Symbol variable names" begin
         model = JuMP.Model()
