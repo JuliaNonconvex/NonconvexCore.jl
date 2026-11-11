@@ -33,9 +33,11 @@ NonconvexCore.ConvergenceCriteria
 NonconvexCore.ConvergenceState
 NonconvexCore.assess_convergence!
 NonconvexCore.JuMPEvaluator
+NonconvexCore.JuMPConvertedRow
 NonconvexCore.JuMPModelObjective
 NonconvexCore.JuMPModelIneq
 NonconvexCore.JuMPModelEq
+NonconvexCore.jump_objective_value
 NonconvexCore.jump_objective_gradient
 NonconvexCore.jump_jacobian
 NonconvexCore.jump_jacobian_structure
