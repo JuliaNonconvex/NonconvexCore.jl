@@ -2,6 +2,10 @@ name: CI
 on:
   - push
   - pull_request
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   test:
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
@@ -40,3 +44,4 @@ jobs:
       - uses: codecov/codecov-action@v5
         with:
           files: lcov.info
+          use_oidc: true
