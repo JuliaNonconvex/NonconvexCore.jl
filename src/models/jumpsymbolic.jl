@@ -450,11 +450,22 @@ The objective of a JuMP-converted model: evaluates the converted objective
 expression on the model's variable container through the shared
 `JuMPEvaluator`.
 """
+# `flatten(x, ks)` historically reordered named variable containers (a
+# NonconvexUtils utility); in Core 2 the variables of a JuMP-converted model
+# are already flattened to a plain vector in `ks` order, so this is the
+# identity flatten returning the (vector, unflatten) pair like the one-arg
+# `flatten`. Kept as an internal helper to avoid pirating
+# `DifferentiableFlatten.flatten`.
+_flatten_ks(x::AbstractVector, ::AbstractVector{<:Symbol}) = flatten(x)
+# Named containers: reorder by `ks` and flatten the collected values (the
+# one-arg `flatten` handles scalar and vector-valued entries).
+_flatten_ks(x, ks::AbstractVector{<:Symbol}) = flatten([x[k] for k in ks])
+
 struct JuMPModelObjective{M,K} <: Function
     m::M
     ks::K
 end
-(f::JuMPModelObjective)(x) = JuMPModelObjectiveVector(f.m)(flatten(x, f.ks)[1])
+(f::JuMPModelObjective)(x) = JuMPModelObjectiveVector(f.m)(_flatten_ks(x, f.ks)[1])
 
 """
     JuMPModelIneq(m::JuMPEvaluator, ks)
@@ -467,7 +478,7 @@ struct JuMPModelIneq{M,K} <: Function
     m::M
     ks::K
 end
-(f::JuMPModelIneq)(x) = JuMPModelIneqVector(f.m)(flatten(x, f.ks)[1])
+(f::JuMPModelIneq)(x) = JuMPModelIneqVector(f.m)(_flatten_ks(x, f.ks)[1])
 
 """
     JuMPModelEq(m::JuMPEvaluator, ks)
@@ -480,7 +491,7 @@ struct JuMPModelEq{M,K} <: Function
     m::M
     ks::K
 end
-(f::JuMPModelEq)(x) = JuMPModelEqVector(f.m)(flatten(x, f.ks)[1])
+(f::JuMPModelEq)(x) = JuMPModelEqVector(f.m)(_flatten_ks(x, f.ks)[1])
 
 # Vector-level callables: these are what reverse-mode backends encounter
 # after the model variables are flattened, and each carries a ChainRules
@@ -682,11 +693,11 @@ end
 # from the evaluator directly instead.
 
 function sparse_jacobian(f::JuMPModelIneq, x, backend::AbstractADType=DEFAULT_AD_BACKEND[])
-    return jump_jacobian(f.m, flatten(x, f.ks)[1])[1:f.m.nineq, :]
+    return jump_jacobian(f.m, _flatten_ks(x, f.ks)[1])[1:f.m.nineq, :]
 end
 
 function sparse_jacobian(f::JuMPModelEq, x, backend::AbstractADType=DEFAULT_AD_BACKEND[])
-    return jump_jacobian(f.m, flatten(x, f.ks)[1])[(f.m.nineq + 1):end, :]
+    return jump_jacobian(f.m, _flatten_ks(x, f.ks)[1])[(f.m.nineq + 1):end, :]
 end
 
 function sparse_jacobian(
@@ -699,11 +710,11 @@ function sparse_jacobian(
     end
     if length(raws) == 1 && raws[1] isa JuMPModelIneq
         m = raws[1].m
-        xv = x isa AbstractVector ? x : flatten(x, raws[1].ks)[1]
+        xv = x isa AbstractVector ? x : _flatten_ks(x, raws[1].ks)[1]
         return jump_jacobian(m, xv)[1:m.nineq, :]
     elseif length(raws) == 1 && raws[1] isa JuMPModelEq
         m = raws[1].m
-        xv = x isa AbstractVector ? x : flatten(x, raws[1].ks)[1]
+        xv = x isa AbstractVector ? x : _flatten_ks(x, raws[1].ks)[1]
         return jump_jacobian(m, xv)[(m.nineq + 1):end, :]
     end
     return _sparse_jacobian_default(c, x, backend)
