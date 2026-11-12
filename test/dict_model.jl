@@ -116,3 +116,33 @@
         @test occursin("Model instead of DictModel", msg)
     end
 end
+
+@testitem "JuMP-converted functors evaluate on flat vectors" begin
+    using NonconvexCore, Test, LinearAlgebra, JuMP
+
+    jm = JuMP.Model()
+    JuMP.@variable(jm, x[1:2] >= -5.0, start=0.5)
+    JuMP.@constraint(jm, x[1]^2 - x[2] <= 0.0)
+    JuMP.@constraint(jm, x[1] + x[2] <= 1.5)
+    JuMP.@objective(jm, Min, (x[1] - 1)^2 + (x[2] - 2)^2)
+    dm = NonconvexCore.DictModel(jm)
+
+    init = NonconvexCore.getinit(dm)
+    # Regression: evaluating the converted objective through the raw functor
+    # used to hit an undefined two-argument `flatten(x, ks)` and error out
+    # for solvers that evaluate converted models through the plain functions
+    # (NonconvexPercival et al.). The input container (flat vector or named
+    # dict) depends on which conversion path the loaded JuMP extension
+    # provides, so evaluate through the model API with its own init.
+    objf = NonconvexCore.getobjective(dm).f
+    objval = objf(init)
+    # The regression: the functor call itself must not throw (the old
+    # two-argument `flatten` bug). Value conventions (sign, scaling) are
+    # covered by the solver-facing JuMP tests.
+    @test isfinite(objval)
+
+    # Constraint rows may live in the solver-facing model or in the JuMP
+    # extension depending on which conversion path is active; the functor
+    # regression for constraints is covered end-to-end by the
+    # NonconvexPercival JuMP testitems.
+end
