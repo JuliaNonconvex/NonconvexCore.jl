@@ -461,6 +461,12 @@ _flatten_ks(x::AbstractVector, ::AbstractVector{<:Symbol}) = flatten(x)
 # one-arg `flatten` handles scalar and vector-valued entries).
 _flatten_ks(x, ks::AbstractVector{<:Symbol}) = flatten([x[k] for k in ks])
 
+"""
+    JuMPModelObjective
+
+Objective of a JuMP-converted model, evaluated through a single
+MathOptInterface `Nonlinear` evaluator shared with the model's constraints.
+"""
 struct JuMPModelObjective{M,K} <: Function
     m::M
     ks::K
