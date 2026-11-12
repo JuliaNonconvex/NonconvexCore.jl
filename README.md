@@ -16,7 +16,7 @@ The foundation of the JuliaNonconvex ecosystem
 
 Models, automatic differentiation, function modifiers, solver capabilities and convergence criteria shared by every solver package.
 
-NonconvexCore.jl is part of the [JuliaNonconvex](https://github.com/JuliaNonconvex) ecosystem built on [NonconvexCore.jl](https://github.com/JuliaNonconvex/NonconvexCore.jl).
+NonconvexCore.jl is part of the [JuliaNonconvex](https://github.com/JuliaNonconvex) ecosystem built on [NonconvexCore.jl](https://github.com/JuliaNonconvex/NonconvexCore.jl) under the [Nonconvex.jl](https://github.com/JuliaNonconvex/Nonconvex.jl) umbrella.
 
 ## Quick start
 
