@@ -15,6 +15,7 @@ using NonconvexCore:
     flatten,
     OrderedDict,
     JuMPEvaluator,
+    JuMPConvertedRow,
     JuMPModelObjective,
     JuMPModelIneq,
     JuMPModelEq,
@@ -348,15 +349,22 @@ function NonconvexCore._ordered_jump_variables(model::JuMP.Model, ks)
     return MOI.VariableIndex.(flatten(OrderedDict(k => inds[k] for k in ks))[1])
 end
 
-# Nonlinear (ScalarNonlinearFunction) constraints with their sets.
+# All scalar constraints with their sets, preserving the MOI function type so
+# affine and quadratic rows can take the closed-form channel. Variable-index
+# functions are normalized to affine ones.
 function NonconvexCore._nonlinear_constraints(model::JuMP.Model)
-    out = Tuple{MOI.ScalarNonlinearFunction,Any}[]
+    out = Tuple{Any,Any}[]
     for c in JuMP.all_constraints(model; include_variable_in_set_constraints=true)
         func = constraint_object(c).func
         func isa JuMP.GenericNonlinearExpr && (func = JuMP.moi_function(func))
         func isa QuadExpr && (func = JuMP.moi_function(func))
         func isa AffExpr && (func = JuMP.moi_function(func))
-        func isa MOI.AbstractScalarFunction && push!(out, (func, constraint_object(c).set))
+        # Bare-variable constraints are the model's variable bounds, which
+        # `get_variable_info` captures separately.
+        func isa VariableRef && continue
+        (func isa MOI.AbstractScalarFunction || func isa MOI.ScalarNonlinearFunction) ||
+            continue
+        push!(out, (func, constraint_object(c).set))
     end
     return out
 end
@@ -370,69 +378,86 @@ end
 
 function _dict_model_from_jump_expressions(model, dict_model, ks, nvars)
     vars = _ordered_jump_variables(model, ks)
-    # One Nonlinear model for the objective and every constraint, so the
-    # evaluator computes shared subexpressions once per pass.
+    # One Nonlinear model for the nonlinear objective and constraint rows;
+    # affine and quadratic rows (and an affine or quadratic objective) are
+    # evaluated in closed form, matching how JuMP splits its own NLP block.
     nl = MOI.Nonlinear.Model()
     obj_expr = objective_function(model)
-    if obj_expr isa JuMP.GenericNonlinearExpr ||
+    if obj_expr isa VariableRef
+        obj_expr = MOI.ScalarAffineFunction(
+            [MOI.ScalarAffineTerm(1.0, JuMP.moi_function(obj_expr))], 0.0
+        )
+    elseif obj_expr isa JuMP.GenericNonlinearExpr ||
         obj_expr isa QuadExpr ||
         obj_expr isa AffExpr
         obj_expr = JuMP.moi_function(obj_expr)
     end
-    MOI.Nonlinear.set_objective(nl, obj_expr)
     obj_sign = objective_sense(model) == MathOptInterface.MAX_SENSE ? -1.0 : 1.0
-    ineq_cis = MOI.Nonlinear.ConstraintIndex[]
-    ineq_sign = Float64[]
-    ineq_shift = Float64[]
-    ineq_linear = Bool[]
-    eq_cis = MOI.Nonlinear.ConstraintIndex[]
-    eq_shift = Float64[]
-    eq_linear = Bool[]
+    obj_closed =
+        if obj_expr isa MOI.ScalarAffineFunction || obj_expr isa MOI.ScalarQuadraticFunction
+            obj_expr
+        else
+            MOI.Nonlinear.set_objective(nl, obj_expr)
+            nothing
+        end
     # Nonconvex inequality constraints are feasible when their value is <= 0,
     # so each row stores `sign * f(x) + shift`. JuMP may have folded the
     # bound into the expression (its nonlinear interface normalizes to zero
     # sets); carrying the raw bound works under both conventions.
+    rows = JuMPConvertedRow[]
     for (expr, set) in _nonlinear_constraints(model)
         linear = expr isa MOI.ScalarAffineFunction
+        closed = expr isa MOI.ScalarAffineFunction || expr isa MOI.ScalarQuadraticFunction
         if set isa MOI.GreaterThan
-            push!(ineq_cis, MOI.Nonlinear.add_constraint(nl, expr, set))
-            push!(ineq_sign, -1.0)
-            push!(ineq_shift, set.lower)
-            push!(ineq_linear, linear)
-        elseif set isa MOI.LessThan
-            push!(ineq_cis, MOI.Nonlinear.add_constraint(nl, expr, set))
-            push!(ineq_sign, 1.0)
-            push!(ineq_shift, -set.upper)
-            push!(ineq_linear, linear)
-        elseif set isa MOI.Interval
+            ci = closed ? nothing : MOI.Nonlinear.add_constraint(nl, expr, set)
             push!(
-                ineq_cis, MOI.Nonlinear.add_constraint(nl, expr, MOI.GreaterThan(set.lower))
+                rows,
+                JuMPConvertedRow(
+                    true, -1.0, set.lower, linear, ci, closed ? expr : nothing
+                ),
             )
-            push!(ineq_sign, -1.0)
-            push!(ineq_shift, set.lower)
-            push!(ineq_linear, linear)
-            push!(ineq_cis, MOI.Nonlinear.add_constraint(nl, expr, MOI.LessThan(set.upper)))
-            push!(ineq_sign, 1.0)
-            push!(ineq_shift, -set.upper)
-            push!(ineq_linear, linear)
+        elseif set isa MOI.LessThan
+            ci = closed ? nothing : MOI.Nonlinear.add_constraint(nl, expr, set)
+            push!(
+                rows,
+                JuMPConvertedRow(
+                    true, 1.0, -set.upper, linear, ci, closed ? expr : nothing
+                ),
+            )
+        elseif set isa MOI.Interval
+            ci_lo = if closed
+                nothing
+            else
+                MOI.Nonlinear.add_constraint(nl, expr, MOI.GreaterThan(set.lower))
+            end
+            ci_hi = if closed
+                nothing
+            else
+                MOI.Nonlinear.add_constraint(nl, expr, MOI.LessThan(set.upper))
+            end
+            push!(
+                rows,
+                JuMPConvertedRow(
+                    true, -1.0, set.lower, linear, ci_lo, closed ? expr : nothing
+                ),
+            )
+            push!(
+                rows,
+                JuMPConvertedRow(
+                    true, 1.0, -set.upper, linear, ci_hi, closed ? expr : nothing
+                ),
+            )
         elseif set isa MOI.EqualTo
-            push!(eq_cis, MOI.Nonlinear.add_constraint(nl, expr, set))
-            push!(eq_shift, -set.value)
-            push!(eq_linear, linear)
+            ci = closed ? nothing : MOI.Nonlinear.add_constraint(nl, expr, set)
+            push!(
+                rows,
+                JuMPConvertedRow(
+                    false, 1.0, -set.value, linear, ci, closed ? expr : nothing
+                ),
+            )
         end
     end
-    je = JuMPEvaluator(
-        nl,
-        vars,
-        obj_sign,
-        ineq_cis,
-        ineq_sign,
-        ineq_shift,
-        eq_cis,
-        eq_shift,
-        ineq_linear,
-        eq_linear,
-    )
+    je = JuMPEvaluator(nl, vars, obj_sign, rows, obj_closed)
     set_objective!(dict_model, JuMPModelObjective(je, ks))
     je.nineq > 0 && add_ineq_constraint!(dict_model, JuMPModelIneq(je, ks))
     je.neq > 0 && add_eq_constraint!(dict_model, JuMPModelEq(je, ks))
