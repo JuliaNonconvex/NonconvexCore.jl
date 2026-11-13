@@ -656,9 +656,7 @@ function jump_hessian_lagrangian!(m::JuMPEvaluator, vals, x, obj_factor, lambda)
     @inbounds for k in eachindex(m.myrow_of_evrow)
         μ[k] = m.ev_sign[k] * lambda[m.myrow_of_evrow[k]]
     end
-    MOI.eval_hessian_lagrangian(
-        m.ev, m.hess_buffer, x, obj_factor * m.objective_sign, μ
-    )
+    MOI.eval_hessian_lagrangian(m.ev, m.hess_buffer, x, obj_factor * m.objective_sign, μ)
     @inbounds for k in eachindex(m.nl_hess_pos)
         vals[m.nl_hess_pos[k]] += m.hess_buffer[k]
     end
