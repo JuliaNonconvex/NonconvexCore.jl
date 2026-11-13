@@ -1,7 +1,7 @@
 name = "NonconvexCore"
 uuid = "035190e5-69f1-488f-aaab-becca2889735"
 authors = ["Mohamed Tarek <mohdibntarek@gmail.com> and contributors"]
-version = "2.2.1"
+version = "2.2.2"
 
 [deps]
 ADTypes = "47edcb42-4c32-4615-8424-f2b9edc5f35b"
