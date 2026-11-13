@@ -8,7 +8,9 @@ abstract type AbstractFunction <: Function end
 """
     length(f::AbstractFunction)
 
-Returns the number of outputs of `f`.
+Returns the number of outputs of `f`. For a `VectorOfFunctions`, the more
+specific method below returns the number of functions in the collection;
+use [`getdim`](@ref) for the (flattened) output dimension of either.
 """
 Base.length(f::AbstractFunction) = getdim(f)
 
@@ -114,6 +116,15 @@ function getdim(c::VectorOfFunctions)
     length(c.fs) == 0 && return 0
     return sum(getdim, c.fs)
 end
+
+"""
+    length(fs::VectorOfFunctions)
+
+Returns the number of functions in the collection. This deliberately
+*separates* the container length from [`getdim`](@ref): `length` counts the
+constraints, `getdim` is the dimension of the concatenated output.
+"""
+Base.length(fs::VectorOfFunctions) = length(fs.fs)
 
 """
     getfunction(f::VectorOfFunctions, i::Integer)

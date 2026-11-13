@@ -91,3 +91,16 @@
         @test getfunction(f) === exp
     end
 end
+
+@testitem "VectorOfFunctions: length counts, getdim is the output dimension" begin
+    using NonconvexCore, Test
+    import NonconvexCore: VectorOfFunctions, FunctionWrapper, getdim
+    fs = VectorOfFunctions([FunctionWrapper(x -> [x[1], x[2]], 2), FunctionWrapper(x -> [x[3]], 1)])
+    @test length(fs) == 2               # container semantics
+    @test getdim(fs) == 3               # concatenated output dimension
+    @test length(VectorOfFunctions(())) == 0
+    @test getdim(VectorOfFunctions(())) == 0
+    # scalar functions keep the convenience length == getdim
+    f = FunctionWrapper(x -> [x[1] + x[2]], 1)
+    @test length(f) == getdim(f) == 1
+end
