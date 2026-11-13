@@ -162,6 +162,7 @@ mutable struct JuMPEvaluator{E,V}
     cl_hess_pos::Vector{Int}    # merged position per closed-form quadratic term
     cl_hess_myrow::Vector{Int}  # converted row per closed-form quadratic term
     cl_hess_coef::Vector{Float64}
+    cl_hess_sign::Vector{Float64} # row sign per closed-form quadratic term
     obj_hess_pos::Vector{Int}   # merged position per objective quadratic term
     obj_hess_coef::Vector{Float64}
     # Objective closed form (empty when the objective is nonlinear).
@@ -331,15 +332,18 @@ function JuMPEvaluator(
     cl_jac_pos = invp[(length(nl_jac_rows) + 1):end]
     # Merged Hessian structure (lower triangle) over all channels: nonlinear
     # entries (in evaluator order), one entry per closed-form quadratic term,
-    # and one per objective quadratic term.
+    # and one per objective quadratic term. Every channel stores its entries
+    # as `(row ≥ col)` pairs (MOI's evaluator emits the lower triangle).
     cl_hess_terms = Tuple{Int,Int}[]
     cl_hess_myrow = Int[]
     cl_hess_coef = Float64[]
+    cl_hess_sign = Float64[]
     for k in eachindex(cl_q_id)
         a, b = cl_q_a[k], cl_q_b[k]
-        push!(cl_hess_terms, (min(a, b), max(a, b)))
+        push!(cl_hess_terms, (max(a, b), min(a, b)))
         push!(cl_hess_myrow, cl_rows[cl_q_id[k]])
         push!(cl_hess_coef, cl_q_v[k])
+        push!(cl_hess_sign, cl_sign[cl_q_id[k]])
     end
     obj_q_a = Int[]
     obj_q_b = Int[]
@@ -356,7 +360,7 @@ function JuMPEvaluator(
             push!(obj_q_a, a)
             push!(obj_q_b, b)
             push!(obj_q_v, t.coefficient)
-            push!(obj_hess_terms, (min(a, b), max(a, b)))
+            push!(obj_hess_terms, (max(a, b), min(a, b)))
             push!(obj_hess_coef, t.coefficient)
         end
         for t in obj_closed.affine_terms
@@ -429,6 +433,7 @@ function JuMPEvaluator(
         cl_hess_pos,
         cl_hess_myrow,
         cl_hess_coef,
+        cl_hess_sign,
         obj_hess_pos,
         obj_hess_coef,
         obj_closed_bool,
@@ -643,20 +648,23 @@ jump_hessian_structure(m::JuMPEvaluator) = (m.hess_rows, m.hess_cols)
 
 function jump_hessian_lagrangian!(m::JuMPEvaluator, vals, x, obj_factor, lambda)
     fill!(vals, 0.0)
-    if !isempty(m.myrow_of_evrow)
-        μ = m.μ_buffer
-        @inbounds for k in eachindex(m.myrow_of_evrow)
-            μ[k] = m.ev_sign[k] * lambda[m.myrow_of_evrow[k]]
-        end
-        MOI.eval_hessian_lagrangian(
-            m.ev, m.hess_buffer, x, obj_factor * m.objective_sign, μ
-        )
-        @inbounds for k in eachindex(m.nl_hess_pos)
-            vals[m.nl_hess_pos[k]] += m.hess_buffer[k]
-        end
+    # The evaluator computes σ·∇²f_obj + Σ μᵢ∇²gᵢ: it must run even when there
+    # are no nonlinear constraint rows (the objective Hessian lives only in
+    # the evaluator for a nonlinear objective), and it is a no-op for the
+    # constraint part when the multiplier vector is empty.
+    μ = m.μ_buffer
+    @inbounds for k in eachindex(m.myrow_of_evrow)
+        μ[k] = m.ev_sign[k] * lambda[m.myrow_of_evrow[k]]
+    end
+    MOI.eval_hessian_lagrangian(
+        m.ev, m.hess_buffer, x, obj_factor * m.objective_sign, μ
+    )
+    @inbounds for k in eachindex(m.nl_hess_pos)
+        vals[m.nl_hess_pos[k]] += m.hess_buffer[k]
     end
     @inbounds for k in eachindex(m.cl_hess_pos)
-        vals[m.cl_hess_pos[k]] += lambda[m.cl_hess_myrow[k]] * m.cl_hess_coef[k]
+        vals[m.cl_hess_pos[k]] +=
+            lambda[m.cl_hess_myrow[k]] * m.cl_hess_sign[k] * m.cl_hess_coef[k]
     end
     if m.obj_closed
         @inbounds for k in eachindex(m.obj_hess_pos)

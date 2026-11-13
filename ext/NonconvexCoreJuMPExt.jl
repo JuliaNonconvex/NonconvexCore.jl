@@ -175,26 +175,20 @@ function get_constraint_info(model::JuMP.Model, nvars)
     inv_geq_constraints = OrderedDict()
     inv_leq_constraints = OrderedDict()
     inv_eq_constraints = OrderedDict()
-    for (_, c) in model.obj_dict
-        if c isa ConstraintRef
-            cs = [c]
-        elseif c isa AbstractArray{<:ConstraintRef}
-            cs = c
+    # Iterate ALL constraints (named and anonymous): anonymous constraints do
+    # not appear in `model.obj_dict`, and silently dropping them would change
+    # the model. Variable-in-set constraints are excluded because the variable
+    # bounds are captured separately by `get_variable_info`.
+    for c in JuMP.all_constraints(model; include_variable_in_set_constraints=false)
+        set = constraint_object(c).set
+        if set isa MOI.GreaterThan
+            inv_geq_constraints[JuMP.index(c).value] = c
+        elseif set isa MOI.LessThan
+            inv_leq_constraints[JuMP.index(c).value] = c
+        elseif set isa MOI.EqualTo
+            inv_eq_constraints[JuMP.index(c).value] = c
         else
-            cs = nothing
-            continue
-        end
-        foreach(cs) do c
-            set = constraint_object(c).set
-            if set isa MOI.GreaterThan
-                inv_geq_constraints[JuMP.index(c).value] = c
-            elseif set isa MOI.LessThan
-                inv_leq_constraints[JuMP.index(c).value] = c
-            elseif set isa MOI.EqualTo
-                inv_eq_constraints[JuMP.index(c).value] = c
-            else
-                throw("Set type not supported.")
-            end
+            throw("Set type not supported.")
         end
     end
     sort!(inv_geq_constraints)
@@ -372,7 +366,10 @@ end
 function _has_nonlinear(model::JuMP.Model)
     objective_function(model) isa JuMP.GenericNonlinearExpr && return true
     return any(JuMP.all_constraints(model; include_variable_in_set_constraints=true)) do c
-        return constraint_object(c).func isa JuMP.GenericNonlinearExpr
+        # Quadratic rows also take the expression path: the matrix path in
+        # `get_constraint_info` can only represent affine constraints.
+        f = constraint_object(c).func
+        return f isa JuMP.GenericNonlinearExpr || f isa QuadExpr
     end
 end
 
@@ -629,7 +626,10 @@ function NonconvexCore.get_jump_problem(
     vars = map(1:nvars) do i
         v = MOI.add_variable(moi_model)
         if integers[i]
-            if xlb[i] > -1 && xub[i] < 2
+            # Binary only when the box is exactly [0, 1]: a loose heuristic
+            # like `lb > -1 && ub < 2` would force legitimate integer domains
+            # (e.g. [-0.5, 0.5], [0.5, 1.5], [0, 1.5]) into ZeroOne.
+            if xlb[i] == 0 && xub[i] == 1
                 MOI.add_constraint(moi_model, v, MOI.ZeroOne())
             else
                 MOI.add_constraint(moi_model, v, MOI.Integer())

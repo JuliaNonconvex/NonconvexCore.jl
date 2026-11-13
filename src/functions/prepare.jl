@@ -81,6 +81,68 @@ function prepare_sparse_hessian(f, x, backend::AbstractADType=DEFAULT_AD_BACKEND
     return entry
 end
 
+# --- JuMP-converted models: the MOI evaluator provides the derivatives ------
+# The MathOptInterface evaluator of a JuMP-converted model cannot be traced by
+# generic AD backends (it mutates internal buffers and branches on values), so
+# the objective Hessian is read from the evaluator directly. `prepare_*` store
+# the function itself as the cache marker; the specialized value/sparse
+# functions below bypass the DifferentiationInterface pipeline entirely.
+
+const JuMPObjectiveLike = Union{
+    FlattenedFunction{<:JuMPModelObjective},
+    Objective{<:FlattenedFunction{<:JuMPModelObjective}},
+}
+
+function prepare_hessian(
+    f::JuMPObjectiveLike, x::AbstractVector, backend::AbstractADType=DEFAULT_AD_BACKEND[]
+)
+    key = (f, backend)
+    get(_PREP_CACHES.hessian, key, nothing) === nothing || return _PREP_CACHES.hessian[key]
+    _PREP_CACHES.hessian[key] = f
+    return f
+end
+
+function prepare_sparse_hessian(
+    f::JuMPObjectiveLike, x::AbstractVector, backend::AbstractADType=DEFAULT_AD_BACKEND[]
+)
+    key = (f, backend)
+    get(_SPARSE_HESSIAN_PREP_CACHE, key, nothing) === nothing ||
+        return _SPARSE_HESSIAN_PREP_CACHE[key]
+    _SPARSE_HESSIAN_PREP_CACHE[key] = f
+    return f
+end
+
+function value_hessian(
+    f::JuMPObjectiveLike, x::AbstractVector, backend::AbstractADType=DEFAULT_AD_BACKEND[]
+)
+    return _jump_hessian(f, x)
+end
+
+function sparse_hessian(
+    f::JuMPObjectiveLike, x::AbstractVector, backend::AbstractADType=DEFAULT_AD_BACKEND[]
+)
+    return _jump_hessian(f, x)
+end
+
+# The dense (symmetrized) Hessian of a JuMP-converted objective at `x`: the
+# objective term of the shared evaluator, i.e. `jump_hessian_lagrangian!` with
+# `obj_factor = 1` and zero multipliers.
+function _jump_hessian(f::JuMPObjectiveLike, x)
+    flat = f isa Objective ? getfunction(f) : f
+    jf = getrawfunction(flat)
+    m = jf.m
+    n = length(x)
+    vals = zeros(length(m.hess_rows))
+    jump_hessian_lagrangian!(m, vals, x, 1.0, zeros(m.nineq + m.neq))
+    H = zeros(n, n)
+    @inbounds for k in eachindex(m.hess_rows)
+        i, j = m.hess_rows[k], m.hess_cols[k]
+        H[i, j] += vals[k]
+        i == j || (H[j, i] += vals[k])
+    end
+    return H
+end
+
 """
     diffy(f, x, [backend])
 
