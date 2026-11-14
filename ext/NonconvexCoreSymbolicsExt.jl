@@ -42,15 +42,20 @@ function SymbolicFunction(
     N = length(_x)
     val = f(_x)
     _T = eltype(val)
-    T = x -> begin
-        if (eltype(x) <: Symbolics.Num) || eltype(x) === _T
-            return x
-        elseif x isa SparseMatrixCSC && !(x isa Real) && nnz(x) == 0
-            return SparseMatrixCSC(x.m, x.n, x.colptr, x.rowval, _T[])
-        else
-            return _T.(x)
+    T =
+        x -> begin
+            if (eltype(x) <: Symbolics.Num) || eltype(x) === _T || eltype(x) <: ForwardDiff.Dual
+                # Symbolic inputs, the target element type, and ForwardDiff duals
+                # (nested/second-order AD re-runs the generated functions at Dual
+                # points) pass through untouched: converting duals to `_T` would
+                # strip or crash on their partials.
+                return x
+            elseif x isa SparseMatrixCSC && !(x isa Real) && nnz(x) == 0
+                return SparseMatrixCSC(x.m, x.n, x.colptr, x.rowval, _T[])
+            else
+                return _T.(x)
+            end
         end
-    end
     Symbolics.@variables tmpx[1:N]
     x = [tmpx[i] for i in 1:N]
     if val isa Real

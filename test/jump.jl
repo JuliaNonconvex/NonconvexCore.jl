@@ -1,6 +1,6 @@
 @testitem "JuMP" begin
     using Test, NonconvexCore
-    using JuMP: JuMP
+    using JuMP: JuMP, MOI
 
     @testset "Symbol variable names" begin
         model = JuMP.Model()
@@ -348,5 +348,167 @@
         @test Matrix(Jineq) == [-cos(xv[1]) 0; -1 -1; 1 1]
         _, Jeq = NonconvexCore.value_jacobian(vm.eq_constraints, xv)
         @test Matrix(Jeq) == [xv[2] xv[1] + 1]
+    end
+
+    @testset "Nonlinear objective Hessian survives affine-only constraints" begin
+        # Regression: the objective Hessian lives only in the Nonlinear
+        # evaluator; it must not be dropped when no constraint row is nonlinear.
+        model = JuMP.Model()
+        JuMP.@variable(model, x >= 0)
+        JuMP.@variable(model, y >= 0)
+        JuMP.@objective(model, Min, x^3 + y)
+        JuMP.@constraint(model, x + 2y <= 1)  # affine only
+        dict_model = DictModel(model)
+        vm, _, _ = NonconvexCore.tovecmodel(dict_model)
+        xv = [1.0, 1.0]
+        obj = NonconvexCore.getobjective(vm)
+        jf = NonconvexCore.getrawfunction(NonconvexCore.getfunction(obj))
+        m = jf.m
+        hvals = zeros(length(m.hess_rows))
+        NonconvexCore.jump_hessian_lagrangian!(m, hvals, xv, 1.0, Float64[])
+        H = zeros(2, 2)
+        for (k, (i, j)) in enumerate(zip(m.hess_rows, m.hess_cols))
+            H[i, j] = hvals[k]
+            H[j, i] = hvals[k]
+        end
+        @test H ≈ [6.0 0.0; 0.0 0.0]
+        # The higher-level API reads the same evaluator path.
+        H2 = NonconvexCore.value_hessian(NonconvexCore.getfunction(obj), xv)
+        @test H2 ≈ [6.0 0.0; 0.0 0.0]
+    end
+
+    @testset "Merged Hessian structure is lower-triangular" begin
+        # Regression: closed-form (quadratic) Hessian entries must be stored in
+        # the same lower-triangle convention as the MOI evaluator's entries
+        # (row >= col), so cross-channel entries dedupe and Ipopt's eval_h
+        # receives a valid structure.
+        model = JuMP.Model()
+        JuMP.@variable(model, y[1:2])
+        JuMP.@objective(model, Min, y[1] * y[2])  # closed-form objective, term (1, 2)
+        JuMP.@constraint(model, y[1]^2 * y[2] / 2 >= 1)  # nonlinear row
+        dict_model = DictModel(model)
+        objraw = NonconvexCore.getobjective(dict_model).f
+        m = objraw.m
+        @test all(i -> i[1] >= i[2], zip(m.hess_rows, m.hess_cols))
+        @test !any(((i, j),) -> i < j, zip(m.hess_rows, m.hess_cols))
+        # The objective-only Hessian (zero multipliers) is just ∇²(y₁y₂).
+        xv = [2.0, 3.0]
+        hvals = zeros(length(m.hess_rows))
+        NonconvexCore.jump_hessian_lagrangian!(m, hvals, xv, 1.0, zeros(1))
+        H = zeros(2, 2)
+        for (k, (i, j)) in enumerate(zip(m.hess_rows, m.hess_cols))
+            H[i, j] = hvals[k]
+            H[j, i] = hvals[k]
+        end
+        @test H ≈ [0.0 1.0; 1.0 0.0]
+    end
+
+    @testset "Closed-form constraint Hessian applies the row sign" begin
+        # Regression: a `>=` quadratic row stores its value as `sign*f + shift`
+        # with sign = -1, so its Hessian contribution must carry the same sign.
+        model = JuMP.Model()
+        JuMP.@variable(model, z[1:2])
+        JuMP.@constraint(model, z[1]^2 + z[2]^2 >= 1)  # closed-form, sign -1
+        JuMP.@constraint(model, z[1]^3 + z[2] == 0)    # nonlinear row (expression path)
+        dict_model = DictModel(model)
+        ineqraw = NonconvexCore.getineqconstraints(dict_model).fs[1].f
+        m = NonconvexCore.getfunction(ineqraw).m
+        xv = [1.0, 1.0]
+        hvals = zeros(length(m.hess_rows))
+        # λ = [1, 0]: only the `>=` quadratic row contributes.
+        NonconvexCore.jump_hessian_lagrangian!(m, hvals, xv, 0.0, [1.0, 0.0])
+        H = zeros(2, 2)
+        for (k, (i, j)) in enumerate(zip(m.hess_rows, m.hess_cols))
+            H[i, j] = hvals[k]
+            H[j, i] = hvals[k]
+        end
+        @test H ≈ [-2.0 0.0; 0.0 -2.0]
+    end
+
+    @testset "Quadratic constraints via DictModel" begin
+        # Regression: named quadratic constraints used to crash the matrix
+        # path with `AssertionError: func isa AffExpr`, and anonymous ones
+        # were silently dropped. Both now take the expression path.
+        model = JuMP.Model()
+        JuMP.@variable(model, u[1:2])
+        JuMP.@constraint(model, cq, u[1]^2 + u[2]^2 <= 1)   # named quadratic
+        JuMP.@constraint(model, u[1]^2 + u[2]^2 >= 0.5)     # anonymous quadratic
+        JuMP.@objective(model, Min, u[1] + u[2])
+        dict_model = DictModel(model)
+        ineq = NonconvexCore.getineqconstraints(dict_model)
+        x0 = NonconvexCore.getinit(dict_model)
+        xv = NonconvexCore.flatten(x0)[1]
+        # One expression-path evaluator covers every row; the rows follow
+        # `all_constraints`, which lists them by set type rather than by
+        # insertion order, so compare the values as a set.
+        @test length(ineq.fs) == 1
+        vals = ineq(x0)
+        @test length(vals) == 2  # neither constraint dropped
+        @test sort(vals) ≈ sort([xv[1]^2 + xv[2]^2 - 1, 0.5 - xv[1]^2 - xv[2]^2])
+    end
+
+    @testset "Anonymous affine constraints via DictModel" begin
+        # Regression: the matrix path iterated `model.obj_dict` and silently
+        # dropped anonymous constraints.
+        model = JuMP.Model()
+        JuMP.@variable(model, v[1:2])
+        JuMP.@objective(model, Min, v[1] + v[2])
+        JuMP.@constraint(model, v[1] + v[2] <= 1)  # anonymous affine
+        dict_model = DictModel(model)
+        ineq = NonconvexCore.getineqconstraints(dict_model)
+        x0 = NonconvexCore.getinit(dict_model)
+        @test length(ineq.fs) == 1
+        @test ineq(x0) ≈ [sum(sum(x0[k]) for k in keys(x0)) - 1]
+    end
+
+    @testset "value_hessian on JuMP-converted objectives" begin
+        # Regression: prepare_model/hessian and value_hessian used to route
+        # JuMP-converted objectives through generic AD (crashing in the MOI
+        # evaluator); they now read the evaluator's Hessian directly.
+        model = JuMP.Model()
+        JuMP.@variable(model, w[1:2])
+        JuMP.@objective(model, Min, w[1]^2 + w[1] * w[2] + w[2]^2)
+        JuMP.@constraint(model, w[1] + w[2] <= 1)
+        dict_model = DictModel(model)
+        vm, xv, _ = NonconvexCore.tovecmodel(dict_model)
+        xv = [1.0, 2.0]
+        vm2 = NonconvexCore.prepare_model(vm, xv)  # hessian=true by default
+        H = NonconvexCore.value_hessian(NonconvexCore.getobjective(vm2), xv)
+        @test H ≈ [2.0 1.0; 1.0 2.0]
+        Hsp = NonconvexCore.sparse_hessian(NonconvexCore.getobjective(vm2), xv)
+        @test Matrix(Hsp) ≈ [2.0 1.0; 1.0 2.0]
+    end
+
+    @testset "Integer variable typing in get_jump_problem" begin
+        # Regression: the binary-vs-integer heuristic used to classify any
+        # integer variable with bounds inside (-1, 2) as binary (ZeroOne),
+        # forcing legitimate integer domains like [-0.5, 0.5] or [0.5, 1.5]
+        # into {0, 1}. Only the exact box [0, 1] is binary.
+        model = Model()
+        set_objective!(model, x -> x[1] + x[2] + x[3])
+        addvar!(model, [-0.5, 0.0, 0.5], [0.5, 1.0, 1.5]; integer=[true, true, true])
+        vm, xv, _ = NonconvexCore.tovecmodel(model)
+        opt = MOI.Utilities.MockOptimizer(MOI.Utilities.Model{Float64}())
+        jp = NonconvexCore.get_jump_problem(
+            NonconvexCore.CountingFunction(NonconvexCore.getobjective(vm)),
+            nothing,
+            nothing,
+            xv,
+            vm.integer,
+            getmin(vm),
+            getmax(vm),
+            true,
+            () -> opt,
+            NonconvexCore.DEFAULT_AD_BACKEND[],
+        )
+        moi_model = JuMP.backend(jp.model)
+        binary_ci = MOI.get(
+            moi_model, MOI.ListOfConstraintIndices{MOI.VariableIndex,MOI.ZeroOne}()
+        )
+        integer_ci = MOI.get(
+            moi_model, MOI.ListOfConstraintIndices{MOI.VariableIndex,MOI.Integer}()
+        )
+        @test length(binary_ci) == 1  # only the [0, 1] variable
+        @test length(integer_ci) == 2 # the [-0.5, 0.5] and [0.5, 1.5] variables
     end
 end

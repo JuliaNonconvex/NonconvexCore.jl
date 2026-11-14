@@ -70,5 +70,21 @@
             @test issparse(NonconvexCore.sparse_jacobian(vsym_model.ineq_constraints, xv))
             @test issparse(NonconvexCore.sparse_jacobian(vsym_model.eq_constraints, xv))
         end
+
+        # Regression: the generated gradient/Hessian functions are re-run at
+        # ForwardDiff Dual points during second-order (forward-over-reverse)
+        # differentiation; the output conversion used to force `Float64.(...)`
+        # on the dual-valued outputs and crashed.
+        @testset "Second-order through symbolified functions" begin
+            f = symbolify(x -> x[1]^2 + 2x[1] * x[2] + x[2]^2, rand(2); hessian=true)
+            x = rand(2)
+            @test Zygote.hessian(f, x) ≈ ForwardDiff.hessian(f, x)
+            # The generated gradient function must accept ForwardDiff duals
+            # (it is called at dual points by forward-over-reverse backends).
+            sf = symbolify(x -> x[1]^3 + x[2], rand(2); hessian=true)
+            gval = ForwardDiff.gradient(y -> sum(sf.flat_f.g(y)), x)
+            @test all(isfinite, gval)
+            @test gval ≈ [6x[1], 0.0]
+        end
     end
 end
