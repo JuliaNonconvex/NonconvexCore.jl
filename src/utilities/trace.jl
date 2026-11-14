@@ -43,7 +43,10 @@ function ChainRulesCore.rrule(rc::RuleConfig, tf::TraceFunction, x)
         g = ChainRulesCore.unthunk(Δin[2])
         if tf.on_grad
             grad = g isa Union{AbstractArray,Number} ? copy(g) : g
-            push!(tf.trace, (input=copy(x), output=copy(v), grad=grad))
+            # The `grad` field is a LIST of per-pass gradients, matching the
+            # frule trace format: a later frule at the same `x` appends to it
+            # (a raw gradient stored here would be corrupted by `push!`).
+            push!(tf.trace, (input=copy(x), output=copy(v), grad=[grad]))
         end
         return (Δin[1], g)
     end
