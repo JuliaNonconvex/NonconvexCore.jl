@@ -45,6 +45,7 @@ prepare_jacobian(f, x, backend)
 prepare_hessian(f, x, backend)
 prepare_sparse_jacobian(f, x, backend)
 prepare_sparse_hessian(f, x, backend)
+prepare_model(model, x, backend)  # prepares every function of the model at once
 ```
 
 `x` is a representative point at which the preparation is computed; the
@@ -54,6 +55,8 @@ prepared objects are cached per `(f, backend)` and consulted by
 [`value_hessian`](@ref NonconvexCore.value_hessian),
 [`sparse_jacobian`](@ref NonconvexCore.sparse_jacobian) and
 [`sparse_hessian`](@ref NonconvexCore.sparse_hessian) thereafter.
+[`prepare_model`](@ref NonconvexCore.prepare_model) applies the same
+preparation to the objective and every constraint of a model in one call.
 
 ## The `diffy` modifier
 

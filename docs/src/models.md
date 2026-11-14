@@ -150,6 +150,11 @@ The function `f` can return:
    vectorized first and the constraint is applied element-wise on the
    vectorized output.
 
+Behind the scenes, a plain function is wrapped in a
+[`FunctionWrapper`](@ref NonconvexCore.FunctionWrapper) (a callable that
+stores the function together with its output dimension), which is what the
+model actually stores; wrapper objects can also be passed directly.
+
 ## Interval constraint definition
 
 NonconvexCore has no dedicated interval constraint type. A function interval

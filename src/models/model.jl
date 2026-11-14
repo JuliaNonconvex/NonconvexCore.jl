@@ -55,6 +55,12 @@ function Model(::Type{T}, obj::Union{Nothing,Objective}) where {T}
     )
 end
 
+"""
+    getobjective(m::AbstractModel)
+
+Returns the `Objective` of the model `m`, or `nothing` if no objective has
+been set.
+"""
 getobjective(m::AbstractModel) = m.objective
 
 getineqconstraints(m::AbstractModel) = m.ineq_constraints
@@ -106,15 +112,37 @@ function reduce_type(d::OrderedDict)
 end
 reduce_type(d) = d
 
+"""
+    getmin(m::AbstractModel)
+    getmin(m::AbstractModel, i)
+
+Returns the vector of lower bounds of the decision variables of the model
+`m`, or the lower bound of the `i`-th variable.
+"""
 getmin(m::AbstractModel) = m.box_min
 getmin(m::AbstractModel, i) = getmin(m)[i]
 Base.isinteger(m::AbstractModel, i) = m.integer[i]
 
+"""
+    getmax(m::AbstractModel)
+    getmax(m::AbstractModel, i)
+
+Returns the vector of upper bounds of the decision variables of the model
+`m`, or the upper bound of the `i`-th variable.
+"""
 getmax(m::AbstractModel) = m.box_max
 getmax(m::AbstractModel, i) = getmax(m)[i]
 
 getinit(model::AbstractModel) = model.init
 
+"""
+    setmin!(m::AbstractModel, min)
+    setmin!(m::AbstractModel, i, min)
+
+Sets the lower bound(s) of the decision variables of the model `m` in
+place: either all lower bounds to the vector `min`, or the lower bound of
+the `i`-th variable to `min`.
+"""
 function setmin!(m::AbstractModel, min)
     getmin(m) .= min
     return m
@@ -124,6 +152,14 @@ function setmin!(m::AbstractModel, i, min)
     return m
 end
 
+"""
+    setmax!(m::AbstractModel, max)
+    setmax!(m::AbstractModel, i, max)
+
+Sets the upper bound(s) of the decision variables of the model `m` in
+place: either all upper bounds to the vector `max`, or the upper bound of
+the `i`-th variable to `max`.
+"""
 function setmax!(m::AbstractModel, max)
     getmax(m) .= max
     return m
@@ -144,11 +180,28 @@ function setbox!(m::AbstractModel, i, minb, maxb)
     getmax(m)[i] = maxb
     return m
 end
+"""
+    setinteger!(m::AbstractModel, i, integer)
+
+Marks the `i`-th decision variable of the model `m` as integer (`integer =
+true`) or continuous (`integer = false`). Integer variables are only
+supported by a subset of the optimizers; see their
+[`solver_capabilities`](@ref NonconvexCore.solver_capabilities).
+"""
 function setinteger!(m::AbstractModel, i, integer)
     m.integer[i] = integer
     return m
 end
 
+"""
+    addvar!(m::Model, lb, ub; init=deepcopy(lb), integer=false)
+
+Adds a decision variable with lower bound(s) `lb` and upper bound(s) `ub` to
+the model `m` in place, optionally with an initial value `init` and an
+`integer` flag. `lb` and `ub` can be scalars or vectors. With `Model`
+(packed variables) a variable is a single scalar; use `lb`/`ub` vectors to
+add several at once, and `DictModel` to add named variables.
+"""
 function addvar!(m::Model, lb, ub; init=deepcopy(lb), integer=false)
     push!(getmin(m), lb)
     push!(getmax(m), ub)
@@ -176,11 +229,30 @@ function set_objective(m::AbstractModel, f::Function; kwargs...)
     return newm
 end
 
+"""
+    set_objective!(m::AbstractModel, f::Function; kwargs...)
+
+Sets the objective of the model `m` to the function `f` in place. Keyword
+arguments are forwarded to the [`Objective`](@ref NonconvexCore.Objective)
+constructor. See also [`set_objective`](@ref NonconvexCore.set_objective)
+for a non-mutating variant.
+"""
 function set_objective!(m::AbstractModel, f::Function; kwargs...)
     m.objective = Objective(f; kwargs...)
     return m
 end
 
+"""
+    add_ineq_constraint!(m::AbstractModel, f, s=0.0; kwargs...)
+    add_ineq_constraint!(m::AbstractModel, f::AbstractFunction, s=0.0; kwargs...)
+    add_ineq_constraint!(m::AbstractModel, f::IneqConstraint)
+    add_ineq_constraint!(m::AbstractModel, fs::Vector{<:IneqConstraint})
+
+Adds the inequality constraint `f(x) ≤ s` to the model `m` in place.
+`f` can be a plain function (a `FunctionWrapper` is constructed
+automatically) or a constraint object. Several constraints can be appended
+at once with a vector of `IneqConstraint`s.
+"""
 function add_ineq_constraint!(
     m::AbstractModel,
     f::Function,
@@ -202,6 +274,17 @@ function add_ineq_constraint!(m::AbstractModel, fs::Vector{<:IneqConstraint})
     return m
 end
 
+"""
+    add_eq_constraint!(m::AbstractModel, f, s=0.0; kwargs...)
+    add_eq_constraint!(m::AbstractModel, f::AbstractFunction, s=0.0; kwargs...)
+    add_eq_constraint!(m::AbstractModel, f::EqConstraint)
+    add_eq_constraint!(m::AbstractModel, fs::Vector{<:EqConstraint})
+
+Adds the equality constraint `f(x) = s` to the model `m` in place.
+`f` can be a plain function (a `FunctionWrapper` is constructed
+automatically) or a constraint object. Several constraints can be appended
+at once with a vector of `EqConstraint`s.
+"""
 function add_eq_constraint!(
     m::AbstractModel,
     f::Function,
@@ -223,6 +306,14 @@ function add_eq_constraint!(m::AbstractModel, fs::Vector{<:EqConstraint})
     return m
 end
 
+"""
+    add_sd_constraint!(m::AbstractModel, f, dim=size(f(...), 1))
+    add_sd_constraint!(m::AbstractModel, sd_constraint::AbstractFunction)
+
+Adds the semidefinite constraint `f(x) ⪰ 0` (the matrix-valued function
+`f(x)` must be positive semidefinite) to the model `m` in place. The
+matrix dimension `dim` is inferred when `f` is a plain function.
+"""
 function add_sd_constraint!(
     m::AbstractModel, f::Function, dim=size(f(reduce_type(getinit(m))), 1)
 )
