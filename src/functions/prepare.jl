@@ -30,6 +30,15 @@ function prepare_gradient(f, x, backend::AbstractADType=DEFAULT_AD_BACKEND[])
     return prep
 end
 
+"""
+    prepare_jacobian(f, x, [backend])
+
+Explicitly prepares the Jacobian evaluation pipeline of `f` at the
+representative point `x` with the differentiation backend `backend` (an
+ADTypes backend, defaulting to the package-wide backend). The preparation is
+cached by `(f, backend)` and reused by [`value_jacobian`](@ref
+NonconvexCore.value_jacobian).
+"""
 function prepare_jacobian(f, x, backend::AbstractADType=DEFAULT_AD_BACKEND[])
     key = (f, backend)
     prep = get(_PREP_CACHES.jacobian, key, nothing)
@@ -39,6 +48,15 @@ function prepare_jacobian(f, x, backend::AbstractADType=DEFAULT_AD_BACKEND[])
     return prep
 end
 
+"""
+    prepare_hessian(f, x, [backend])
+
+Explicitly prepares the Hessian evaluation pipeline of `f` at the
+representative point `x` with the differentiation backend `backend` (an
+ADTypes backend, defaulting to the package-wide backend). The preparation is
+cached by `(f, backend)` and reused by [`value_hessian`](@ref
+NonconvexCore.value_hessian).
+"""
 function prepare_hessian(f, x, backend::AbstractADType=DEFAULT_AD_BACKEND[])
     key = (f, backend)
     prep = get(_PREP_CACHES.hessian, key, nothing)
@@ -71,6 +89,15 @@ function prepare_sparse_jacobian(f, x, backend::AbstractADType=DEFAULT_AD_BACKEN
     return entry
 end
 
+"""
+    prepare_sparse_hessian(f, x, [backend])
+
+Explicitly prepares the sparse Hessian pipeline (sparsity detection with
+SparseConnectivityTracer, coloring with SparseMatrixColorings and the colored
+DifferentiationInterface evaluation) for `f` at the representative point `x`.
+The preparation is cached by `(f, backend)` and used by default by
+[`sparse_hessian`](@ref NonconvexCore.sparse_hessian).
+"""
 function prepare_sparse_hessian(f, x, backend::AbstractADType=DEFAULT_AD_BACKEND[])
     key = (f, backend)
     entry = get(_SPARSE_HESSIAN_PREP_CACHE, key, nothing)
@@ -144,13 +171,10 @@ function _jump_hessian(f::JuMPObjectiveLike, x)
 end
 
 """
-    diffy(f, x, [backend])
+    PreparedFunction
 
-Returns a callable that evaluates `f` and whose derivatives are computed by
-the differentiation backend `backend` (an ADTypes backend, defaulting to the
-package-wide backend), prepared eagerly at the representative point `x`. The
-returned function can be used in place of `f` in objectives and constraints;
-any ChainRules-compatible outer differentiation uses the prepared backend.
+Internal callable returned by [`diffy`](@ref): wraps `f` and its prepared
+derivative backend, delegating plain calls to `f`.
 """
 struct PreparedFunction{F,B,P} <: Function
     f::F
@@ -159,6 +183,15 @@ struct PreparedFunction{F,B,P} <: Function
 end
 (f::PreparedFunction)(x) = f.f(x)
 
+"""
+    diffy(f, x, [backend])
+
+Returns a callable that evaluates `f` and whose derivatives are computed by
+the differentiation backend `backend` (an ADTypes backend, defaulting to the
+package-wide backend), prepared eagerly at the representative point `x`. The
+returned function can be used in place of `f` in objectives and constraints;
+any ChainRules-compatible outer differentiation uses the prepared backend.
+"""
 function diffy(f, x, backend::AbstractADType=DEFAULT_AD_BACKEND[])
     y = f(x)
     if y isa Number
