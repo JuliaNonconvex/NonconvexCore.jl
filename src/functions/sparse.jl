@@ -26,8 +26,61 @@ second_order_backend(backend::AbstractADType) = DI.SecondOrder(AutoForwardDiff()
 # functions stored in a VecModel are immutable, so caching by function
 # identity is sound. The Hessian cache is keyed by identity as well: solvers
 # pass a stable Lagrangian object (e.g. a closure over mutable multipliers).
-const _SPARSE_JACOBIAN_PREP_CACHE = IdDict{Any,Any}()
-const _SPARSE_HESSIAN_PREP_CACHE = IdDict{Any,Any}()
+# The caches hold their `(f, backend)` keys weakly: entries are dropped once
+# `f` is no longer reachable, so prepared-derivative caches do not keep user
+# closures (and the models they capture) alive in long-running processes.
+# `Base.WeakKeyDict` cannot be used for this: since Julia 1.11 its keys must
+# be mutable objects that the application holds strongly, while the cached
+# functions are immutable closures/structs and the keys are freshly minted
+# `(f, backend)` tuples. `_WeakCache` therefore holds `WeakRef` keys and
+# sweeps expired entries periodically. `isbits` functions are not cached at
+# all: they hold no heap references.
+mutable struct _WeakCache
+    dict::Dict{Any,Any}
+    inserts::Int
+end
+_WeakCache() = _WeakCache(Dict{Any,Any}(), 0)
+
+const _WEAK_CACHE_SWEEP_PERIOD = 1024
+
+_weakkey(key::Tuple{Any,Any}) = (WeakRef(key[1]), key[2])
+
+function Base.get(c::_WeakCache, key::Tuple{Any,Any}, default)
+    isbits(key[1]) && return default
+    return get(c.dict, _weakkey(key), default)
+end
+
+function Base.haskey(c::_WeakCache, key::Tuple{Any,Any})
+    isbits(key[1]) && return false
+    return haskey(c.dict, _weakkey(key))
+end
+
+function Base.get!(c::_WeakCache, key::Tuple{Any,Any}, default)
+    isbits(key[1]) && return default
+    return get!(c.dict, _weakkey(key), default)
+end
+
+function Base.setindex!(c::_WeakCache, v, key::Tuple{Any,Any})
+    isbits(key[1]) && return c
+    c.dict[_weakkey(key)] = v
+    c.inserts += 1
+    if c.inserts % _WEAK_CACHE_SWEEP_PERIOD == 0
+        _sweep!(c)
+    end
+    return c
+end
+
+function _sweep!(c::_WeakCache)
+    filter!(c.dict) do kv
+        k = kv.first
+        return !(k[1] isa WeakRef) || k[1].value !== nothing
+    end
+    c.inserts = 0
+    return c
+end
+
+const _SPARSE_JACOBIAN_PREP_CACHE = _WeakCache()
+const _SPARSE_HESSIAN_PREP_CACHE = _WeakCache()
 
 """
     sparse_gradient(f, x, [backend::ADTypes.AbstractADType])
@@ -74,11 +127,11 @@ function _sparse_jacobian_default(f, x, backend::AbstractADType)
     entry = get(_SPARSE_JACOBIAN_PREP_CACHE, key, nothing)
     if entry === nothing
         sb = _sparse_backend(backend)
-        entry = (f_, sb, DI.prepare_jacobian(f_, sb, x))
+        entry = (sb, DI.prepare_jacobian(f_, sb, x))
         _SPARSE_JACOBIAN_PREP_CACHE[key] = entry
     end
-    f2, sb, prep = entry::Tuple{Any,Any,Any}
-    return _di_jacobian(f2, prep, sb, x)
+    sb, prep = entry::Tuple{Any,Any}
+    return _di_jacobian(f_, prep, sb, x)
 end
 
 # Function barrier over the prepared sparse jacobian call: the preparation

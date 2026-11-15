@@ -2,11 +2,11 @@
 # objects are cached by `(f, backend)` and then used by default by the
 # value-and-derivative functions (value_gradient, value_jacobian,
 # value_hessian) and the sparse derivative functions (sparse_jacobian,
-# sparse_hessian).
+# sparse_hessian). The caches hold their keys weakly (see [`_WeakCache`](@ref))
+# so that prepared functions, and the models they capture, can be garbage
+# collected in long-running processes.
 
-const _PREP_CACHES = (
-    gradient=Dict{Any,Any}(), jacobian=Dict{Any,Any}(), hessian=Dict{Any,Any}()
-)
+const _PREP_CACHES = (gradient=_WeakCache(), jacobian=_WeakCache(), hessian=_WeakCache())
 
 """
     prepare_gradient(f, x, [backend])
@@ -80,13 +80,15 @@ The preparation is cached by `(f, backend)` and used by default by
 function prepare_sparse_jacobian(f, x, backend::AbstractADType=DEFAULT_AD_BACKEND[])
     key = (f, backend)
     entry = get(_SPARSE_JACOBIAN_PREP_CACHE, key, nothing)
-    entry === nothing || return entry
     y = f(x)
     f_ = y isa Number ? (z -> [f(z)]) : f
-    sb = _sparse_backend(backend)
-    entry = (f_, sb, DI.prepare_jacobian(f_, sb, x))
-    _SPARSE_JACOBIAN_PREP_CACHE[key] = entry
-    return entry
+    if entry === nothing
+        sb = _sparse_backend(backend)
+        entry = (sb, DI.prepare_jacobian(f_, sb, x))
+        _SPARSE_JACOBIAN_PREP_CACHE[key] = entry
+    end
+    sb, prep = entry::Tuple{Any,Any}
+    return (f_, sb, prep)
 end
 
 """
@@ -112,8 +114,8 @@ end
 # The MathOptInterface evaluator of a JuMP-converted model cannot be traced by
 # generic AD backends (it mutates internal buffers and branches on values), so
 # the objective Hessian is read from the evaluator directly. `prepare_*` store
-# the function itself as the cache marker; the specialized value/sparse
-# functions below bypass the DifferentiationInterface pipeline entirely.
+# a lightweight marker in the cache (the specialized value/sparse functions
+# below bypass the DifferentiationInterface pipeline entirely).
 
 const JuMPObjectiveLike = Union{
     FlattenedFunction{<:JuMPModelObjective},
@@ -124,8 +126,11 @@ function prepare_hessian(
     f::JuMPObjectiveLike, x::AbstractVector, backend::AbstractADType=DEFAULT_AD_BACKEND[]
 )
     key = (f, backend)
-    get(_PREP_CACHES.hessian, key, nothing) === nothing || return _PREP_CACHES.hessian[key]
-    _PREP_CACHES.hessian[key] = f
+    # Store a marker instead of `f` itself: the cached value must not keep the
+    # function (and the model it wraps) alive.
+    if get(_PREP_CACHES.hessian, key, nothing) === nothing
+        _PREP_CACHES.hessian[key] = true
+    end
     return f
 end
 
@@ -133,9 +138,11 @@ function prepare_sparse_hessian(
     f::JuMPObjectiveLike, x::AbstractVector, backend::AbstractADType=DEFAULT_AD_BACKEND[]
 )
     key = (f, backend)
-    get(_SPARSE_HESSIAN_PREP_CACHE, key, nothing) === nothing ||
-        return _SPARSE_HESSIAN_PREP_CACHE[key]
-    _SPARSE_HESSIAN_PREP_CACHE[key] = f
+    # Store a marker instead of `f` itself: the cached value must not keep the
+    # function (and the model it wraps) alive.
+    if get(_SPARSE_HESSIAN_PREP_CACHE, key, nothing) === nothing
+        _SPARSE_HESSIAN_PREP_CACHE[key] = true
+    end
     return f
 end
 

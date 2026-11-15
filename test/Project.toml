@@ -1,4 +1,5 @@
 [deps]
+ADNLPModels = "54578032-b7ea-4c30-94aa-7cbd1cce6c9a"
 ADTypes = "47edcb42-4c32-4615-8424-f2b9edc5f35b"
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
@@ -28,6 +29,7 @@ Tracker = "9f7883ad-71c0-57eb-9f7f-b5c9e6d3789c"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
+ADNLPModels = "0.7, 0.8"
 ADTypes = "1"
 Aqua = "0.8"
 ChainRulesCore = "0.10, 1"

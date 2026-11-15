@@ -157,6 +157,14 @@ function tovecfunc(f, x...; flatteny=true)
 end
 
 function tovecmodel(m::AbstractModel, _x0=getinit(m))
+    if m.objective === nothing || m.objective.f === nothing
+        throw(
+            ArgumentError(
+                "The model has no objective function. Define one with `set_objective!` " *
+                "before converting or optimizing the model.",
+            ),
+        )
+    end
     x0 = reduce_type(_x0)
     box_min = reduce_type(m.box_min)
     box_max = reduce_type(m.box_max)

@@ -9,7 +9,6 @@ capability system. See the [Introduction](index.md) for an overview.
 module NonconvexCore
 
 const debugging = Ref(false)
-const show_residuals = Ref(false)
 
 export Model,
     DictModel,
@@ -31,9 +30,7 @@ export Model,
     FunctionWrapper,
     Tolerance,
     GenericCriteria,
-    KKTCriteria,
     ScaledKKTCriteria,
-    IpoptCriteria,
     ConstraintCapabilities,
     merge_capabilities,
     solver_capabilities,
@@ -65,7 +62,7 @@ const DI = DifferentiationInterface
 using MacroTools: MacroTools
 using SparseConnectivityTracer: TracerSparsityDetector, jacobian_sparsity, hessian_sparsity
 using SparseMatrixColorings: GreedyColoringAlgorithm
-using Reexport, Setfield
+using Setfield
 
 """
     DEFAULT_AD_BACKEND

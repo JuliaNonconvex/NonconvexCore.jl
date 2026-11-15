@@ -51,7 +51,6 @@ NonconvexCore._ordered_jump_variables
 NonconvexCore._nonlinear_constraints
 NonconvexCore.get_jump_problem
 NonconvexCore.Solution
-NonconvexCore.Trace
 NonconvexCore.AbstractResult
 NonconvexCore.GenericResult
 NonconvexCore.PlottingCallback
