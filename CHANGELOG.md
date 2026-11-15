@@ -1,5 +1,44 @@
 # Changelog
 
+## 2.2.2
+
+### Fixes
+
+- Fixed the JuMP-converted Hessian handling and related audit findings
+  (dense Hessians assembled from the converted sparse structure, dual
+  stripping, buffer aliasing).
+
+### Other
+
+- Widened the dependency compatibility bounds.
+- Documented `JuMPModelObjective`.
+- Linked Nonconvex.jl in the README.
+
+## 2.2.1
+
+### Fixes
+
+- Fixed the JuMP functor flatten helper (`flatten` of JuMP functors with
+  affine/quadratic rows), with tests.
+
+### Other
+
+- Authenticated the codecov upload with OIDC.
+
+## 2.2.0
+
+### New features
+
+- JuMP models converted for the Nonlinear.jl-style API now evaluate affine
+  and quadratic rows in closed form, with the new `JuMPConvertedRow` and
+  `jump_objective_value` documented.
+
+### Other
+
+- Applied JuliaFormatter.
+- Used the canonical JuliaNonconvex logo at a 180 px intrinsic size.
+- Fixed the changelog link path and added the 2.1.2 entry.
+
 ## 2.1.2
 
 ### Documentation
