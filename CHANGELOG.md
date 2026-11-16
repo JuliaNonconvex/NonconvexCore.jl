@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.2.5
+
+### Added
+
+- The `NonconvexCoreADNLPModelsExt` extension provides the ADNLPModels AD
+  backends (the `Zygote*`-named compat types) on top of NonconvexCore's
+  backend-agnostic AD, so algorithm packages no longer define their own AD
+  code. Second derivatives use forward-over-forward mode.
+
+### Fixed
+
+- Prepared-derivative caches now hold their keys weakly, so closures and the
+  models they capture can be garbage collected.
+- The no-`x0` `optimize` path checks the model's own `init` instead of
+  misreading solver-specific positional arguments.
+- `tovecmodel` gives a descriptive error for models without an objective.
+
 ## 2.2.2
 
 ### Fixes
