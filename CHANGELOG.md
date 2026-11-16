@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.2.6
+
+### Fixed
+
+- The ADNLPModels compatibility backends now ship the `Zygote.Buffer`-based
+  `get_c` override the ecosystem's previous backends relied on, so
+  Jacobian/Jtprod evaluations of the constraint wrappers no longer hit
+  Zygote's mutation guard; the products and second-order directional
+  derivatives use raw forward mode (DI prep tags conflict with the nested
+  wrapper closures). The Hessian remains forward-over-reverse.
+
 ## 2.2.5
 
 ### Added
