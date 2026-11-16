@@ -5,15 +5,6 @@
 abstract type AbstractOptimizer end
 
 """
-    Trace
-
-A struct that stores the history of solutions.
-"""
-struct Trace
-    tr::Vector
-end
-
-"""
     Workspace
 
 Abstract Workspace, which is a struct that stores states and information needed for optimization process.
@@ -298,7 +289,9 @@ end
  optimize without x0
 """
 function optimize(model::AbstractModel, optimizer::AbstractOptimizer, args...; kwargs...)
-    _optimize_precheck(model, optimizer, args...; kwargs...)
+    # Solver-specific `args` are not an initial point: check the model's own
+    # `init` instead.
+    _optimize_precheck(model, optimizer; kwargs...)
     _model, _, unflatten = tovecmodel(model)
     checksubproblem!(_model, optimizer)
     r = optimize(_model, optimizer, args...; kwargs...)

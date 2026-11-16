@@ -9,9 +9,10 @@ automatic differentiation backend is `backend`, an instance of
 `AutoEnzyme()` or `AutoMooncake()`; it defaults to the package-wide backend
 returned by [`get_ad_backend`](@ref). Custom adjoint rules for any backend can
 be defined with
-[`ChainRulesCore.jl`](https://github.com/JuliaDiff/ChainRulesCore.jl). The
-Jacobian is returned as an instance of `Adjoint` for cache efficiency in the
-optimizer.
+[`ChainRulesCore.jl`](https://github.com/JuliaDiff/ChainRulesCore.jl). Dense
+results are returned as plain matrices (scalar outputs are reshaped to
+`1 x length(x)` matrices); only the JuMP-objective specialization returns an
+`Adjoint` (of the objective gradient).
 """
 function value_jacobian(
     f::Function, x::AbstractVector, backend::AbstractADType=DEFAULT_AD_BACKEND[]
