@@ -1,7 +1,7 @@
 @testitem "ForwardDiff frule" begin
     using NonconvexCore, Test, ForwardDiff, LinearAlgebra, SparseArrays
     using ChainRulesCore
-    import DifferentiableFlatten
+    using DifferentiableFlatten: DifferentiableFlatten
     using DifferentiableFlatten: flatten
     @testset "ForwardDiff frule" begin
         @eval begin
@@ -22,14 +22,14 @@
                 x2::AbstractMatrix{<:ForwardDiff.Dual},
             )
 
-            f2(x::NamedTuple, y::NamedTuple) = (a=x.a + y.a, b=x.b + y.b)
+            f2(x::NamedTuple, y::NamedTuple) = (a=(x.a + y.a), b=(x.b + y.b))
             f2(x::AbstractVector, y::AbstractVector) = f2.(x, y)
             function ChainRulesCore.frule(
                 (_, Δx1, Δx2), ::typeof(f2), x1::NamedTuple, x2::NamedTuple
             )
                 global frule_count += 1
                 println("frule was called")
-                return f2(x1, x2), (a=Δx1.a + Δx2.a, b=Δx1.b + Δx2.b)
+                return f2(x1, x2), (a=(Δx1.a + Δx2.a), b=(Δx1.b + Δx2.b))
             end
             NonconvexCore.@ForwardDiff_frule f2(
                 x1::NamedTuple{<:Any,<:Tuple{Vararg{<:ForwardDiff.Dual}}},

@@ -81,7 +81,7 @@ end
 
 @testitem "Coverage: explicit preparation" begin
     using NonconvexCore, Test, LinearAlgebra, SparseArrays
-    import ADTypes
+    using ADTypes: ADTypes
     using Zygote, ReverseDiff
     const NC = NonconvexCore
     g2 = z -> [z[1] + z[2], z[3]^2]
@@ -315,7 +315,7 @@ end
 @testitem "Coverage: @params and sparse variants" begin
     using NonconvexCore, Test, LinearAlgebra, SparseArrays
     using Zygote, ForwardDiff
-    import ChainRulesCore
+    using ChainRulesCore: ChainRulesCore
     using ChainRulesCore: NoTangent
     import MathOptInterface as MOI
     const NC = NonconvexCore
@@ -369,7 +369,7 @@ end
 @testitem "Coverage: remaining live paths" begin
     using NonconvexCore, Test, LinearAlgebra, SparseArrays
     using Zygote, ForwardDiff
-    import ChainRulesCore
+    using ChainRulesCore: ChainRulesCore
     using ChainRulesCore: NoTangent
     const NC = NonconvexCore
 

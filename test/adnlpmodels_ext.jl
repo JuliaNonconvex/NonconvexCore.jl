@@ -78,7 +78,7 @@ end
     # A JuMP-converted model with a nonlinear objective and one nonlinear
     # inequality; the shared JuMPEvaluator drives the exact backends.
     jm = JuMP.Model()
-    JuMP.@variable(jm, x[1:2] >= 0.5, start = 1.0)
+    JuMP.@variable(jm, x[1:2] >= 0.5, start=1.0)
     JuMP.@objective(jm, Min, (x[1] - 1)^2 + x[1] * x[2] + x[2]^2)
     JuMP.@constraint(jm, x[1]^2 + x[2] - 2 <= 0)
     dm = NonconvexCore.DictModel(jm)
