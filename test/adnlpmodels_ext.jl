@@ -152,4 +152,29 @@ end
     @test_throws ArgumentError JuMPJacBackend(nvar, f, ncon)
     @test_throws ArgumentError JuMPHvBackend(nvar, f, ncon)
     @test_throws ArgumentError JuMPHessBackend(nvar, f, ncon)
+
+    # Direct coverage of every backend method variant (the paths not reached
+    # through NLPModels.jac/hess/hprod above).
+    bjac = JuMPJacBackend(m)
+    @test ADNLPModels.get_nln_nnzj(bjac, nvar, ncon) == length(m.jac_rows)
+    rows = zeros(Int, length(m.jac_rows))
+    cols = zeros(Int, length(m.jac_cols))
+    @test NLPModels.jac_structure!(bjac, nlp, rows, cols) == (rows, cols)
+    @test rows == m.jac_rows
+    @test cols == m.jac_cols
+
+    bhv = JuMPHvBackend(m)
+    Hv_obj = zeros(nvar)
+    # objective-only hprod with weight 2: sigma * H_f * v
+    @test ADNLPModels.Hvprod!(bhv, Hv_obj, x0, v, f, Val(:obj), 2.0) ≈
+        2.0 .* ([2.0 1.0; 1.0 2.0] * v)
+    Hv_ci = zeros(nvar)
+    # constraint-1 hprod: H_g * v
+    @test ADNLPModels.Hvprod!(bhv, Hv_ci, x0, v, 1, Val(:ci)) ≈ [2.0 0.0; 0.0 0.0] * v
+
+    bhess = JuMPHessBackend(nvar, f, ncon, c!; jump_evaluator=m)
+    # objective-only Hessian coordinates (sigma = 1, no multipliers):
+    # lower-triangle column-major values of H_f = [2 1; 1 2] -> [2, 1, 2]
+    vals = zeros(div(nvar * (nvar + 1), 2))
+    @test NLPModels.hess_coord!(bhess, nlp, x0, 1.0, vals) ≈ [2.0, 1.0, 2.0]
 end
