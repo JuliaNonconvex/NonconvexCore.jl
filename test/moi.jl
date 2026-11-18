@@ -1,6 +1,8 @@
 @testitem "MOI evaluator" begin
     using NonconvexCore, LinearAlgebra, Test
-    import JuMP, MathOptInterface, Zygote
+    using JuMP: JuMP
+    using MathOptInterface: MathOptInterface
+    using Zygote: Zygote
     const MOI = MathOptInterface
 
     f(x) = (x[1] - 1.0)^2 + (x[2] - 2.0)^2

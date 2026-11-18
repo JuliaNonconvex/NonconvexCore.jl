@@ -1,6 +1,6 @@
 @testitem "Type stability" begin
     using NonconvexCore, Test, LinearAlgebra, SparseArrays
-    import ADTypes
+    using ADTypes: ADTypes
 
     # NOTE: the return types of the DifferentiationInterface-backed
     # value_*/sparse_* functions are limited by DifferentiationInterface's

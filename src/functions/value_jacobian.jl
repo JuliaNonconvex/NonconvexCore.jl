@@ -20,6 +20,9 @@ function value_jacobian(
     y = f(x)
     if y isa Number
         _, g = DI.value_and_gradient(f, backend, x)
+        # a constant function has a `nothing` gradient; its Jacobian is the
+        # zero row (1 x length(x)), not `nothing`
+        g === nothing && (g = zeros(eltype(x), length(x)))
         return y, reshape(g, 1, :)
     end
     if backend isa AutoZygote
@@ -49,6 +52,7 @@ function _value_jacobian_zygote_rows(f, x, y, backend)
     J = Matrix{Float64}(undef, m, length(x))
     for k in 1:m
         _, g = DI.value_and_gradient(z -> f(z)[k], backend, x)
+        g === nothing && (g = zeros(eltype(x), length(x)))
         J[k, :] .= g
     end
     return y, J

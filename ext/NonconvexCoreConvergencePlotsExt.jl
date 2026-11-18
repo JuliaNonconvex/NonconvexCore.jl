@@ -15,7 +15,7 @@ function (callback::PlottingCallback)(solution::Solution)
     @unpack convstate = solution
     if callback.iter == 0
         callback.plot = ConvergencePlot(
-            callback.n,
+            callback.n;
             names=["KKT residual", "|Δf|", "|Δx|_∞", "Infeasibility"],
             #names = ["KKT residual", "IPOPT residual", "|Δf|", "|Δx|_∞", "Infeasibility"],
             options=Dict(
@@ -50,7 +50,7 @@ function (callback::LazyPlottingCallback)(solution::Solution; update=false)
     @unpack convstate = solution
     if callback.iter == 0
         callback.plot = ConvergencePlot(
-            callback.n,
+            callback.n;
             names=["KKT residual", "|Δf|", "|Δx|_∞", "Infeasibility"],
             #names = ["KKT residual", "IPOPT residual", "|Δf|", "|Δx|_∞", "Infeasibility"],
             options=Dict(

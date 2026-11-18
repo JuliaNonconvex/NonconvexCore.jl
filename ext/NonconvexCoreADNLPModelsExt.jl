@@ -57,7 +57,13 @@ end
 struct ZygoteJacobian <: ImmutableADbackend
     nnzj::Int
 end
-function ZygoteJacobian(nvar, f, ncon=0, c!::Function=(args...) -> []; kwargs...)
+function ZygoteJacobian(
+    nvar, f, ncon=0, c!::Function=(args...) -> []; jump_evaluator=nothing, kwargs...
+)
+    # JuMP-converted models: exact Float64 derivatives straight from the
+    # MOI evaluator (the Zygote Jacobian can miss the JuMPModel* rrules
+    # through the Buffer-based constraint closure).
+    jump_evaluator isa JuMPEvaluator && return JuMPJacBackend(jump_evaluator)
     return ZygoteJacobian(nvar * ncon)
 end
 ADNLPModels.jacobian(::ZygoteJacobian, c, x) = Zygote.jacobian(c, x)[1]
@@ -86,7 +92,13 @@ end
 struct ZygoteHessian <: ImmutableADbackend
     nnzh::Int
 end
-function ZygoteHessian(nvar, f, ncon=0, c!::Function=(args...) -> []; kwargs...)
+function ZygoteHessian(
+    nvar, f, ncon=0, c!::Function=(args...) -> []; jump_evaluator=nothing, kwargs...
+)
+    # JuMP-converted models: the exact evaluator Hessian replaces the
+    # forward-over-reverse (FD-of-exact-gradients) approximation.
+    jump_evaluator isa JuMPEvaluator &&
+        return JuMPHessBackend(jump_evaluator, _jump_hess_positions(jump_evaluator, nvar))
     return ZygoteHessian(div(nvar * (nvar + 1), 2))
 end
 function ADNLPModels.hessian(::ZygoteHessian, f, x)
@@ -101,7 +113,15 @@ function ADNLPModels.hessian(::ZygoteHessian, f, x)
 end
 
 struct ZygoteHvprod <: ADBackend end
-ZygoteHvprod(nvar, f, ncon=0, c!::Function=(args...) -> []; kwargs...) = ZygoteHvprod()
+function ZygoteHvprod(
+    nvar, f, ncon=0, c!::Function=(args...) -> []; jump_evaluator=nothing, kwargs...
+)
+    # JuMP-converted models: the forward-over-forward path pushes Duals
+    # into the Float64-only MOI evaluator and crashes; the exact evaluator
+    # Hessian-vector product is Float64-safe.
+    jump_evaluator isa JuMPEvaluator && return JuMPHvBackend(jump_evaluator)
+    return ZygoteHvprod()
+end
 # ADNLPModels folds the objective weight (and, for `:lag`, the constraint
 # multipliers) into the Lagrangian closure `ℓ` that it passes here (see
 # `ADNLPModels.get_lag`), so the closures must be differentiated as-is.
@@ -148,4 +168,143 @@ function ADNLPModels.get_c(
     return c
 end
 
+# ---------------------------------------------------------------------------
+# Exact evaluator backends for JuMP-converted models
+# ---------------------------------------------------------------------------
+# The JuMPModel* rrules live on the vector-level callables; the Zygote paths
+# above do not always see them (the Buffer-based constraint closure makes
+# Zygote.jacobian miss the rrules and produce a wrong Jacobian, and the
+# ForwardDiff-based Hvprod! pushes Duals into the Float64-only MOI evaluator
+# and crashes). These backends read the derivatives straight from
+# NonconvexCore's JuMPEvaluator (`jump_jacobian!`,
+# `jump_hessian_lagrangian!`): exact and Float64-safe.
+using NLPModels: NLPModels
+using NonconvexCore: JuMPEvaluator, jump_jacobian!, jump_hessian_lagrangian!
+
+struct JuMPJacBackend{M} <: ADBackend
+    m::M
+    JuMPJacBackend(m::M) where {M} = new{M}(m)
+end
+function JuMPJacBackend(
+    nvar, f, ncon=0, c!::Function=(args...) -> []; jump_evaluator=nothing, kwargs...
+)
+    jump_evaluator isa JuMPEvaluator || throw(
+        ArgumentError("JuMPJacBackend requires a JuMPEvaluator (pass `jump_evaluator`)")
+    )
+    return JuMPJacBackend(jump_evaluator)
+end
+function ADNLPModels.get_nln_nnzj(b::JuMPJacBackend, nvar, ncon)
+    return length(b.m.jac_rows)
+end
+function NLPModels.jac_structure!(
+    b::JuMPJacBackend,
+    nlp::ADNLPModels.ADModel,
+    rows::AbstractVector{<:Integer},
+    cols::AbstractVector{<:Integer},
+)
+    copyto!(rows, b.m.jac_rows)
+    copyto!(cols, b.m.jac_cols)
+    return rows, cols
+end
+function NLPModels.jac_coord!(
+    b::JuMPJacBackend, nlp::ADNLPModels.ADModel, x::AbstractVector, vals::AbstractVector
+)
+    jump_jacobian!(b.m, vals, x)
+    return vals
+end
+
+struct JuMPHvBackend{M} <: ADBackend
+    m::M
+    JuMPHvBackend(m::M) where {M} = new{M}(m)
+end
+function JuMPHvBackend(
+    nvar, f, ncon=0, c!::Function=(args...) -> []; jump_evaluator=nothing, kwargs...
+)
+    jump_evaluator isa JuMPEvaluator || throw(
+        ArgumentError("JuMPHvBackend requires a JuMPEvaluator (pass `jump_evaluator`)")
+    )
+    return JuMPHvBackend(jump_evaluator)
+end
+# The objective weight (and, for `:lag`, the multipliers) are folded into the
+# Lagrangian closure `ℓ` by ADNLPModels before Hvprod! is called; the
+# evaluator needs them explicitly, so they are passed again (obj_weight / y)
+# and `ℓ` is ignored.
+function ADNLPModels.Hvprod!(b::JuMPHvBackend, Hv, x, v, ℓ, ::Val{:obj}, obj_weight)
+    return _jump_hv!(b.m, Hv, x, v, obj_weight, zeros(b.m.nineq + b.m.neq))
+end
+function ADNLPModels.Hvprod!(b::JuMPHvBackend, Hv, x, v, ℓ, ::Val{:lag}, y, obj_weight)
+    return _jump_hv!(b.m, Hv, x, v, obj_weight, y)
+end
+function ADNLPModels.Hvprod!(b::JuMPHvBackend, Hv, x, v, ci, ::Val{:ci})
+    λ = zeros(b.m.nineq + b.m.neq)
+    λ[ci] = 1.0
+    return _jump_hv!(b.m, Hv, x, v, 0.0, λ)
+end
+function _jump_hv!(m, Hv, x, v, obj_factor, lambda)
+    sv = zeros(length(m.hess_rows))
+    jump_hessian_lagrangian!(m, sv, x, obj_factor, lambda)
+    fill!(Hv, zero(eltype(Hv)))
+    @inbounds for k in eachindex(m.hess_rows)
+        i = m.hess_rows[k]
+        j = m.hess_cols[k]
+        w = sv[k]
+        Hv[i] += w * v[j]
+        i == j || (Hv[j] += w * v[i])
+    end
+    return Hv
+end
+
+struct JuMPHessBackend{M} <: ADBackend
+    m::M
+    pos::Vector{Int}   # position of each sparse entry in the dense lower triangle
+    JuMPHessBackend(m::M, pos::Vector{Int}) where {M} = new{M}(m, pos)
+end
+# dense lower-triangle position of each sparse Hessian entry (i, j), i >= j,
+# in the column-major ordering `for j in 1:n, i in j:n`
+function _jump_hess_positions(m, nvar)
+    pos = Int[]
+    for k in eachindex(m.hess_rows)
+        i = m.hess_rows[k]
+        j = m.hess_cols[k]
+        push!(pos, (j - 1) * nvar - div((j - 1) * (j - 2), 2) + (i - j + 1))
+    end
+    return pos
+end
+
+function JuMPHessBackend(
+    nvar, f, ncon=0, c!::Function=(args...) -> []; jump_evaluator=nothing, kwargs...
+)
+    jump_evaluator isa JuMPEvaluator || throw(
+        ArgumentError("JuMPHessBackend requires a JuMPEvaluator (pass `jump_evaluator`)"),
+    )
+    return JuMPHessBackend(jump_evaluator, _jump_hess_positions(jump_evaluator, nvar))
+end
+function NLPModels.hess_coord!(
+    b::JuMPHessBackend,
+    nlp::ADNLPModels.ADModel,
+    x::AbstractVector,
+    y::AbstractVector,
+    obj_weight::Real,
+    vals::AbstractVector,
+)
+    return _jump_hess_coord!(b, vals, x, obj_weight, y)
+end
+function NLPModels.hess_coord!(
+    b::JuMPHessBackend,
+    nlp::ADNLPModels.ADModel,
+    x::AbstractVector,
+    obj_weight::AbstractFloat,
+    vals::AbstractVector,
+)
+    return _jump_hess_coord!(b, vals, x, obj_weight, zeros(b.m.nineq + b.m.neq))
+end
+function _jump_hess_coord!(b, vals, x, obj_factor, lambda)
+    sv = zeros(length(b.m.hess_rows))
+    jump_hessian_lagrangian!(b.m, sv, x, obj_factor, lambda)
+    fill!(vals, zero(eltype(vals)))
+    @inbounds for k in eachindex(b.m.hess_rows)
+        vals[b.pos[k]] += sv[k]
+    end
+    return vals
+end
 end

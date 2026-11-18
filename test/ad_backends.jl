@@ -1,6 +1,6 @@
 @testitem "AD backends" begin
     using NonconvexCore, LinearAlgebra, Test, Zygote, ForwardDiff, SparseArrays
-    import ADTypes
+    using ADTypes: ADTypes
     import DifferentiationInterface as DI
 
     const f = x -> sum(abs2, x)
@@ -40,6 +40,21 @@
         ve, je = NonconvexCore.value_jacobian(empty_c, xv)
         @test isempty(ve)
         @test size(je) == (0, 5)
+
+        # Constant functions have a well-defined zero Jacobian (not an error
+        # or a `nothing`), matching the zero-filling convention of solver
+        # callbacks.
+        vconst, jconst = NonconvexCore.value_jacobian(x -> 1.0, x)
+        @test vconst == 1.0
+        @test jconst == zeros(1, 5)
+        vconst2, jconst2 = NonconvexCore.value_jacobian(x -> [1.0, 2.0], x)
+        @test vconst2 == [1.0, 2.0]
+        @test jconst2 == zeros(2, 5)
+        vconst3, jconst3 = NonconvexCore.value_jacobian(
+            x -> 1.0, x, ADTypes.AutoForwardDiff()
+        )
+        @test vconst3 == 1.0
+        @test jconst3 == zeros(1, 5)
     end
 
     @testset "AD backends - sparse derivatives" begin

@@ -1,6 +1,6 @@
 @testitem "Regressions" begin
     using Test
-    import JuMP
+    using JuMP: JuMP
     using NonconvexCore:
         Model,
         Solution,
