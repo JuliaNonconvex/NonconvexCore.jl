@@ -62,3 +62,77 @@
     @test ZygoteHvprod() isa ZygoteHvprod
     @test ZygoteGHjvprod() isa ZygoteGHjvprod
 end
+
+@testitem "Exact JuMP evaluator backends" begin
+    using NonconvexCore, ADNLPModels, NLPModels, Test, LinearAlgebra
+    using JuMP: JuMP
+
+    ext = Base.get_extension(NonconvexCore, :NonconvexCoreADNLPModelsExt)
+    JuMPJacBackend = ext.JuMPJacBackend
+    JuMPHvBackend = ext.JuMPHvBackend
+    JuMPHessBackend = ext.JuMPHessBackend
+    ZygoteJacobian = ext.ZygoteJacobian
+    ZygoteHessian = ext.ZygoteHessian
+    ZygoteHvprod = ext.ZygoteHvprod
+
+    # A JuMP-converted model with a nonlinear objective and one nonlinear
+    # inequality; the shared JuMPEvaluator drives the exact backends.
+    jm = JuMP.Model()
+    JuMP.@variable(jm, x[1:2] >= 0.5, start = 1.0)
+    JuMP.@objective(jm, Min, (x[1] - 1)^2 + x[1] * x[2] + x[2]^2)
+    JuMP.@constraint(jm, x[1]^2 + x[2] - 2 <= 0)
+    dm = NonconvexCore.DictModel(jm)
+    m = NonconvexCore.getobjective(dm).f.m   # the JuMPEvaluator
+    vm, x0, _ = NonconvexCore.tovecmodel(dm) # vector-level model
+    nvar = length(x0)
+    ncon = 1
+    f = NonconvexCore.getfunction(vm.objective)
+    gfun = NonconvexCore.getfunction(vm.ineq_constraints.fs[1])
+    c(y) = [gfun(y)]
+    c! = (cx, y) -> (cx .= c(y); cx)
+
+    meta = ADNLPModels.NLPModelMeta{Float64,Vector{Float64}}(nvar; x0=x0,
+        lvar=fill(0.5, nvar), uvar=fill(Inf, nvar), ncon=ncon, y0=zeros(ncon),
+        lcon=fill(-Inf, ncon), ucon=zeros(ncon), nnzj=nvar * ncon,
+        nnzh=div(nvar * (nvar + 1), 2), lin=Int[], minimize=true, islp=false,
+        name="exact-jump")
+    backend = ADNLPModels.ADModelBackend(nvar, f, ncon, c!; x0=x0,
+        jump_evaluator=m,
+        gradient_backend=ext.ZygoteGradient,
+        hprod_backend=JuMPHvBackend,
+        jprod_backend=ext.ZygoteJprod,
+        jtprod_backend=ext.ZygoteJtprod,
+        jacobian_backend=JuMPJacBackend,
+        hessian_backend=JuMPHessBackend,
+        ghjvprod_backend=ext.ZygoteGHjvprod)
+    nlp = ADNLPModels.ADNLPModel(meta, ADNLPModels.Counters(), backend, f, c!)
+
+    # Exact Jacobian from the evaluator: gradient of x1^2 + x2 - 2
+    J = Matrix(NLPModels.jac(nlp, x0))
+    @test J ≈ [2x0[1] 1.0]
+
+    # Exact Lagrangian Hessian (objective factor 1, multiplier 1):
+    # H_f = [2 1; 1 2] (x1*x2 contributes the off-diagonal 1), H_g = [2 0; 0 0]
+    y = [1.0]
+    H = Matrix(NLPModels.hess(nlp, x0, y; obj_weight = 1.0))
+    @test H ≈ [4.0 1.0; 1.0 2.0]
+
+    # Exact Lagrangian Hessian-vector products
+    v = [1.0, -2.0]
+    Hv = NLPModels.hprod(nlp, x0, y, v; obj_weight = 1.0)
+    @test Hv ≈ [4.0 1.0; 1.0 2.0] * v
+    Hv2 = NLPModels.hprod(nlp, x0, [1.0], v; obj_weight = 0.0)  # constraint 1 only
+    @test Hv2 ≈ [2.0 0.0; 0.0 0.0] * v
+
+    # The Zygote* constructors dispatch to the exact backends when a
+    # JuMPEvaluator is passed, and stay Zygote-backed without one.
+    @test ZygoteJacobian(nvar, f, ncon, c!; jump_evaluator=m) isa JuMPJacBackend
+    @test ZygoteHessian(nvar, f, ncon, c!; jump_evaluator=m) isa JuMPHessBackend
+    @test ZygoteHvprod(nvar, f, ncon, c!; jump_evaluator=m) isa JuMPHvBackend
+    @test ZygoteHvprod(nvar, f, ncon, c!) isa ZygoteHvprod
+
+    # The exact backends require a JuMPEvaluator.
+    @test_throws ArgumentError JuMPJacBackend(nvar, f, ncon)
+    @test_throws ArgumentError JuMPHvBackend(nvar, f, ncon)
+    @test_throws ArgumentError JuMPHessBackend(nvar, f, ncon)
+end
