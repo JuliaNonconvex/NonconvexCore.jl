@@ -1,6 +1,6 @@
 @testitem "AD backends" begin
     using NonconvexCore, LinearAlgebra, Test, Zygote, ForwardDiff, SparseArrays
-    import ADTypes
+    using ADTypes: ADTypes
     import DifferentiationInterface as DI
 
     const f = x -> sum(abs2, x)
@@ -50,7 +50,9 @@
         vconst2, jconst2 = NonconvexCore.value_jacobian(x -> [1.0, 2.0], x)
         @test vconst2 == [1.0, 2.0]
         @test jconst2 == zeros(2, 5)
-        vconst3, jconst3 = NonconvexCore.value_jacobian(x -> 1.0, x, ADTypes.AutoForwardDiff())
+        vconst3, jconst3 = NonconvexCore.value_jacobian(
+            x -> 1.0, x, ADTypes.AutoForwardDiff()
+        )
         @test vconst3 == 1.0
         @test jconst3 == zeros(1, 5)
     end

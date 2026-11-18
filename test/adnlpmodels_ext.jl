@@ -89,14 +89,30 @@ end
     f = NonconvexCore.getfunction(vm.objective)
     gfun = NonconvexCore.getfunction(vm.ineq_constraints.fs[1])
     c(y) = [gfun(y)]
-    c! = (cx, y) -> (cx .= c(y); cx)
+    c! = (cx, y) -> (cx.=c(y); cx)
 
-    meta = ADNLPModels.NLPModelMeta{Float64,Vector{Float64}}(nvar; x0=x0,
-        lvar=fill(0.5, nvar), uvar=fill(Inf, nvar), ncon=ncon, y0=zeros(ncon),
-        lcon=fill(-Inf, ncon), ucon=zeros(ncon), nnzj=nvar * ncon,
-        nnzh=div(nvar * (nvar + 1), 2), lin=Int[], minimize=true, islp=false,
-        name="exact-jump")
-    backend = ADNLPModels.ADModelBackend(nvar, f, ncon, c!; x0=x0,
+    meta = ADNLPModels.NLPModelMeta{Float64,Vector{Float64}}(
+        nvar;
+        x0=x0,
+        lvar=fill(0.5, nvar),
+        uvar=fill(Inf, nvar),
+        ncon=ncon,
+        y0=zeros(ncon),
+        lcon=fill(-Inf, ncon),
+        ucon=zeros(ncon),
+        nnzj=nvar * ncon,
+        nnzh=div(nvar * (nvar + 1), 2),
+        lin=Int[],
+        minimize=true,
+        islp=false,
+        name="exact-jump",
+    )
+    backend = ADNLPModels.ADModelBackend(
+        nvar,
+        f,
+        ncon,
+        c!;
+        x0=x0,
         jump_evaluator=m,
         gradient_backend=ext.ZygoteGradient,
         hprod_backend=JuMPHvBackend,
@@ -104,7 +120,8 @@ end
         jtprod_backend=ext.ZygoteJtprod,
         jacobian_backend=JuMPJacBackend,
         hessian_backend=JuMPHessBackend,
-        ghjvprod_backend=ext.ZygoteGHjvprod)
+        ghjvprod_backend=ext.ZygoteGHjvprod,
+    )
     nlp = ADNLPModels.ADNLPModel(meta, ADNLPModels.Counters(), backend, f, c!)
 
     # Exact Jacobian from the evaluator: gradient of x1^2 + x2 - 2
@@ -114,14 +131,14 @@ end
     # Exact Lagrangian Hessian (objective factor 1, multiplier 1):
     # H_f = [2 1; 1 2] (x1*x2 contributes the off-diagonal 1), H_g = [2 0; 0 0]
     y = [1.0]
-    H = Matrix(NLPModels.hess(nlp, x0, y; obj_weight = 1.0))
+    H = Matrix(NLPModels.hess(nlp, x0, y; obj_weight=1.0))
     @test H ≈ [4.0 1.0; 1.0 2.0]
 
     # Exact Lagrangian Hessian-vector products
     v = [1.0, -2.0]
-    Hv = NLPModels.hprod(nlp, x0, y, v; obj_weight = 1.0)
+    Hv = NLPModels.hprod(nlp, x0, y, v; obj_weight=1.0)
     @test Hv ≈ [4.0 1.0; 1.0 2.0] * v
-    Hv2 = NLPModels.hprod(nlp, x0, [1.0], v; obj_weight = 0.0)  # constraint 1 only
+    Hv2 = NLPModels.hprod(nlp, x0, [1.0], v; obj_weight=0.0)  # constraint 1 only
     @test Hv2 ≈ [2.0 0.0; 0.0 0.0] * v
 
     # The Zygote* constructors dispatch to the exact backends when a
