@@ -57,7 +57,9 @@ end
 struct ZygoteJacobian <: ImmutableADbackend
     nnzj::Int
 end
-function ZygoteJacobian(nvar, f, ncon=0, c!::Function=(args...) -> []; jump_evaluator=nothing, kwargs...)
+function ZygoteJacobian(
+    nvar, f, ncon=0, c!::Function=(args...) -> []; jump_evaluator=nothing, kwargs...
+)
     # JuMP-converted models: exact Float64 derivatives straight from the
     # MOI evaluator (the Zygote Jacobian can miss the JuMPModel* rrules
     # through the Buffer-based constraint closure).
@@ -90,7 +92,9 @@ end
 struct ZygoteHessian <: ImmutableADbackend
     nnzh::Int
 end
-function ZygoteHessian(nvar, f, ncon=0, c!::Function=(args...) -> []; jump_evaluator=nothing, kwargs...)
+function ZygoteHessian(
+    nvar, f, ncon=0, c!::Function=(args...) -> []; jump_evaluator=nothing, kwargs...
+)
     # JuMP-converted models: the exact evaluator Hessian replaces the
     # forward-over-reverse (FD-of-exact-gradients) approximation.
     jump_evaluator isa JuMPEvaluator &&
@@ -109,7 +113,9 @@ function ADNLPModels.hessian(::ZygoteHessian, f, x)
 end
 
 struct ZygoteHvprod <: ADBackend end
-function ZygoteHvprod(nvar, f, ncon=0, c!::Function=(args...) -> []; jump_evaluator=nothing, kwargs...)
+function ZygoteHvprod(
+    nvar, f, ncon=0, c!::Function=(args...) -> []; jump_evaluator=nothing, kwargs...
+)
     # JuMP-converted models: the forward-over-forward path pushes Duals
     # into the Float64-only MOI evaluator and crashes; the exact evaluator
     # Hessian-vector product is Float64-safe.
@@ -179,7 +185,9 @@ struct JuMPJacBackend{M} <: ADBackend
     m::M
     JuMPJacBackend(m::M) where {M} = new{M}(m)
 end
-function JuMPJacBackend(nvar, f, ncon=0, c!::Function=(args...) -> []; jump_evaluator=nothing, kwargs...)
+function JuMPJacBackend(
+    nvar, f, ncon=0, c!::Function=(args...) -> []; jump_evaluator=nothing, kwargs...
+)
     jump_evaluator isa JuMPEvaluator || throw(
         ArgumentError("JuMPJacBackend requires a JuMPEvaluator (pass `jump_evaluator`)")
     )
@@ -189,13 +197,18 @@ function ADNLPModels.get_nln_nnzj(b::JuMPJacBackend, nvar, ncon)
     return length(b.m.jac_rows)
 end
 function NLPModels.jac_structure!(
-    b::JuMPJacBackend, nlp::ADNLPModels.ADModel, rows::AbstractVector{<:Integer}, cols::AbstractVector{<:Integer}
+    b::JuMPJacBackend,
+    nlp::ADNLPModels.ADModel,
+    rows::AbstractVector{<:Integer},
+    cols::AbstractVector{<:Integer},
 )
     copyto!(rows, b.m.jac_rows)
     copyto!(cols, b.m.jac_cols)
     return rows, cols
 end
-function NLPModels.jac_coord!(b::JuMPJacBackend, nlp::ADNLPModels.ADModel, x::AbstractVector, vals::AbstractVector)
+function NLPModels.jac_coord!(
+    b::JuMPJacBackend, nlp::ADNLPModels.ADModel, x::AbstractVector, vals::AbstractVector
+)
     jump_jacobian!(b.m, vals, x)
     return vals
 end
@@ -204,7 +217,9 @@ struct JuMPHvBackend{M} <: ADBackend
     m::M
     JuMPHvBackend(m::M) where {M} = new{M}(m)
 end
-function JuMPHvBackend(nvar, f, ncon=0, c!::Function=(args...) -> []; jump_evaluator=nothing, kwargs...)
+function JuMPHvBackend(
+    nvar, f, ncon=0, c!::Function=(args...) -> []; jump_evaluator=nothing, kwargs...
+)
     jump_evaluator isa JuMPEvaluator || throw(
         ArgumentError("JuMPHvBackend requires a JuMPEvaluator (pass `jump_evaluator`)")
     )
@@ -256,9 +271,11 @@ function _jump_hess_positions(m, nvar)
     return pos
 end
 
-function JuMPHessBackend(nvar, f, ncon=0, c!::Function=(args...) -> []; jump_evaluator=nothing, kwargs...)
+function JuMPHessBackend(
+    nvar, f, ncon=0, c!::Function=(args...) -> []; jump_evaluator=nothing, kwargs...
+)
     jump_evaluator isa JuMPEvaluator || throw(
-        ArgumentError("JuMPHessBackend requires a JuMPEvaluator (pass `jump_evaluator`)")
+        ArgumentError("JuMPHessBackend requires a JuMPEvaluator (pass `jump_evaluator`)"),
     )
     return JuMPHessBackend(jump_evaluator, _jump_hess_positions(jump_evaluator, nvar))
 end
