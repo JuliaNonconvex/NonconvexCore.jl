@@ -1,5 +1,9 @@
 # NEWS
 
+## 2.2.8
+
+- JuMP-converted model functions reject `ForwardDiff.Dual` inputs with an informative `ArgumentError` (nested AD through the evaluator cannot work; use the evaluator's own derivatives instead).
+- The affine/quadratic JuMP conversion preserves constant terms: `get_constraint_info` uses `bound - func.constant` and `get_objective_info` keeps the objective constant with the correct Maximization sign (previously a converted quadratic objective could report e.g. -4.5 instead of 0.5).
 ## 2.2.7
 
 - Exact JuMP evaluator backends in the ADNLPModels compatibility
