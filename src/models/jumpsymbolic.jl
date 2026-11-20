@@ -31,7 +31,10 @@ function JuMPSymbolicFunction(
     return JuMPSymbolicFunction(evaluator, expr, vars)
 end
 
-(f::JuMPSymbolicFunction)(x) = MOI.eval_objective(f.evaluator, x)
+function (f::JuMPSymbolicFunction)(x)
+    _check_jump_input(x, "A JuMPSymbolicFunction")
+    return MOI.eval_objective(f.evaluator, x)
+end
 
 """
     jump_symbolic_hessian_sparsity(f::JuMPSymbolicFunction, n)
@@ -476,7 +479,35 @@ struct JuMPModelObjective{M,K} <: Function
     m::M
     ks::K
 end
-(f::JuMPModelObjective)(x) = JuMPModelObjectiveVector(f.m)(_flatten_ks(x, f.ks)[1])
+
+# The JuMP-converted functions evaluate through the MathOptInterface
+# evaluator, whose storage is hard-Float64; nested AD through them (e.g.
+# ForwardDiff-over-Zygote for second derivatives) cannot work. Fail loudly
+# instead of with a cryptic conversion error: the model's own derivatives
+# (values, Jacobian, Lagrangian Hessian) come from the evaluator.
+function _check_jump_input(x, what)
+    eltype(x) <: ForwardDiff.Dual && throw(
+        ArgumentError(
+            "$what was called at a ForwardDiff.Dual point: JuMP-converted " *
+            "model functions provide their own derivatives through the " *
+            "MathOptInterface evaluator and do not support nested automatic " *
+            "differentiation (ForwardDiff-over-Zygote). Use the evaluator's " *
+            "derivatives (e.g. `jump_hessian_lagrangian!`) instead of AD " *
+            "through this function.",
+        ),
+    )
+    return nothing
+end
+
+function _flatten_jump_x(x, ks, what)
+    xv = _flatten_ks(x, ks)[1]
+    _check_jump_input(xv, what)
+    return xv
+end
+
+(f::JuMPModelObjective)(x) = JuMPModelObjectiveVector(f.m)(
+    _flatten_jump_x(x, f.ks, "A JuMP-converted objective")
+)
 
 """
     JuMPModelIneq(m::JuMPEvaluator, ks)
@@ -489,7 +520,9 @@ struct JuMPModelIneq{M,K} <: Function
     m::M
     ks::K
 end
-(f::JuMPModelIneq)(x) = JuMPModelIneqVector(f.m)(_flatten_ks(x, f.ks)[1])
+(f::JuMPModelIneq)(x) = JuMPModelIneqVector(f.m)(
+    _flatten_jump_x(x, f.ks, "A JuMP-converted inequality constraint")
+)
 
 """
     JuMPModelEq(m::JuMPEvaluator, ks)
@@ -502,7 +535,9 @@ struct JuMPModelEq{M,K} <: Function
     m::M
     ks::K
 end
-(f::JuMPModelEq)(x) = JuMPModelEqVector(f.m)(_flatten_ks(x, f.ks)[1])
+(f::JuMPModelEq)(x) = JuMPModelEqVector(f.m)(
+    _flatten_jump_x(x, f.ks, "A JuMP-converted equality constraint")
+)
 
 # Vector-level callables: these are what reverse-mode backends encounter
 # after the model variables are flattened, and each carries a ChainRules
