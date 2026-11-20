@@ -111,3 +111,19 @@ end
     )
     @test Zygote.hessian(hs, [1.0, 2.0]) ≈ [2.0 1.0; 1.0 6.0]
 end
+
+@testitem "HVP-operator gradient in reverse mode" begin
+    using NonconvexCore, Test, Zygote
+
+    # the `G isa Function` branch of CustomGradFunction.rrule: the custom
+    # gradient is an x-curried HVP operator, applied in reverse mode
+    g = CustomGradFunction(x -> [x[1]^2 + x[2]], x -> (v -> [2x[1] * v[1], v[1]]))
+    # d/dx [μ ⋅ g(x)] with μ = [3.0]: ∇(3(x₁² + x₂)) = [6x₁, 3]
+    grad = Zygote.gradient(x -> dot([3.0], g(x)), [1.5, 2.0])[1]
+    @test grad ≈ [9.0, 3.0]
+
+    # scalar-valued f with an HVP-operator gradient
+    g2 = CustomGradFunction(x -> x[1]^3, x -> (v -> [3x[1]^2 * v]))
+    grad2 = Zygote.gradient(g2, [2.0])[1]
+    @test grad2 ≈ [12.0]
+end
