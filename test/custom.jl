@@ -80,7 +80,7 @@ end
     # ∇²c₁ = [[2, 0], [0, 0]], ∇²c₂ = [[0, 1], [1, 0]]
     hvp(x, v) = [2v[1] 0.0; v[2] v[1]]
 
-    f = CustomHessianFunction(c, J, hvp; hvp = true)
+    f = CustomHessianFunction(c, J, hvp; hvp=true)
     x0 = [1.5, 2.5]
     μ = [3.0, 4.0]
 
@@ -103,6 +103,11 @@ end
 
     # scalar-valued f with hvp = true still works
     s(x) = x[1]^2 + 3x[2]^2 + x[1] * x[2]
-    hs = CustomHessianFunction(s, x -> [2x[1] + x[2], 6x[2] + x[1]], (x, v) -> [2v[1] + v[2], v[1] + 6v[2]]; hvp = true)
+    hs = CustomHessianFunction(
+        s,
+        x -> [2x[1] + x[2], 6x[2] + x[1]],
+        (x, v) -> [2v[1] + v[2], v[1] + 6v[2]];
+        hvp=true,
+    )
     @test Zygote.hessian(hs, [1.0, 2.0]) ≈ [2.0 1.0; 1.0 6.0]
 end
