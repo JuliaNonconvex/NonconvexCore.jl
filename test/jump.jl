@@ -512,3 +512,52 @@
         @test length(integer_ci) == 2 # the [-0.5, 0.5] and [0.5, 1.5] variables
     end
 end
+
+@testitem "JuMP conversion preserves constants" begin
+    using Test, NonconvexCore
+    using JuMP: JuMP, MOI
+
+    @testset "Quadratic objective constant" begin
+        model = JuMP.Model()
+        JuMP.@variable(model, x)
+        JuMP.@objective(model, Min, (x - 2)^2 + 3)
+        dm = DictModel(model)
+        obj = NonconvexCore.getobjective(dm)
+        @test obj(NonconvexCore.getinit(dm)) == 7.0
+        vm, xv, _ = NonconvexCore.tovecmodel(dm)
+        @test NonconvexCore.getobjective(vm)(xv) == 7.0
+    end
+
+    @testset "Maximization constant sign" begin
+        model = JuMP.Model()
+        JuMP.@variable(model, x)
+        JuMP.@objective(model, Max, -(x - 2)^2 + 3)
+        dm = DictModel(model)
+        obj = NonconvexCore.getobjective(dm)
+        @test obj(NonconvexCore.getinit(dm)) == 1.0
+    end
+
+    @testset "Constraint constants" begin
+        model = JuMP.Model()
+        JuMP.@variable(model, x)
+        JuMP.@constraint(model, x + 5 <= 7)
+        JuMP.@constraint(model, x + 1 >= 3)
+        JuMP.@constraint(model, x + 4 == 5)
+        dm = DictModel(model)
+        x = NonconvexCore.getinit(dm)
+        # Nonconvex orders inequality rows by kind: the >= row first, then <=.
+        @test NonconvexCore.getineqconstraints(dm)(x) == [2.0, -2.0]
+        @test NonconvexCore.geteqconstraints(dm)(x) == [-1.0]
+        vm, xv, _ = NonconvexCore.tovecmodel(dm)
+        @test NonconvexCore.getineqconstraints(vm)(xv) == [2.0, -2.0]
+        @test NonconvexCore.geteqconstraints(vm)(xv) == [-1.0]
+    end
+
+    @testset "Affine objective constant" begin
+        model = JuMP.Model()
+        JuMP.@variable(model, x)
+        JuMP.@objective(model, Min, 2x + 5)
+        dm = DictModel(model)
+        @test NonconvexCore.getobjective(dm)(NonconvexCore.getinit(dm)) == 5.0
+    end
+end
