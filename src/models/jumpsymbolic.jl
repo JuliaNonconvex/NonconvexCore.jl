@@ -505,9 +505,11 @@ function _flatten_jump_x(x, ks, what)
     return xv
 end
 
-(f::JuMPModelObjective)(x) = JuMPModelObjectiveVector(f.m)(
-    _flatten_jump_x(x, f.ks, "A JuMP-converted objective")
-)
+function (f::JuMPModelObjective)(x)
+    return JuMPModelObjectiveVector(f.m)(
+        _flatten_jump_x(x, f.ks, "A JuMP-converted objective")
+    )
+end
 
 """
     JuMPModelIneq(m::JuMPEvaluator, ks)
@@ -520,9 +522,11 @@ struct JuMPModelIneq{M,K} <: Function
     m::M
     ks::K
 end
-(f::JuMPModelIneq)(x) = JuMPModelIneqVector(f.m)(
-    _flatten_jump_x(x, f.ks, "A JuMP-converted inequality constraint")
-)
+function (f::JuMPModelIneq)(x)
+    return JuMPModelIneqVector(f.m)(
+        _flatten_jump_x(x, f.ks, "A JuMP-converted inequality constraint")
+    )
+end
 
 """
     JuMPModelEq(m::JuMPEvaluator, ks)
@@ -535,9 +539,11 @@ struct JuMPModelEq{M,K} <: Function
     m::M
     ks::K
 end
-(f::JuMPModelEq)(x) = JuMPModelEqVector(f.m)(
-    _flatten_jump_x(x, f.ks, "A JuMP-converted equality constraint")
-)
+function (f::JuMPModelEq)(x)
+    return JuMPModelEqVector(f.m)(
+        _flatten_jump_x(x, f.ks, "A JuMP-converted equality constraint")
+    )
+end
 
 # Vector-level callables: these are what reverse-mode backends encounter
 # after the model variables are flattened, and each carries a ChainRules

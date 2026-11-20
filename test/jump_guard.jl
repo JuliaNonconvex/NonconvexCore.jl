@@ -5,7 +5,9 @@
 
     model = JuMP.Model()
     JuMP.@variable(model, x)
-    JuMP.@objective(model, Min, x^2)
+    # sin(x) forces the JuMP-converted (evaluator) path; a pure quadratic
+    # objective goes through the closed-form channel instead
+    JuMP.@objective(model, Min, x^2 + sin(x))
     JuMP.@constraint(model, x >= 1)
     dm = DictModel(model)
     vm, xv, _ = NonconvexCore.tovecmodel(dm)
