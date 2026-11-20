@@ -203,7 +203,7 @@ function get_constraint_info(model::JuMP.Model, nvars)
         @assert func isa AffExpr
         set = constraint_object(c).set
         ineqcounter += 1
-        push!(bineq, -set.lower)
+        push!(bineq, func.constant - set.lower)
         for (var, val) in func.terms
             push!(Iineq, ineqcounter)
             push!(Jineq, var.index.value)
@@ -215,7 +215,7 @@ function get_constraint_info(model::JuMP.Model, nvars)
         @assert func isa AffExpr
         set = constraint_object(c).set
         ineqcounter += 1
-        push!(bineq, set.upper)
+        push!(bineq, set.upper - func.constant)
         for (var, val) in func.terms
             push!(Iineq, ineqcounter)
             push!(Jineq, var.index.value)
@@ -227,7 +227,7 @@ function get_constraint_info(model::JuMP.Model, nvars)
         @assert func isa AffExpr
         set = constraint_object(c).set
         eqcounter += 1
-        push!(beq, set.value)
+        push!(beq, set.value - func.constant)
         for (var, val) in func.terms
             push!(Ieq, eqcounter)
             push!(Jeq, var.index.value)
@@ -244,11 +244,11 @@ function get_objective_info(model::JuMP.Model, nvars)
     obj = objective_function(model)
     sense = objective_sense(model)
     if obj isa AffExpr
-        c, Q = _affine_objective(obj, nvars)
+        c, Q, obj_const = _affine_objective(obj, nvars)
     elseif obj isa QuadExpr
-        c, Q = _quadratic_objective(obj, nvars)
+        c, Q, obj_const = _quadratic_objective(obj, nvars)
     elseif obj isa MOI.ScalarNonlinearFunction || obj isa JuMP.GenericNonlinearExpr
-        c, Q = nothing, nothing
+        c, Q, obj_const = nothing, nothing, nothing
     else
         error(
             "Unsupported objective function of type $(typeof(obj)). Only affine, " *
@@ -257,9 +257,9 @@ function get_objective_info(model::JuMP.Model, nvars)
         )
     end
     if sense == MathOptInterface.MAX_SENSE
-        return c === nothing ? (nothing, nothing) : (-c, -Q)
+        return c === nothing ? (nothing, nothing, nothing) : (-c, -Q, -obj_const)
     else
-        return c, Q
+        return c, Q, obj_const
     end
 end
 
@@ -270,11 +270,12 @@ function _affine_objective(obj::AffExpr, nvars)
         push!(I, var.index.value)
         push!(V, val)
     end
-    return sparsevec(I, V, nvars), spzeros(nvars, nvars)
+    return sparsevec(I, V, nvars), spzeros(nvars, nvars), obj.constant
 end
 
 function _quadratic_objective(obj::QuadExpr, nvars)
     c, _ = _affine_objective(obj.aff, nvars)
+    obj_const = obj.aff.constant
     II = Int[]
     JJ = Int[]
     V = Float64[]
@@ -295,7 +296,7 @@ function _quadratic_objective(obj::QuadExpr, nvars)
             push!(V, coef / 2)
         end
     end
-    return c, sparse(II, JJ, V, nvars, nvars)
+    return c, sparse(II, JJ, V, nvars, nvars), obj_const
 end
 
 function NonconvexCore.DictModel(model::JuMP.Model)
@@ -313,13 +314,15 @@ function NonconvexCore.DictModel(model::JuMP.Model)
         return _dict_model_from_jump_expressions(model, dict_model, ks, nvars)
     end
     Aineq, bineq, Aeq, beq = get_constraint_info(model, nvars)
-    c, Q = get_objective_info(model, nvars)
-    set_objective!(dict_model, x -> begin
-        xv = flatten(x, ks)[1]
-        # `c` is dense in memory: a sparse vector dotted with a tracked
-        # vector is method-ambiguous for some reverse-mode backends.
-        return dot(Vector(c), xv) + dot(xv, Q * xv)
-    end)
+    c, Q, obj_const = get_objective_info(model, nvars)
+    set_objective!(
+        dict_model, x -> begin
+            xv = flatten(x, ks)[1]
+            # `c` is dense in memory: a sparse vector dotted with a tracked
+            # vector is method-ambiguous for some reverse-mode backends.
+            return obj_const + dot(Vector(c), xv) + dot(xv, Q * xv)
+        end
+    )
     if length(bineq) > 0
         add_ineq_constraint!(dict_model, x -> Aineq * flatten(x, ks)[1] - bineq)
     end
