@@ -69,3 +69,61 @@
         @test calls[] == 1
     end
 end
+
+@testitem "Vector-valued custom Hessian via HVP" begin
+    using NonconvexCore, Test, Zygote, ForwardDiff, LinearAlgebra
+
+    # a vector-valued constraint c: R^2 -> R^2 with custom Jacobian and a
+    # per-component HVP operator (issue #67)
+    c(x) = [x[1]^2 + x[2], x[1] * x[2]]
+    J(x) = [2x[1] 1.0; x[2] x[1]]
+    # ∇²c₁ = [[2, 0], [0, 0]], ∇²c₂ = [[0, 1], [1, 0]]
+    hvp(x, v) = [2v[1] 0.0; v[2] v[1]]
+
+    f = CustomHessianFunction(c, J, hvp; hvp=true)
+    x0 = [1.5, 2.5]
+    μ = [3.0, 4.0]
+
+    # value and Jacobian
+    @test f(x0) == c(x0)
+    @test f.g(x0) == J(x0)
+
+    # gradient of the weighted Lagrangian μ'c
+    g = Zygote.gradient(x -> dot(μ, f(x)), x0)[1]
+    @test g ≈ J(x0)'μ
+
+    # Hessian of the weighted Lagrangian assembled from the HVPs:
+    # Σ μᵢ∇²cᵢ = [[2μ₁, μ₂], [μ₂, 0]]
+    H = Zygote.hessian(x -> dot(μ, f(x)), x0)
+    @test H ≈ [2μ[1] μ[2]; μ[2] 0.0]
+
+    # ForwardDiff agrees
+    Hfd = ForwardDiff.hessian(x -> dot(μ, f(x)), x0)
+    @test Hfd ≈ H
+
+    # scalar-valued f with hvp = true still works
+    s(x) = x[1]^2 + 3x[2]^2 + x[1] * x[2]
+    hs = CustomHessianFunction(
+        s,
+        x -> [2x[1] + x[2], 6x[2] + x[1]],
+        (x, v) -> [2v[1] + v[2], v[1] + 6v[2]];
+        hvp=true,
+    )
+    @test Zygote.hessian(hs, [1.0, 2.0]) ≈ [2.0 1.0; 1.0 6.0]
+end
+
+@testitem "HVP-operator gradient in reverse mode" begin
+    using NonconvexCore, Test, Zygote
+
+    # the `G isa Function` branch of CustomGradFunction.rrule: the custom
+    # gradient is an x-curried HVP operator, applied in reverse mode
+    g = CustomGradFunction(x -> [x[1]^2 + x[2]], x -> (v -> [2x[1] * v[1], v[1]]))
+    # d/dx [μ ⋅ g(x)] with μ = [3.0]: ∇(3(x₁² + x₂)) = [6x₁, 3]
+    grad = Zygote.gradient(x -> dot([3.0], g(x)), [1.5, 2.0])[1]
+    @test grad ≈ [9.0, 3.0]
+
+    # scalar-valued f with an HVP-operator gradient
+    g2 = CustomGradFunction(x -> x[1]^3, x -> (v -> [3x[1]^2 * v]))
+    grad2 = Zygote.gradient(g2, [2.0])[1]
+    @test grad2 ≈ [12.0]
+end
