@@ -1,5 +1,8 @@
 # NEWS
 
+## 2.2.9
+
+- `CustomHessianFunction` now supports vector-valued functions with `hvp = true`: `h(x, v)` returns the per-component Hessian-vector products and the weighted Lagrangian Hessian `Σ μᵢ∇²fᵢ(x)` is assembled from them, so second-order solvers get exact constraint curvature from a vector-valued block (closes #67). HVP-operator gradients also flow through `CustomGradFunction`'s rrule and frule.
 ## 2.2.8
 
 - JuMP-converted model functions reject `ForwardDiff.Dual` inputs with an informative `ArgumentError` (nested AD through the evaluator cannot work; use the evaluator's own derivatives instead).
