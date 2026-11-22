@@ -300,8 +300,8 @@ getdim(s::SetProduct) = sum(getdim, s.sets; init=0)
 The component sets of `s`: the set itself for an atomic set, the tuple of
 component sets for a [`SetProduct`](@ref).
 """
-components(s::SetProduct) = s.sets
 components(s::AbstractSet) = (s,)
+components(s::SetProduct) = s.sets
 
 # Output-shape validation of a function value against a set.
 function check_set_output(value, set::AbstractSet)
@@ -591,6 +591,7 @@ components. Box-expressible sets (the order sets, sign cones, `Zeros`,
 map to the `variable_sets_*` capabilities of
 [`ConstraintCapabilities`](@ref).
 """
+variable_set_kinds(s::AbstractSet) = Symbol[]
 variable_set_kinds(::PSDCone) = [:sd]
 variable_set_kinds(::Simplex) = [:simplex]
 variable_set_kinds(s::Union{EqualTo,LessThan,GreaterThan,Interval}) = Symbol[]
@@ -655,9 +656,9 @@ The number of scalar decision variables a variable block constrained to
 `set` introduces: `dim` for the vector sets, `n²` for a semidefinite cone
 (`PSDCone(n)`), and the sum over the components of a [`SetProduct`](@ref).
 """
+variable_dim(s::AbstractSet) = s.dim
 variable_dim(s::PSDCone) = s.dim * s.dim
 variable_dim(s::SetProduct) = sum(variable_dim, s.sets; init=0)
-variable_dim(s::AbstractSet) = s.dim
 
 # Box bounds of the variable block of a set (the cone parts beyond the box
 # are encoded as synthetic set constraints, see `variable_set_constraints`).
@@ -776,9 +777,15 @@ function variable_set_constraints(v::VariableInSet)
 end
 
 # The cone constraint of a variable block that the box cannot express; set
-# kinds defined outside NonconvexCore (e.g. PSDCone in
-# NonconvexSemidefinite.jl) extend this hook with their own type.
+# kinds defined outside NonconvexCore extend this hook with their own type.
 _variable_cone_constraint(set::AbstractSet, r) = nothing
 function _variable_cone_constraint(set::Simplex, r)
     FunctionInSet(x -> sum(view(x, r)), EqualTo(1.0))
+end
+function _variable_cone_constraint(set::PSDCone, r)
+    n = set.dim
+    return FunctionInSet(x -> begin
+        A = reshape(view(x, r), n, n)
+        return (A .+ A') ./ 2
+    end, PSDCone(n))
 end

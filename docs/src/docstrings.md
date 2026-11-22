@@ -6,6 +6,7 @@ Private = false
 Order = [:module, :type, :function, :macro, :constant]
 ```
 ```@docs
+NonconvexCore.AbstractSet
 NonconvexCore.AbstractFunction
 NonconvexCore.AbstractConstraint
 NonconvexCore.Objective

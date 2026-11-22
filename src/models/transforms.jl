@@ -66,13 +66,10 @@ end
 # Zygote/ChainRules support for TransformVariables
 ######################################################
 
-"""
-    NonconvexCore supports differentiating through TransformVariables.jl
-    re-parameterizations: `transform(t, z)` and `inverse(t, x)` carry
-    ChainRules `rrule`s computed with forward-mode AD through the
-    transformation, so Zygote gradients flow through models whose variables
-    were re-parameterized by [`unconstrained_transform`](@ref).
-"""
+# TransformVariables' `transform`/`inverse` carry ChainRules `rrule`s
+# computed with forward-mode AD through the transformation, so Zygote
+# gradients flow through models whose variables were re-parameterized by
+# `unconstrained_transform`.
 function ChainRulesCore.rrule(
     ::typeof(TV.transform), t::TV.AbstractTransform, z::AbstractVector
 )

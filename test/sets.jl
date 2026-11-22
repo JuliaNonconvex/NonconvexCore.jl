@@ -147,8 +147,9 @@ end
     @test setof(ci) == LessThan([2.0])
     @test tosetconstraint(ci).set == LessThan([2.0])
     @test tosetconstraint(EqConstraint(x -> x[1], [1.0])).set == EqualTo([1.0])
-    # The semidefinite conversion needs NonconvexSemidefinite (PSDCone).
-    @test_throws ArgumentError setof(NonconvexCore.SDConstraint(x -> [x[1];;], 1))
+    # The semidefinite conversion is native (PSDCone is a Core set).
+    @test setof(NonconvexCore.SDConstraint(x -> [x[1];;], 1)) == PSDCone(1)
+    @test tosetconstraint(NonconvexCore.SDConstraint(x -> [x[1];;], 1)).set == PSDCone(1)
 end
 
 @testitem "Variables in sets: blocks, labels, synthetics" begin
@@ -384,6 +385,7 @@ end
 
 @testitem "Probabilistic (chance) constraints" begin
     using NonconvexCore, LinearAlgebra, Test, Zygote, Random
+    using NonconvexCore: IneqConstraint, chance
 
     # The scenario batch is drawn by the caller (Core does not sample).
     scenarios(rng, n) = [rand(rng) for _ in 1:n]

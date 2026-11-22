@@ -2,6 +2,15 @@
 # shared MathOptInterface `Nonlinear` evaluator (JuMPEvaluator), used by the
 # NonconvexCoreJuMPExt extension to convert JuMP models.
 
+"""
+    JuMPConvertedRow
+
+One converted constraint row of a JuMP model, in the original JuMP constraint
+order. Inequality rows hold `sign * f(x) + shift` (feasible when <= 0);
+equality rows hold `f(x) + shift`. Exactly one of `ci` (the row lives in the
+MathOptInterface Nonlinear model) and `expr` (the row is affine or quadratic
+and is evaluated in closed form) is non-`nothing`.
+"""
 struct JuMPConvertedRow
     is_ineq::Bool
     sign::Float64
