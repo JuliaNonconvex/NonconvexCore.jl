@@ -516,8 +516,8 @@ function _component_violation(batch, s::ChanceSet)
         end
         p̂ = if exact
             # Deterministic (epsilon = Zero()): the violation is the
-            # inner-set violation itself, exactly.
-            maximum(vs)
+            # inner-set violation itself, exactly (ε = 0).
+            return maximum(vs)
         else
             sum(_soft_indicator(s.kappa * v) for v in vs) / length(vs)
         end

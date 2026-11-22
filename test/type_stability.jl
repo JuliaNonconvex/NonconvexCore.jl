@@ -54,6 +54,7 @@ end
 @testitem "Sets: type stability" begin
     using NonconvexCore, Test, LinearAlgebra
     using NonconvexCore:
+        getdim,
         set_violation,
         components,
         set_kinds,
@@ -99,6 +100,7 @@ end
     )
     @test (@inferred set_violation(c, [0.0, 0.0])) isa Vector{Float64}
     @test (@inferred setof(NonconvexCore.IneqConstraint(x -> x[1], 0.0))) isa LessThan
-    @test (@inferred tosetconstraint(NonconvexCore.SDConstraint(x -> [x[1];;], 1)).set) isa
-        PSDCone
+    @test (@inferred tosetconstraint(NonconvexCore.SDConstraint(x -> [x[1];;], 1))) isa
+        FunctionInSet
+    @test tosetconstraint(NonconvexCore.SDConstraint(x -> [x[1];;], 1)).set isa PSDCone
 end
