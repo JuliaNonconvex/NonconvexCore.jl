@@ -18,16 +18,6 @@ Models, automatic differentiation, function modifiers, solver capabilities and c
 
 NonconvexCore.jl is part of the [JuliaNonconvex](https://github.com/JuliaNonconvex) ecosystem built on [NonconvexCore.jl](https://github.com/JuliaNonconvex/NonconvexCore.jl) under the [Nonconvex.jl](https://github.com/JuliaNonconvex/Nonconvex.jl) umbrella.
 
-## Quick start
-
-```julia
-using NonconvexCore
-
-m = Model(x -> sum(x .^ 2))
-addvar!(m, [-5.0, -5.0], [5.0, 5.0])
-r = optimize(m, NelderMeadAlg(), [1.0, 1.0])
-```
-
 ## Documentation
 
 The full documentation is available at [https://julianonconvex.github.io/NonconvexCore.jl/stable](https://julianonconvex.github.io/NonconvexCore.jl/stable) (stable) and [https://julianonconvex.github.io/NonconvexCore.jl/dev](https://julianonconvex.github.io/NonconvexCore.jl/dev) (development).
