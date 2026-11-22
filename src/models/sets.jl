@@ -88,8 +88,7 @@ Interval(l::Real, u::Real) = Interval(promote(l, u)..., 1)
 function Interval(l::AbstractVector, u::AbstractVector)
     length(l) == length(u) || throw(
         DimensionMismatch(
-            "Interval lower and upper bounds must have the same length, got " *
-            "$(length(l)) and $(length(u)).",
+            "Interval bounds must have equal lengths, got $(length(l)) and $(length(u)).",
         ),
     )
     l2, u2 = promote(l, u)
@@ -203,9 +202,7 @@ function ChanceSet(set::AbstractSet, scenarios; epsilon=0.05, kappa=10.0)
     end
     scenarios isa AbstractVector || throw(
         ArgumentError(
-            "The scenario batch of a chance constraint must be a vector of " *
-            "scenario values; draw it with the RNG of your choice (e.g. " *
-            "`[rand(StableRNG(1), dist) for _ in 1:n]`).",
+            "Chance constraints take a vector of scenarios; draw them with the RNG of your choice.",
         ),
     )
     return ChanceSet(

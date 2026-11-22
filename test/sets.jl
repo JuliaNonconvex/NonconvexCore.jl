@@ -569,3 +569,62 @@ end
     @test_throws ArgumentError NonconvexCore.checksubproblem!(vm, SDMissingAlg())
     NonconvexCore.checksubproblem!(vm, SDCapableAlg())
 end
+
+@testitem "Coverage: error paths and back-compat constructors" begin
+    using NonconvexCore, LinearAlgebra, Test, Zygote
+
+    # The back-compat 8-argument Model constructor.
+    m = Model(
+        NonconvexCore.Objective(x -> x[1]^2),
+        NonconvexCore.VectorOfFunctions(()),
+        NonconvexCore.VectorOfFunctions(()),
+        NonconvexCore.VectorOfFunctions(()),
+        [0.0],
+        [1.0],
+        [0.5],
+        [false],
+    )
+    @test length(m.set_constraints.fs) == 0
+    @test isempty(m.set_variables)
+
+    # add_chance_constraint! with a classical constraint (the first method).
+    ci = NonconvexCore.IneqConstraint((x, ξ) -> x[1] + ξ, 0.0)
+    mc = Model(x -> x[1]^2)
+    addvar!(mc, 0.0, 1.0)
+    add_chance_constraint!(mc, ci, [0.1, 0.2]; epsilon=0.1)
+    @test mc.set_constraints.fs[1].set isa ChanceSet
+
+    # add_set_variable! with a wrong-length initial point.
+    mw = Model(x -> x[1])
+    @test_throws ArgumentError add_set_variable!(mw, Nonnegatives(2); init=[0.5])
+
+    # DictModel rejects set variables informatively.
+    md = DictModel(x -> x[:a])
+    addvar!(md, :a, 0.0, 1.0)
+    @test_throws ArgumentError add_set_variable!(md, :a, Simplex(2))
+
+    # nullspace_transform rejects integer variables informatively.
+    m2 = Model(x -> x[1]^2 + x[2]^2)
+    addvar!(m2, [0.0, 0.0], [1.0, 1.0]; integer=[true, false])
+    add_linear_constraint!(m2, [1.0 1.0], EqualTo([1.0]))
+    vm2, x2, _ = NonconvexCore.tovecmodel(m2, [0.0, 0.0])
+    @test_throws ArgumentError nullspace_transform(vm2)
+    # nullspace_transform on a model without linear equalities is the identity.
+    m3 = Model(x -> x[1]^2)
+    addvar!(m3, 0.0, 1.0)
+    vm3, x3, _ = NonconvexCore.tovecmodel(m3, [0.0])
+    rm3, z3, map3 = nullspace_transform(vm3)
+    @test rm3 === vm3
+
+    # The TransformVariables rrules: direct Zygote gradients through both
+    # directions exercise the pullbacks.
+    using TransformVariables: TransformVariables
+    const TV = TransformVariables
+    t = TV.as(Array, 2)
+    z0 = [0.3, -0.2]
+    g = Zygote.gradient(z -> sum(TV.transform(t, z)), z0)[1]
+    @test all(isfinite, g) && norm(g) > 0
+    x0 = TV.transform(t, z0)
+    g2 = Zygote.gradient(x -> sum(TV.inverse(t, x)), x0)[1]
+    @test all(isfinite, g2) && norm(g2) > 0
+end

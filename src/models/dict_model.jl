@@ -47,11 +47,10 @@ end
 function add_set_variable!(
     m::DictModel, k::Union{Symbol,String}, set::AbstractSet; init=nothing, integer=false
 )
-    return error(
-        "Set variables are not yet supported by DictModel: the variable block " *
-        "indices of a dict-structured model are only resolved when the model is " *
-        "flattened. Use Model with vector variables, or add the set constraint " *
-        "explicitly with add_set_constraint!.",
+    return throw(
+        ArgumentError(
+            "Set variables are not supported by DictModel; use Model with vector variables or add_set_constraint!.",
+        ),
     )
 end
 

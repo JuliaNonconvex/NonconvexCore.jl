@@ -268,8 +268,7 @@ function add_set_variable!(
     x0 = init === nothing ? variable_init(set) : init
     length(x0) == n || throw(
         ArgumentError(
-            "The initial point of a variable block in $(typeof(set)) must have " *
-            "$n entries, got $(length(x0)).",
+            "The initial point of a $(typeof(set)) block must have $n entries, got $(length(x0)).",
         ),
     )
     first = length(m.box_min) + 1
