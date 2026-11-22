@@ -1,5 +1,6 @@
 # NEWS
 
+
 ## 2.3.0
 
 - Function-in-set constraints and variable-in-set blocks, the
@@ -43,6 +44,15 @@
   model conversion keeps working through the shared `JuMPEvaluator`),
   `setmin!`/`setmax!`/`setbox!`, the `sd` keyword of
   `getobjectiveconstraints` and the internal `debugging` flag.
+
+
+## 2.2.9
+
+- `CustomHessianFunction` now supports vector-valued functions with `hvp = true`: `h(x, v)` returns the per-component Hessian-vector products and the weighted Lagrangian Hessian `Σ μᵢ∇²fᵢ(x)` is assembled from them, so second-order solvers get exact constraint curvature from a vector-valued block (closes #67). HVP-operator gradients also flow through `CustomGradFunction`'s rrule and frule.
+## 2.2.8
+
+- JuMP-converted model functions reject `ForwardDiff.Dual` inputs with an informative `ArgumentError` (nested AD through the evaluator cannot work; use the evaluator's own derivatives instead).
+- The affine/quadratic JuMP conversion preserves constant terms: `get_constraint_info` uses `bound - func.constant` and `get_objective_info` keeps the objective constant with the correct Maximization sign (previously a converted quadratic objective could report e.g. -4.5 instead of 0.5).
 
 ## 2.2.7
 

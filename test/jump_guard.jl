@@ -9,10 +9,12 @@
     # objective goes through the closed-form channel instead
     JuMP.@objective(model, Min, x^2 + sin(x))
     JuMP.@constraint(model, x >= 1)
+    JuMP.@constraint(model, x^2 - sin(x) == 0.5)  # a nonlinear equality row
     dm = DictModel(model)
     vm, xv, _ = NonconvexCore.tovecmodel(dm)
     obj = NonconvexCore.getobjective(vm)
     ineq = vm.ineq_constraints.fs[1]
+    eq = vm.eq_constraints.fs[1]
 
     # Float64 evaluation works
     @test obj(xv) isa Float64
@@ -23,4 +25,5 @@
     dx = ForwardDiff.Dual.(xv, zeros(length(xv)))
     @test_throws ArgumentError obj(dx)
     @test_throws ArgumentError ineq(dx)
+    @test_throws ArgumentError eq(dx)
 end
