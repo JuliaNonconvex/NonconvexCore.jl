@@ -76,9 +76,6 @@ function assess_convergence!(
     fabs_converged = Δf < fabstol
     frel_converged = relΔf < freltol
     if criteria isa ScaledKKTCriteria
-        if debugging[]
-            #@show get_objective_multiple(model)
-        end
         m = get_objective_multiple(model)
         scaled_kkt_residual = kkt_residual / max(abs(m), inv(abs(m)))
     else
@@ -155,15 +152,7 @@ function getresiduals(solution::Solution, model::AbstractModel, ::KKTCriteria)
             return abs(temp)
         end
     end
-    if debugging[]
-        @show λ, g
-    end
     res = isempty(g) ? res : max(res, maximum(abs.(λ .* g)))
-    if debugging[]
-        @show maximum(abs, g)
-        @show maximum(abs, λ)
-        @show maximum(x)
-    end
     infeas = isempty(g) ? 0.0 : max(maximum(g), 0)
     return missing, res, infeas, f
 end
@@ -190,8 +179,6 @@ function getresiduals(solution::Solution, model::AbstractModel, ::IpoptCriteria)
     res = isempty(g) ? res : max(res, maximum(abs.(λ .* g)))
     res = res / sd
     infeas = isempty(g) ? 0.0 : max(maximum(g), 0)
-    if debugging[]
-    end
     return missing, res, infeas, f
 end
 

@@ -21,7 +21,6 @@ post-processing after optimization.
 - [`getnconstraints`](@ref NonconvexCore.getnconstraints) returns the number
   of constraints.
 
-The [`setmin!`](@ref), [`setmax!`](@ref) and [`setinteger!`](@ref) functions
-update the bounds and integrality constraints after construction, which is
-useful for iterative procedures that resolve the same model with updated
-bounds.
+The [`setinteger!`](@ref) function updates the integrality constraints after
+construction, which is useful for iterative procedures that resolve the same
+model with updated integrality.

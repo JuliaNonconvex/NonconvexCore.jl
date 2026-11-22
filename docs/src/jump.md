@@ -53,21 +53,4 @@ the converted rows carry the sign and offset of the original set:
 becomes `f - v`, and each `Interval(l, u)` becomes the two rows `l - f` and
 `f - u` evaluated by a single call.
 
-## Evaluating single expressions
 
-[`JuMPSymbolicFunction`](@ref) wraps one MathOptInterface scalar function
-(any of `MOI.ScalarNonlinearFunction`, `MOI.ScalarQuadraticFunction` or
-`MOI.ScalarAffineFunction`) together with the ordered variables it depends
-on, and evaluates its value, gradient and Hessian with the
-`MOI.Nonlinear` evaluator:
-
-```julia
-expr = MOI.ScalarNonlinearFunction(:sin, Any[MOI.VariableIndex(1)])
-f = JuMPSymbolicFunction(expr, [MOI.VariableIndex(1)])
-f([0.5])                  # value
-jump_symbolic_gradient(f, [0.5])
-jump_symbolic_hessian(f, [0.5])
-```
-
-A `ChainRulesCore` `rrule` is defined, so the function differentiates
-correctly under any ChainRules-based reverse-mode backend.

@@ -97,30 +97,6 @@ Returns the variables' upper bounds of `model`.
 getmax
 
 """
-    setmin!(model::AbstractModel, min::Union{Number, AbstractVector})
-    setmin!(model::AbstractModel, i::Integer, min::Number)
-
-Sets the variables' lower bounds in `model` to `min`. Or if `i` is given, it sets the lower bound of the `i`^th variable in `model` to `min`.
-"""
-setmin!
-
-"""
-    setmax!(model::AbstractModel, max::Union{Number, AbstractVector})
-    setmax!(model::AbstractModel, i::Integer, max::Number)
-
-Sets the variables' upper bound in `model` to `max`. Or if `i` is given, it sets the upper bound of the `i`^th variable in `model` to `max`.
-"""
-setmax!
-
-"""
-    setbox!(model::AbstractModel, min::Union{Number, AbstractVector}, max::Union{Number, AbstractVector})
-    setbox!(model::AbstractModel, i::Integer, min::Number, max::Number)
-
-Sets the variables' lower and upper bounds in `model` to `min` and `max` respectively. Or if `i` is given, it sets the lower and upper bounds of the `i`^th variable in `model` to `min` and `max` respectively.
-"""
-setbox!
-
-"""
     addvar!(model::AbstractModel, lb::Number, ub::Number; init = lb, integer = false)
 
 Adds a new variable to `model` with lower and upper bounds `lb` and `ub`, initial value `init` and `integer = true` if the variable is integer.

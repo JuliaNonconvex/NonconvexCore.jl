@@ -37,8 +37,9 @@
         integer=false,
         infinite_bounds=false,
     )
-    NonconvexCore.solver_capabilities(::LyingSolver) =
-        ConstraintCapabilities(linear_eq=true, linear_ineq=true, box=true)
+    NonconvexCore.solver_capabilities(::LyingSolver) = ConstraintCapabilities(
+        linear_eq=true, linear_ineq=true, box=true
+    )
 
     struct ToyWorkspace <: Workspace
         model::VecModel
@@ -86,8 +87,8 @@
         integer && setinteger!(m, 1, true)
         binary && begin
             setinteger!(m, 1, true)
-            setmin!(m, 1, 0.0)
-            setmax!(m, 1, 1.0)
+            getmin(m)[1] = 0.0
+            getmax(m)[1] = 1.0
         end
         eq && add_eq_constraint!(m, x -> sum(x) - 1)
         neq && add_eq_constraint!(m, x -> x[1]^2 - 1)
