@@ -37,9 +37,8 @@
         integer=false,
         infinite_bounds=false,
     )
-    NonconvexCore.solver_capabilities(::LyingSolver) = ConstraintCapabilities(
-        linear_eq=true, linear_ineq=true, box=true
-    )
+    NonconvexCore.solver_capabilities(::LyingSolver) =
+        ConstraintCapabilities(linear_eq=true, linear_ineq=true, box=true)
 
     struct ToyWorkspace <: Workspace
         model::VecModel

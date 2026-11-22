@@ -22,7 +22,7 @@ end
 
 # Backward-compatible constructor without set constraints or set variables.
 function VecModel(obj, eq, ineq, sd, box_min, box_max, init, integer)
-    VecModel(
+    return VecModel(
         obj,
         eq,
         ineq,

@@ -33,7 +33,7 @@ end
 # Backward-compatible constructor: the `set_constraints`/`set_variables`
 # fields were added in NonconvexCore 2.3; older callers pass 8 fields.
 function Model(obj, eq, ineq, sd, box_min, box_max, init, integer)
-    Model(
+    return Model(
         obj,
         eq,
         ineq,

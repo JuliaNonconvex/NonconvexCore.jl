@@ -41,18 +41,19 @@
     # A stub optimizer that reports the initial point as the solution. Used to
     # test that `optimize` unflattens the result for structured variables.
     struct StubOptimizer <: NonconvexCore.AbstractOptimizer end
-    NonconvexCore.solver_capabilities(::StubOptimizer) = NonconvexCore.ConstraintCapabilities(
-        linear_eq=true,
-        nonlinear_eq=true,
-        linear_ineq=true,
-        nonlinear_ineq=true,
-        linear_sd=true,
-        nonlinear_sd=true,
-        box=true,
-        continuous=true,
-        binary=true,
-        integer=true,
-    )
+    NonconvexCore.solver_capabilities(::StubOptimizer) =
+        NonconvexCore.ConstraintCapabilities(
+            linear_eq=true,
+            nonlinear_eq=true,
+            linear_ineq=true,
+            nonlinear_ineq=true,
+            linear_sd=true,
+            nonlinear_sd=true,
+            box=true,
+            continuous=true,
+            binary=true,
+            integer=true,
+        )
     mutable struct StubWorkspace <: NonconvexCore.Workspace
         model::NonconvexCore.VecModel
         optimizer::StubOptimizer
@@ -82,18 +83,19 @@
     # initial_x field; optimize must not try to restore a field that does not
     # exist.
     struct StubNoFieldOptimizer <: NonconvexCore.AbstractOptimizer end
-    NonconvexCore.solver_capabilities(::StubNoFieldOptimizer) = NonconvexCore.ConstraintCapabilities(
-        linear_eq=true,
-        nonlinear_eq=true,
-        linear_ineq=true,
-        nonlinear_ineq=true,
-        linear_sd=true,
-        nonlinear_sd=true,
-        box=true,
-        continuous=true,
-        binary=true,
-        integer=true,
-    )
+    NonconvexCore.solver_capabilities(::StubNoFieldOptimizer) =
+        NonconvexCore.ConstraintCapabilities(
+            linear_eq=true,
+            nonlinear_eq=true,
+            linear_ineq=true,
+            nonlinear_ineq=true,
+            linear_sd=true,
+            nonlinear_sd=true,
+            box=true,
+            continuous=true,
+            binary=true,
+            integer=true,
+        )
     mutable struct StubNoFieldWorkspace <: NonconvexCore.Workspace
         model::NonconvexCore.VecModel
         optimizer::StubNoFieldOptimizer

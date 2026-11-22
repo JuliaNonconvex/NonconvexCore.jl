@@ -59,7 +59,7 @@ function TV.inverse_at!(x::AbstractVector, index::Int, t::StanSimplex, y::Abstra
 end
 
 function TV.inverse_eltype(t::StanSimplex, ::Type{T}) where {T<:AbstractVector}
-    TV._ensure_float(eltype(T))
+    return TV._ensure_float(eltype(T))
 end
 
 ######################################################

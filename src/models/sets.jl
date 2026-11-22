@@ -418,7 +418,7 @@ struct FunctionInSet{F,S<:AbstractSet} <: AbstractConstraint
     flags::Set{Symbol}
 end
 function FunctionInSet(f, set::AbstractSet; flags=Set{Symbol}())
-    FunctionInSet(f, set, _flags_set(flags))
+    return FunctionInSet(f, set, _flags_set(flags))
 end
 
 function (c::FunctionInSet)(x)
@@ -639,7 +639,7 @@ struct VariableInSet{S<:AbstractSet}
     flags::Set{Symbol}
 end
 function VariableInSet(set, range::UnitRange{Int}; flags=Set{Symbol}())
-    VariableInSet(set, range, _flags_set(flags))
+    return VariableInSet(set, range, _flags_set(flags))
 end
 
 # Normalize a label collection (Symbol, vector of Symbols, set, …) to a
@@ -780,7 +780,7 @@ end
 # kinds defined outside NonconvexCore extend this hook with their own type.
 _variable_cone_constraint(set::AbstractSet, r) = nothing
 function _variable_cone_constraint(set::Simplex, r)
-    FunctionInSet(x -> sum(view(x, r)), EqualTo(1.0))
+    return FunctionInSet(x -> sum(view(x, r)), EqualTo(1.0))
 end
 function _variable_cone_constraint(set::PSDCone, r)
     n = set.dim
