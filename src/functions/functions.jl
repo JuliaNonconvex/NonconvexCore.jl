@@ -5,6 +5,11 @@ An abstract function type.
 """
 abstract type AbstractFunction <: Function end
 
+# Unwrap a ChainRules thunk (the tangent arithmetic helper shared by the
+# derivative machinery and the package extensions).
+_unthunk(x) = x
+_unthunk(x::ChainRulesCore.AbstractThunk) = ChainRulesCore.unthunk(x)
+
 """
     length(f::AbstractFunction)
 

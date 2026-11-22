@@ -11,6 +11,8 @@ mutable struct DictModel <: AbstractModel
     eq_constraints::VectorOfFunctions
     ineq_constraints::VectorOfFunctions
     sd_constraints::VectorOfFunctions
+    set_constraints::VectorOfFunctions
+    set_variables::Vector{VariableInSet}
     box_min::OrderedDict
     box_max::OrderedDict
     init::OrderedDict
@@ -23,6 +25,8 @@ function DictModel(f=nothing)
         VectorOfFunctions(EqConstraint[]),
         VectorOfFunctions(IneqConstraint[]),
         VectorOfFunctions(SDConstraint[]),
+        VectorOfFunctions(FunctionInSet[]),
+        VariableInSet[],
         OrderedDict(),
         OrderedDict(),
         OrderedDict(),
@@ -38,6 +42,16 @@ function addvar!(
     m.init[k] = init
     m.integer[k] = integer
     return m
+end
+
+function add_set_variable!(
+    m::DictModel, k::Union{Symbol,String}, set::AbstractSet; init=nothing, integer=false
+)
+    return throw(
+        ArgumentError(
+            "Set variables are not supported by DictModel; use Model with vector variables or add_set_constraint!.",
+        ),
+    )
 end
 
 """

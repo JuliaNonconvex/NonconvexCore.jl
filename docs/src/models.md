@@ -192,27 +192,6 @@ add_sd_constraint!(model, f)
 where `f` returns either a symmetric matrix or a vector of the
 lower-triangular entries of the matrix.
 
-## Changing variable bounds
-
-After defining the variables, it is possible to set the minimum and maximum
-variable bounds to different values. This is useful in iterative procedures
-where the bounds are updated and the problem is resolved.
-
-To update the entire vector of minimum bounds, use:
-
-```julia
-setmin!(model, newmin)
-```
-
-where `newmin` is a vector of bounds; `-Inf` is allowed. To set a new minimum
-bound for the `i`th variable only, use:
-
-```julia
-setmin!(model, i, newmin)
-```
-
-Similarly, [`setmax!`](@ref) updates the maximum bounds, with `Inf` allowed.
-
 ## Changing integrality constraints
 
 To constrain a variable to be integer or relax the integrality constraint on

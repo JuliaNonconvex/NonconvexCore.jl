@@ -3,6 +3,7 @@ mutable struct VecModel{
     TE<:VectorOfFunctions,
     TI<:VectorOfFunctions,
     TS<:VectorOfFunctions,
+    TSE<:VectorOfFunctions,
     Tv1<:AbstractVector,
     Tv2<:AbstractVector,
     Tv3<:AbstractVector,
@@ -11,16 +12,41 @@ mutable struct VecModel{
     eq_constraints::TE
     ineq_constraints::TI
     sd_constraints::TS
+    set_constraints::TSE
+    set_variables::Vector{VariableInSet}
     box_min::Tv1
     box_max::Tv2
     init::Tv3
     integer::BitVector
 end
 
+# Backward-compatible constructor without set constraints or set variables.
+function VecModel(obj, eq, ineq, sd, box_min, box_max, init, integer)
+    return VecModel(
+        obj,
+        eq,
+        ineq,
+        sd,
+        VectorOfFunctions(FunctionInSet[]),
+        VariableInSet[],
+        box_min,
+        box_max,
+        init,
+        integer,
+    )
+end
+
 function isfeasible(model::VecModel, x::AbstractVector; ctol=1e-4)
-    return all(getmin(model) .<= x .<= getmax(model)) &&
-           all(getineqconstraints(model)(x) .<= ctol) &&
-           all(-ctol .<= geteqconstraints(model)(x) .<= ctol)
+    feas =
+        all(getmin(model) .<= x .<= getmax(model)) &&
+        all(getineqconstraints(model)(x) .<= ctol) &&
+        all(-ctol .<= geteqconstraints(model)(x) .<= ctol)
+    if feas && length(model.set_constraints.fs) > 0
+        feas = all(
+            all(v -> v <= ctol, set_violation(c, x)) for c in model.set_constraints.fs
+        )
+    end
+    return feas
 end
 
 function addvar!(m::VecModel, lb::Real, ub::Real; init::Real=lb, integer=false)
@@ -28,6 +54,10 @@ function addvar!(m::VecModel, lb::Real, ub::Real; init::Real=lb, integer=false)
     push!(getmax(m), ub)
     push!(m.init, init)
     push!(m.integer, integer)
+    push!(
+        m.set_variables,
+        VariableInSet(Interval(lb, ub), length(m.box_min):length(m.box_min)),
+    )
     return m
 end
 function addvar!(
@@ -37,10 +67,12 @@ function addvar!(
     init::Vector{<:Real}=copy(lb),
     integer=falses(sum(length, lb)),
 )
+    first = length(m.box_min) + 1
     append!(getmin(m), lb)
     append!(getmax(m), ub)
     append!(m.init, init)
     append!(m.integer, integer)
+    push!(m.set_variables, VariableInSet(Interval(lb, ub), first:(first + length(lb) - 1)))
     return m
 end
 
@@ -171,7 +203,22 @@ function tovecmodel(m::AbstractModel, _x0=getinit(m))
     init = reduce_type(m.init)
     v, _unflatten = flatten(x0)
     unflatten = Unflatten(x0, _unflatten)
-    return VecModel(
+    # Set constraints: the user's function-in-set constraints plus the
+    # synthetic ones encoding the cone parts of set variables. The flat
+    # indices of `Model` variables are unchanged by the flattening of a
+    # plain vector, so the recorded block ranges stay valid.
+    set_cs = FunctionInSet[]
+    for c in m.set_constraints.fs
+        # The constraint object itself is vectorized (not its raw function):
+        # a ChanceSet constraint calls its two-argument function over the
+        # scenarios, which a probe of the raw function would not.
+        cnew = tovecfunc(c, x0; flatteny=false)[1]
+        push!(set_cs, cnew isa FunctionInSet ? cnew : FunctionInSet(cnew, c.set, c.flags))
+    end
+    for v in m.set_variables
+        append!(set_cs, variable_set_constraints(v))
+    end
+    vm = VecModel(
         # objective
         Objective(tovecfunc(m.objective.f, x0)[1], m.objective.multiple, m.objective.flags),
         # eq_constraints
@@ -208,6 +255,10 @@ function tovecmodel(m::AbstractModel, _x0=getinit(m))
         else
             VectorOfFunctions(())
         end,
+        # set_constraints (user + synthetic)
+        VectorOfFunctions(set_cs),
+        # set_variables
+        m.set_variables,
         # box_min
         float.(flatten(box_min)[1]),
         # box_max
@@ -216,7 +267,6 @@ function tovecmodel(m::AbstractModel, _x0=getinit(m))
         float.(flatten(init)[1]),
         # integer
         convert(BitVector, flatten(m.integer)[1]),
-    ),
-    float.(v),
-    unflatten
+    )
+    return vm, float.(v), unflatten
 end

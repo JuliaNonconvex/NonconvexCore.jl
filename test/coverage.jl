@@ -145,18 +145,6 @@ end
     @test !NC.isinteger(m, 2)
     @test NC.geteqconstraint(m, 1) == NC.geteqconstraints(m).fs[1]
     @test NC.getineqconstraint(m, 1) == NC.getineqconstraints(m).fs[1]
-    NC.setmin!(m, [-2.0, -2.0])
-    @test NC.getmin(m) == [-2.0, -2.0]
-    NC.setmin!(m, 1, -3.0)
-    @test NC.getmin(m)[1] == -3.0
-    NC.setmax!(m, [2.0, 2.0])
-    @test NC.getmax(m) == [2.0, 2.0]
-    NC.setmax!(m, 2, 3.0)
-    @test NC.getmax(m)[2] == 3.0
-    NC.setbox!(m, [-4.0, -4.0], [4.0, 4.0])
-    @test NC.getmin(m) == [-4.0, -4.0] && NC.getmax(m) == [4.0, 4.0]
-    NC.setbox!(m, 1, -5.0, 5.0)
-    @test NC.getmin(m)[1] == -5.0 && NC.getmax(m)[1] == 5.0
     m2 = NC.set_objective(m, x -> sum(abs2, x))
     @test m2.objective !== m.objective
     NC.add_ineq_constraint!(m, NC.IneqConstraint[NC.IneqConstraint(x -> -x[2], 0.0)])
@@ -353,19 +341,6 @@ end
     @test Zygote.gradient(z -> sum(NC._sparsevec(z)), [1.0, 2.0])[1] == [1.0, 1.0]
 end
 
-@testitem "Coverage: symbolic evaluator" begin
-    using NonconvexCore, Test, LinearAlgebra, SparseArrays
-    using Zygote
-    import MathOptInterface as MOI
-    const NC = NonconvexCore
-    expr = MOI.ScalarNonlinearFunction(:sin, Any[MOI.VariableIndex(1)])
-    jf = NC.JuMPSymbolicFunction(expr, [MOI.VariableIndex(1)])
-    @test NC.jump_symbolic_hessian_sparsity(jf, 1) == [(1, 1)]
-    H = NC.jump_symbolic_hessian(jf, [0.5])
-    @test H ≈ reshape([-sin(0.5)], 1, 1)
-    @test Zygote.gradient(z -> jf(z), [0.5])[1] ≈ [cos(0.5)]
-end
-
 @testitem "Coverage: remaining live paths" begin
     using NonconvexCore, Test, LinearAlgebra, SparseArrays
     using Zygote, ForwardDiff
@@ -435,11 +410,6 @@ end
     @test_throws String NC.assess_convergence!(
         sol, m3, NC.Tolerance(), UnsupportedCriteria(), false, 0
     )
-    NC.debugging[] = true
-    for crit in (NC.KKTCriteria(), NC.IpoptCriteria(), NC.GenericCriteria())
-        NC.getresiduals(sol, m3, crit)
-    end
-    NC.debugging[] = false
     cfg, dcfg = ChainRulesCore.frule(
         (NoTangent(), [1.0, 0.0]),
         NC.CustomGradFunction(x -> x[1] + x[2], nothing),

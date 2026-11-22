@@ -8,20 +8,55 @@ capability system. See the [Introduction](index.md) for an overview.
 """
 module NonconvexCore
 
-const debugging = Ref(false)
-
 export Model,
     DictModel,
     addvar!,
+    add_set_variable!,
     getobjective,
     set_objective!,
     add_ineq_constraint!,
     add_eq_constraint!,
     add_sd_constraint!,
+    add_set_constraint!,
+    VectorSet,
+    Reals,
+    EqualTo,
+    EqualitySet,
+    LessThan,
+    InequalitySet,
+    GreaterThan,
+    Interval,
+    Nonnegatives,
+    Nonpositives,
+    Zeros,
+    Simplex,
+    PSDCone,
+    has_psd_component,
+    ChanceSet,
+    Zero,
+    add_chance_constraint!,
+    SetProduct,
+    FunctionInSet,
+    VariableInSet,
+    LinearFunction,
+    add_linear_constraint!,
+    add_epigraph_variable!,
+    epigraph!,
+    setof,
+    tosetconstraint,
+    set_violation,
+    components,
+    variable_dim,
+    variable_set_kinds,
+    variable_set_constraints,
+    chance,
+    nullspace_transform,
+    unconstrained_transform,
+    StanSimplex,
     getmin,
     getmax,
-    setmin!,
-    setmax!,
+    getsetvariables,
+    getsetconstraints,
     setinteger!,
     optimize,
     Workspace,
@@ -44,14 +79,11 @@ export Model,
     prepare_sparse_hessian,
     prepare_model,
     diffy,
-    JuMPSymbolicFunction,
     TraceFunction,
     CustomGradFunction,
     CustomHessianFunction,
     LazyJacobian,
-    symbolify,
-    jump_symbolic_gradient,
-    jump_symbolic_hessian
+    symbolify
 
 using Parameters, Zygote, ChainRulesCore, ForwardDiff
 using SparseArrays, Reexport
@@ -113,12 +145,15 @@ include("utilities/convergence.jl")
 
 # Models
 
+include("models/sets.jl")
 include("models/model.jl")
 include("models/vec_model.jl")
+include("models/linear.jl")
+include("models/jump_nonlinear.jl")
+include("models/transforms.jl")
 include("models/dict_model.jl")
 include("models/model_docs.jl")
 include("models/jump.jl")
-include("models/jumpsymbolic.jl")
 include("models/moi.jl")
 include("functions/prepare.jl")
 

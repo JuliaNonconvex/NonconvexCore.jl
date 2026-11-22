@@ -7,7 +7,11 @@
 """
     ConstraintCapabilities(; linear_eq = missing, nonlinear_eq = missing,
                              linear_ineq = missing, nonlinear_ineq = missing,
-                             sd = missing, box = missing,
+                             linear_sd = missing, nonlinear_sd = missing,
+                             sets_eq = false, sets_ineq = false,
+                             sets_sd = false, sets_simplex = false,
+                             sets_product = false, variable_sets_sd = false,
+                             variable_sets_simplex = false, box = missing,
                              continuous = missing, binary = missing,
                              integer = missing, infinite_bounds = missing)
 
@@ -19,6 +23,24 @@ Declares which constraint/variable features an optimizer supports:
 - `nonlinear_ineq`: nonlinear inequality constraints,
 - `linear_sd`: linear semidefinite constraints,
 - `nonlinear_sd`: nonlinear semidefinite constraints,
+- `sets_eq`: function-in-set equality constraints (`EqualTo`, `Zeros`,
+  defaults to `false` — not supported),
+- `sets_ineq`: function-in-set inequality/order constraints (`LessThan`,
+  `GreaterThan`, `Interval`, `Nonnegatives`, `Nonpositives`; defaults to
+  `false`),
+- `sets_sd`: function-in-set semidefinite constraints (`PSDCone`; defaults
+  to `false`),
+- `sets_simplex`: function-in-set simplex constraints (`Simplex`; defaults
+  to `false`),
+- `sets_product`: function-in-set product constraints (`SetProduct`;
+  defaults to `false`),
+- `sets_chance`: probabilistic (chance) constraints (`ChanceSet`, including
+  per-output probabilities and deterministic `Zero()` constraints; defaults
+  to `false`),
+- `variable_sets_sd`: variables defined as `PSDCone` blocks (semidefinite
+  matrix variables; defaults to `false`),
+- `variable_sets_simplex`: variables defined as `Simplex` blocks (defaults
+  to `false`),
 - `box`: finite variable bounds,
 - `continuous`: continuous variables,
 - `binary`: binary (0/1) variables,
@@ -36,6 +58,14 @@ struct ConstraintCapabilities
     nonlinear_ineq::Union{Bool,Missing}
     linear_sd::Union{Bool,Missing}
     nonlinear_sd::Union{Bool,Missing}
+    sets_eq::Union{Bool,Missing}
+    sets_ineq::Union{Bool,Missing}
+    sets_sd::Union{Bool,Missing}
+    sets_simplex::Union{Bool,Missing}
+    sets_product::Union{Bool,Missing}
+    sets_chance::Union{Bool,Missing}
+    variable_sets_sd::Union{Bool,Missing}
+    variable_sets_simplex::Union{Bool,Missing}
     box::Union{Bool,Missing}
     continuous::Union{Bool,Missing}
     binary::Union{Bool,Missing}
@@ -49,6 +79,14 @@ function ConstraintCapabilities(;
     nonlinear_ineq=missing,
     linear_sd=missing,
     nonlinear_sd=missing,
+    sets_eq=false,
+    sets_ineq=false,
+    sets_sd=false,
+    sets_simplex=false,
+    sets_product=false,
+    sets_chance=false,
+    variable_sets_sd=false,
+    variable_sets_simplex=false,
     box=missing,
     continuous=missing,
     binary=missing,
@@ -62,11 +100,49 @@ function ConstraintCapabilities(;
         nonlinear_ineq,
         linear_sd,
         nonlinear_sd,
+        sets_eq,
+        sets_ineq,
+        sets_sd,
+        sets_simplex,
+        sets_product,
+        sets_chance,
+        variable_sets_sd,
+        variable_sets_simplex,
         box,
         continuous,
         binary,
         integer,
         infinite_bounds,
+    )
+end
+
+# Backward-compatible positional constructor (the pre-2.3 field order): the
+# set capabilities default to `false` (not supported).
+function ConstraintCapabilities(
+    linear_eq::Union{Bool,Missing},
+    nonlinear_eq::Union{Bool,Missing},
+    linear_ineq::Union{Bool,Missing},
+    nonlinear_ineq::Union{Bool,Missing},
+    linear_sd::Union{Bool,Missing},
+    nonlinear_sd::Union{Bool,Missing},
+    box::Union{Bool,Missing},
+    continuous::Union{Bool,Missing},
+    binary::Union{Bool,Missing},
+    integer::Union{Bool,Missing},
+    infinite_bounds::Union{Bool,Missing},
+)
+    return ConstraintCapabilities(;
+        linear_eq=linear_eq,
+        nonlinear_eq=nonlinear_eq,
+        linear_ineq=linear_ineq,
+        nonlinear_ineq=nonlinear_ineq,
+        linear_sd=linear_sd,
+        nonlinear_sd=nonlinear_sd,
+        box=box,
+        continuous=continuous,
+        binary=binary,
+        integer=integer,
+        infinite_bounds=infinite_bounds,
     )
 end
 
@@ -106,6 +182,14 @@ function merge_capabilities(base::Union{ConstraintCapabilities,Nothing}; kwargs.
         nonlinear_ineq=d[:nonlinear_ineq],
         linear_sd=d[:linear_sd],
         nonlinear_sd=d[:nonlinear_sd],
+        sets_eq=d[:sets_eq],
+        sets_ineq=d[:sets_ineq],
+        sets_sd=d[:sets_sd],
+        sets_simplex=d[:sets_simplex],
+        sets_product=d[:sets_product],
+        sets_chance=d[:sets_chance],
+        variable_sets_sd=d[:variable_sets_sd],
+        variable_sets_simplex=d[:variable_sets_simplex],
         box=d[:box],
         continuous=d[:continuous],
         binary=d[:binary],
@@ -165,6 +249,33 @@ function checksubproblem!(
         discrete[i] = model.integer[i] != 0
         binary_flag[i] = discrete[i] && model.box_min[i] >= 0 && model.box_max[i] <= 1
     end
+    # Function-in-set features, split per set kind. The cone parts of set
+    # variables are enforced as synthetic set constraints on the block (a PSD
+    # constraint for PSDCone blocks, a sum-to-one equality for simplex
+    # blocks), so the matching `sets_*` capabilities fire through the
+    # synthetic constraints themselves; the variable blocks additionally
+    # require the corresponding `variable_sets_*` capability.
+    set_features = Dict{Symbol,Bool}(
+        :sets_eq => false,
+        :sets_ineq => false,
+        :sets_sd => false,
+        :sets_simplex => false,
+        :sets_product => false,
+        :sets_chance => false,
+    )
+    var_features = Dict{Symbol,Bool}(
+        :variable_sets_sd => false, :variable_sets_simplex => false
+    )
+    for c in model.set_constraints.fs
+        for k in set_kinds(c.set)
+            set_features[Symbol(:sets_, k)] = true
+        end
+    end
+    for v in model.set_variables
+        for k in variable_set_kinds(v.set)
+            var_features[Symbol(:variable_sets_, k)] = true
+        end
+    end
     features = Dict{Symbol,Bool}(
         :linear_eq => any(eq_lin),
         :nonlinear_eq => any(.!eq_lin),
@@ -172,6 +283,8 @@ function checksubproblem!(
         :nonlinear_ineq => any(.!ineq_lin),
         :linear_sd => any(sd_lin),
         :nonlinear_sd => any(.!sd_lin),
+        set_features...,
+        var_features...,
         :box => any(isfinite, model.box_min) || any(isfinite, model.box_max),
         :continuous => any(.!discrete),
         :binary => any(binary_flag),
@@ -185,6 +298,14 @@ function checksubproblem!(
         :nonlinear_ineq => "nonlinear inequality constraints",
         :linear_sd => "linear semidefinite constraints",
         :nonlinear_sd => "nonlinear semidefinite constraints",
+        :sets_eq => "function-in-set equality constraints (EqualTo)",
+        :sets_ineq => "function-in-set inequality constraints (LessThan/GreaterThan/Interval/Nonnegatives/Nonpositives)",
+        :sets_sd => "function-in-set semidefinite constraints (PSDCone)",
+        :sets_simplex => "function-in-set simplex constraints (Simplex)",
+        :sets_product => "function-in-set product constraints (SetProduct)",
+        :sets_chance => "probabilistic (chance) constraints (ChanceSet)",
+        :variable_sets_sd => "semidefinite (PSDCone) variable blocks",
+        :variable_sets_simplex => "simplex variable blocks",
         :box => "bounds on variables",
         :continuous => "continuous variables",
         :binary => "binary variables",
@@ -224,7 +345,11 @@ function _constraint_linearity(cs::VectorOfFunctions, x)
     for c in cs.fs
         raw = c.f isa FlattenedFunction ? getrawfunction(c.f) : c.f
         raw = raw isa FunctionWrapper ? getfunction(raw) : raw
-        if raw isa JuMPModelIneq
+        # First-class linear constraints are classified exactly.
+        inner = raw isa FunctionInSet ? getfunction(raw) : raw
+        if inner isa LinearFunction
+            append!(out, fill(true, getdim(c)))
+        elseif raw isa JuMPModelIneq
             lin, _ = jump_constraint_linearity(raw.m)
             append!(out, lin)
         elseif raw isa JuMPModelEq
