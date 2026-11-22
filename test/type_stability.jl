@@ -50,3 +50,55 @@
     @test (@inferred NonconvexCore.fill_indices!(rows, cols, [1.0 0.0; 0.0 1.0])) ==
         (rows, cols)
 end
+
+@testitem "Sets: type stability" begin
+    using NonconvexCore, Test, LinearAlgebra
+    using NonconvexCore:
+        set_violation,
+        components,
+        set_kinds,
+        variable_set_kinds,
+        variable_dim,
+        variable_box,
+        variable_init,
+        setof,
+        tosetconstraint
+
+    # Set constructors (including the mixed-type promotion of Interval).
+    @test (@inferred LessThan(0.0)) isa LessThan{Float64}
+    @test (@inferred GreaterThan(1)) isa GreaterThan{Int}
+    @test (@inferred EqualTo([0.0, 0.0])) isa EqualTo{Vector{Float64}}
+    @test (@inferred Interval(0.0, 1.0)) isa Interval{Float64}
+    @test (@inferred Interval([0.0], [1])) isa Interval{Vector{Float64}}
+    @test (@inferred Nonnegatives(2)) isa Nonnegatives
+    @test (@inferred Nonpositives(2)) isa Nonpositives
+    @test (@inferred Zeros(2)) isa Zeros
+    @test (@inferred Reals(2)) isa Reals
+    @test (@inferred Simplex(3)) isa Simplex
+    @test (@inferred PSDCone(3)) isa PSDCone
+    @test (@inferred Zero()) isa Zero
+    @test (@inferred SetProduct(LessThan(0.0), PSDCone(2))) isa SetProduct
+    @test (@inferred ChanceSet(LessThan(0.0), [nothing]; epsilon=Zero())) isa ChanceSet
+
+    # Dimensions, decomposition and kind detection.
+    @test (@inferred getdim(PSDCone(2))) == 4
+    @test (@inferred components(SetProduct(LessThan(0.0), PSDCone(2)))) isa
+        Tuple{LessThan{Float64},PSDCone}
+    @test (@inferred set_kinds(SetProduct(LessThan(0.0), PSDCone(2)))) ==
+        [:product, :ineq, :sd]
+    @test (@inferred variable_set_kinds(PSDCone(2))) == [:sd]
+    @test (@inferred variable_dim(PSDCone(2))) == 4
+    @test (@inferred variable_box(PSDCone(2))) isa Tuple{Vector{Float64},Vector{Float64}}
+    @test (@inferred variable_init(PSDCone(2))) == vec(Matrix{Float64}(I, 2, 2))
+    @test (@inferred has_psd_component(SetProduct(LessThan(0.0), PSDCone(2)))) === true
+    @test (@inferred has_psd_component(LessThan(0.0))) === false
+
+    # Violation and the classic-constraint conversions.
+    c = FunctionInSet(
+        x -> (x[1] - 1.0, x[2] - 2.0), SetProduct(LessThan(0.0), LessThan(0.0))
+    )
+    @test (@inferred set_violation(c, [0.0, 0.0])) isa Vector{Float64}
+    @test (@inferred setof(NonconvexCore.IneqConstraint(x -> x[1], 0.0))) isa LessThan
+    @test (@inferred tosetconstraint(NonconvexCore.SDConstraint(x -> [x[1];;], 1)).set) isa
+        PSDCone
+end

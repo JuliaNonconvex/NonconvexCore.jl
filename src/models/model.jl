@@ -239,7 +239,9 @@ function addvar!(m::Model, lb, ub; init=deepcopy(lb), integer=false, flags=Set{S
     push!(
         m.set_variables,
         VariableInSet(
-            Interval(lb, ub, 1), length(m.box_min):length(m.box_min); flags=flags
+            Interval(promote(lb, ub)..., 1),
+            length(m.box_min):length(m.box_min);
+            flags=flags,
         ),
     )
     return m
@@ -250,7 +252,7 @@ end
 
 Adds a block of decision variables constrained to lie in the set `set`, in
 place. The block is registered as a [`VariableInSet`](@ref) (returned):
-`PSDCone(n)` (provided by NonconvexSemidefinite.jl) introduces an `n × n`
+`PSDCone(n)` introduces an `n × n`
 semidefinite matrix variable, `Simplex(n)` a probability simplex variable,
 the order sets bounded/fixed blocks, and `SetProduct` a concatenation of
 blocks. The cone parts the box cannot express (PSD-ness, the simplex sum)
@@ -396,7 +398,7 @@ NonconvexSemidefinite.jl), or a tuple with one entry per component of a
 the model's initial point.
 
 Solvers must declare support for function-in-set constraints via the `sets`
-capability of [`ConstraintCapabilities`](@ref); [`AugLagAlg`](@ref) from
+capability of [`ConstraintCapabilities`](@ref); `AugLagAlg` from
 NonconvexAugLagLab is the reference implementation.
 """
 function add_set_constraint!(
@@ -412,11 +414,10 @@ function add_set_constraint!(m::AbstractModel, c::FunctionInSet)
 end
 
 """
-    add_chance_constraint!(m::AbstractModel, c::AbstractConstraint, dist;
-        epsilon = 0.05, n_samples = 1000, seed = 1, kappa = 10.0)
-    add_chance_constraint!(m::AbstractModel, f, dist, set::AbstractSet;
-        epsilon = 0.05, n_samples = 1000, seed = 1, kappa = 10.0,
-        flags = Set{Symbol}())
+    add_chance_constraint!(m::AbstractModel, c::AbstractConstraint, scenarios;
+        epsilon = 0.05, kappa = 10.0)
+    add_chance_constraint!(m::AbstractModel, f, scenarios, set::AbstractSet;
+        epsilon = 0.05, kappa = 10.0, flags = Set{Symbol}())
 
 Adds the probabilistic constraint
 `P_ξ[f(x, ξ) ∈ set] ≥ 1 - epsilon` to the model `m` in place. Any existing
@@ -425,42 +426,35 @@ constraint type can be turned probabilistic: pass a classical constraint
 function takes the decision vector `x` and a random scenario `ξ`; the bound
 is the constraint's own set. Equivalently, pass the function and the bound
 directly as a set (`LessThan`, `Interval`, `PSDCone` from
-NonconvexSemidefinite.jl, …) together with the
-distribution `dist` (any object implementing `rand`).
+NonconvexSemidefinite.jl, …) together with the scenario batch `scenarios`
+(a vector of `ξ` values drawn by the caller with the RNG of its choice —
+NonconvexCore does not sample).
 
-The `n_samples` Monte Carlo scenarios are drawn once at registration with
-the fixed `seed`, so the constraint is deterministic in `x`; the exceedance
-probability is estimated by a smooth (tanh) sample average of the indicator
-with sharpness `kappa` (see [`ChanceSet`](@ref)), making the constraint
-differentiable. With a `SetProduct` bound, `epsilon` can be a vector of
-probabilities, one per output, each output sharing the same scenario batch;
-`epsilon = 0` with the degenerate `One()` distribution expresses a
-deterministic constraint. Requires the `sets_chance` solver capability.
+The exceedance probability is estimated by a smooth (tanh) sample average
+of the indicator with sharpness `kappa` (see [`ChanceSet`](@ref)), making
+the constraint differentiable. With a `SetProduct` bound, `epsilon` can be
+a vector of probabilities, one per output, each output sharing the same
+scenario batch; `epsilon = Zero()` expresses a deterministic constraint.
+Requires the `sets_chance` solver capability.
 """
 function add_chance_constraint!(
-    m::AbstractModel, c::AbstractConstraint, dist; flags=Set{Symbol}(), kwargs...
+    m::AbstractModel, c::AbstractConstraint, scenarios; flags=Set{Symbol}(), kwargs...
 )
-    return add_set_constraint!(m, chance(c, dist; kwargs...))
+    return add_set_constraint!(m, chance(c, scenarios; kwargs...))
 end
 function add_chance_constraint!(
     m::AbstractModel,
     f::Function,
-    dist,
+    scenarios,
     set::AbstractSet;
     epsilon=0.05,
-    n_samples::Int=1000,
-    seed::Integer=1,
     kappa=10.0,
     flags=Set{Symbol}(),
 )
     return add_set_constraint!(
         m,
         FunctionInSet(
-            f,
-            ChanceSet(
-                set, dist; epsilon=epsilon, n_samples=n_samples, seed=seed, kappa=kappa
-            );
-            flags=flags,
+            f, ChanceSet(set, scenarios; epsilon=epsilon, kappa=kappa); flags=flags
         ),
     )
 end

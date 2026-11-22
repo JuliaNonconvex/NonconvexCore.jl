@@ -384,10 +384,9 @@ end
 
 @testitem "Probabilistic (chance) constraints" begin
     using NonconvexCore, LinearAlgebra, Test, Zygote, Random
-    using NonconvexCore: IneqConstraint, chance
 
-    struct Uniform01 end
-    Random.rand(rng::AbstractRNG, ::Uniform01) = rand(rng)
+    # The scenario batch is drawn by the caller (Core does not sample).
+    scenarios(rng, n) = [rand(rng) for _ in 1:n]
 
     # P(x + ξ ≤ 1) ≥ 0.9 with ξ ~ Uniform(0, 1) ⟺ x ≤ 0.1.
     m = Model(x -> x[1]^2)
@@ -395,11 +394,9 @@ end
     add_chance_constraint!(
         m,
         (x, ξ) -> x[1] + ξ,
-        Uniform01(),
+        scenarios(MersenneTwister(42), 2000),
         LessThan(1.0);
         epsilon=0.1,
-        n_samples=2000,
-        seed=42,
     )
     vm, x5, _ = NonconvexCore.tovecmodel(m, [0.0])
     c = vm.set_constraints.fs[1]
@@ -421,11 +418,9 @@ end
     add_chance_constraint!(
         m2,
         (x, ξ) -> (x[1] + ξ, x[2] + ξ),
-        Uniform01(),
+        scenarios(MersenneTwister(11), 2000),
         SetProduct(LessThan(1.0), LessThan(1.5));
         epsilon=[0.1, 0.3],
-        n_samples=2000,
-        seed=11,
     )
     vm2, x6, _ = NonconvexCore.tovecmodel(m2, [0.0, 0.0])
     c2 = vm2.set_constraints.fs[1]
@@ -436,22 +431,21 @@ end
     @test v2[1] ≈ 0.36 atol = 0.05
     @test v2[2] == 0.0
 
-    # Probability-1 constraints with the degenerate One() distribution are
-    # deterministic and exact.
+    # Deterministic constraints with the special value epsilon = Zero().
     m3 = Model(x -> x[1]^2)
     addvar!(m3, 0.0, 1.0)
-    add_chance_constraint!(m3, (x, ξ) -> x[1], One(), LessThan(0.5); epsilon=0.0)
+    add_chance_constraint!(m3, (x, ξ) -> x[1], nothing, LessThan(0.5); epsilon=Zero())
     vm3, x7, _ = NonconvexCore.tovecmodel(m3, [0.0])
     c3 = vm3.set_constraints.fs[1]
-    @test c3.set.dist isa One
+    @test c3.set.epsilon isa Zero
     @test set_violation(c3, [0.3]) == [0.0]
     @test set_violation(c3, [0.7]) ≈ [0.2]
-    # A deterministic constraint with ε > 0 is rejected.
-    @test_throws ArgumentError ChanceSet(LessThan(0.0), One(); epsilon=0.1)
+    # A probabilistic constraint requires a scenario batch.
+    @test_throws ArgumentError ChanceSet(LessThan(0.0), nothing; epsilon=0.1)
 
     # Any existing constraint type can be turned probabilistic.
     ci = IneqConstraint((x, ξ) -> x[1] + ξ - 1.0, 0.0)  # x + ξ ≤ 1
-    pc = chance(ci, Uniform01(); epsilon=0.1, n_samples=500, seed=3)
+    pc = chance(ci, scenarios(MersenneTwister(3), 500); epsilon=0.1)
     @test pc isa FunctionInSet
     @test pc.set isa ChanceSet
     @test pc.set.set isa LessThan
@@ -461,11 +455,115 @@ end
     add_chance_constraint!(
         m4,
         (x, ξ) -> x[1] + ξ,
-        Uniform01(),
+        scenarios(MersenneTwister(7), 500),
         Interval(-1.0, 1.0);
         epsilon=0.1,
-        n_samples=500,
-        seed=7,
     )
     @test m4.set_constraints.fs[1].set.set isa Interval
+end
+
+@testitem "PSDCone set: dimensions, validation and violations" begin
+    using NonconvexCore, LinearAlgebra, Test
+    using NonconvexCore: getdim, components, check_set_output, set_value
+
+    # Dimensions follow the MOI convention (PSDCone(n) counts n²).
+    @test getdim(PSDCone(3)) == 9
+    sp = SetProduct(LessThan(0.0), PSDCone(2), EqualTo(1.0))
+    @test getdim(sp) == 6
+    @test components(sp) == (LessThan(0.0), PSDCone(2), EqualTo(1.0))
+
+    # Set composition: a vector of PSD matrices, nesting.
+    vp = SetProduct([PSDCone(2), PSDCone(2)])
+    @test vp isa SetProduct && length(vp.sets) == 2
+    @test SetProduct(PSDCone(3), PSDCone(3)).sets isa Tuple{PSDCone,PSDCone}
+    nested = SetProduct(LessThan(0.0), SetProduct(PSDCone(2), PSDCone(2)))
+    @test getdim(nested) == 1 + 8
+
+    # Output-shape validation (matrix-shaped).
+    @test_throws ArgumentError check_set_output([1.0, 2.0, 3.0], PSDCone(2))
+    @test_throws ArgumentError check_set_output(zeros(3, 3), PSDCone(2))
+    check_set_output((1.0, zeros(2, 2), 1.0), sp)
+    check_set_output([zeros(2, 2), zeros(2, 2)], vp)  # vector output for a product
+
+    # Violations: max(0, -λmin(P)).
+    c5 = FunctionInSet(x -> [x[1] - 1.0;;], PSDCone(1))
+    @test set_violation(c5, [2.0]) == [0.0]
+    @test set_violation(c5, [0.0]) == [1.0]
+    @test set_violation(c5, [0.5]) == [0.5]
+    # Nested products with a PSD component concatenate their violations.
+    c10 = FunctionInSet(
+        x -> (x[1] - 1.0, (x[2] - 1.0, [x[3] - 1.0;;])),
+        SetProduct(LessThan(0.0), SetProduct(GreaterThan(0.0), PSDCone(1))),
+    )
+    @test set_violation(c10, [0.0, 2.0, 2.0]) == [0.0, 0.0, 0.0]
+    @test set_violation(c10, [2.0, 0.0, 0.0]) == [1.0, 1.0, 1.0]
+
+    # has_psd_component detects PSD components through products.
+    @test has_psd_component(PSDCone(2))
+    @test !has_psd_component(LessThan(0.0))
+    @test has_psd_component(SetProduct(LessThan(0.0), PSDCone(2)))
+    @test !has_psd_component(SetProduct(LessThan(0.0), Simplex(2)))
+
+    # The set view of the classic SD constraint (Core's placeholder errors
+    # without this package; here it is overwritten).
+    sd = NonconvexCore.SDConstraint(x -> [x[1];;], 1)
+    @test setof(sd) == PSDCone(1)
+    @test tosetconstraint(sd).set == PSDCone(1)
+    @test tosetconstraint(sd) isa FunctionInSet
+end
+
+@testitem "PSDCone variables: blocks, capabilities and kinds" begin
+    using NonconvexCore, LinearAlgebra, Test
+    using NonconvexCore: getsetvariables, set_kinds, variable_set_kinds
+
+    # A PSD matrix variable block.
+    m = Model(x -> x[1] + sum(x[2:5]))
+    add_set_variable!(m, PSDCone(2))
+    add_set_variable!(m, Simplex(3))
+    vs = getsetvariables(m)
+    @test length(m.box_min) == 7
+    @test vs[1].range == 1:4
+    @test vs[1].set isa PSDCone
+    @test vs[2].set isa Simplex
+    # Default inits: identity for PSD, uniform simplex.
+    @test m.init[1:4] == vec(Matrix{Float64}(I, 2, 2))
+    @test m.init[5:7] ≈ fill(1 / 3, 3)
+    # Boxes: PSD free, simplex [0, ∞).
+    @test m.box_min[1:4] == fill(-Inf, 4) && m.box_max[1:4] == fill(Inf, 4)
+    @test m.box_min[5:7] == zeros(3) && m.box_max[5:7] == fill(Inf, 3)
+    # Synthetic constraints: one PSD + one sum-to-one equality.
+    vm, x0, _ = NonconvexCore.tovecmodel(m, m.init)
+    @test length(vm.set_constraints.fs) == 2
+    @test vm.set_constraints.fs[1].set == PSDCone(2)
+    @test vm.set_constraints.fs[1](x0) ≈ I(2)
+    @test vm.set_constraints.fs[2].set == EqualTo(1.0)
+    @test vm.set_constraints.fs[2](x0) ≈ 1.0
+
+    # Set kinds used for feature detection.
+    @test set_kinds(PSDCone(2)) == [:sd]
+    @test set_kinds(SetProduct(LessThan(0.0), PSDCone(2))) == [:product, :ineq, :sd]
+    @test variable_set_kinds(PSDCone(2)) == [:sd]
+    @test variable_set_kinds(SetProduct(Simplex(2), PSDCone(2))) == [:simplex, :sd]
+
+    # Capability declaration for semidefinite models.
+    struct SDCapableAlg <: NonconvexCore.AbstractOptimizer end
+    NonconvexCore.solver_capabilities(::SDCapableAlg) = ConstraintCapabilities(;
+        sets_eq=true,
+        sets_sd=true,
+        variable_sets_sd=true,
+        variable_sets_simplex=true,
+        box=true,
+        continuous=true,
+        infinite_bounds=true,
+    )
+    struct SDMissingAlg <: NonconvexCore.AbstractOptimizer end
+    NonconvexCore.solver_capabilities(::SDMissingAlg) = ConstraintCapabilities(;
+        sets_eq=true,
+        variable_sets_simplex=true,
+        box=true,
+        continuous=true,
+        infinite_bounds=true,
+    )
+    @test_throws ArgumentError NonconvexCore.checksubproblem!(vm, SDMissingAlg())
+    NonconvexCore.checksubproblem!(vm, SDCapableAlg())
 end

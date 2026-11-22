@@ -35,7 +35,7 @@ Declares which constraint/variable features an optimizer supports:
 - `sets_product`: function-in-set product constraints (`SetProduct`;
   defaults to `false`),
 - `sets_chance`: probabilistic (chance) constraints (`ChanceSet`, including
-  per-output probabilities and deterministic `One()` constraints; defaults
+  per-output probabilities and deterministic `Zero()` constraints; defaults
   to `false`),
 - `variable_sets_sd`: variables defined as `PSDCone` blocks (semidefinite
   matrix variables; defaults to `false`),
@@ -113,6 +113,36 @@ function ConstraintCapabilities(;
         binary,
         integer,
         infinite_bounds,
+    )
+end
+
+# Backward-compatible positional constructor (the pre-2.3 field order): the
+# set capabilities default to `false` (not supported).
+function ConstraintCapabilities(
+    linear_eq::Union{Bool,Missing},
+    nonlinear_eq::Union{Bool,Missing},
+    linear_ineq::Union{Bool,Missing},
+    nonlinear_ineq::Union{Bool,Missing},
+    linear_sd::Union{Bool,Missing},
+    nonlinear_sd::Union{Bool,Missing},
+    box::Union{Bool,Missing},
+    continuous::Union{Bool,Missing},
+    binary::Union{Bool,Missing},
+    integer::Union{Bool,Missing},
+    infinite_bounds::Union{Bool,Missing},
+)
+    return ConstraintCapabilities(;
+        linear_eq=linear_eq,
+        nonlinear_eq=nonlinear_eq,
+        linear_ineq=linear_ineq,
+        nonlinear_ineq=nonlinear_ineq,
+        linear_sd=linear_sd,
+        nonlinear_sd=nonlinear_sd,
+        box=box,
+        continuous=continuous,
+        binary=binary,
+        integer=integer,
+        infinite_bounds=infinite_bounds,
     )
 end
 

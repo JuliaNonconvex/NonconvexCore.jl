@@ -6,14 +6,17 @@
 - Function-in-set constraints and variable-in-set blocks, the
   MathOptInterface-style modeling core: `FunctionInSet(f, set)` with the
   sets `EqualTo`, `LessThan`, `GreaterThan`, `Interval`, `Nonnegatives`,
-  `Nonpositives`, `Zeros`, `Reals`, `Simplex`, `ChanceSet` and
+  `Nonpositives`, `Zeros`, `Reals`, `Simplex`, `PSDCone`, `ChanceSet` and
   `SetProduct` — a `SetProduct` routes one bundle evaluation into several
   constraints of different kinds (scalar, vector and matrix-valued), so an
   expensive computation (e.g. a finite-element solve) feeds them all at
-  once. `add_set_constraint!` and `add_chance_constraint!` register them;
-  `add_set_variable!(m, set)` registers variable blocks (a `Simplex` block,
-  a probability-simplex variable) whose cone parts become synthetic set
-  constraints at model conversion.
+  once. `add_set_constraint!` and `add_chance_constraint!` register them
+  (chance constraints take a user-supplied scenario batch and
+  `epsilon = Zero()` for the deterministic case — Core defines the
+  constraint, it does not sample); `add_set_variable!(m, set)` registers
+  variable blocks (a `PSDCone` block is a semidefinite matrix variable, a
+  `Simplex` block a probability-simplex variable) whose cone parts become
+  synthetic set constraints at model conversion.
 - The classical constraint syntax is a view of the sets:
   `add_ineq_constraint!(m, f, s)` is `f ∈ InequalitySet(s)` and
   `add_eq_constraint!` is `f ∈ EqualitySet(s)`; `setof`/`tosetconstraint`
@@ -24,10 +27,10 @@
   function-in-set support per set kind (`sets_eq`, `sets_ineq`, `sets_sd`,
   `sets_simplex`, `sets_product`, `sets_chance`, `variable_sets_sd`,
   `variable_sets_simplex`); `checksubproblem!` rejects models with
-  unsupported set features with an informative error. The semidefinite cone
-  kind (`sets_sd`, `:sd`) is provided by NonconvexSemidefinite.jl, which
-  owns `PSDCone` and specializes Core's extension hooks (`sd_setof`, the
-  set-kind, validation and variable-block hooks).
+  unsupported set features with an informative error. The semidefinite
+  algorithms (chordal decomposition, the structured domain decomposition,
+  barrier and cutting-plane solvers) live in NonconvexSemidefinite.jl,
+  while the cone type `PSDCone` itself is defined here in Core.
 - Domain transforms: `nullspace_transform` and `unconstrained_transform`
   return `(model, x0, mapper)` and differentiate through the mapping with
   analytic ChainRules rrules (TransformVariables + Zygote), including a
@@ -35,8 +38,6 @@
 - Epigraph reformulation: `add_epigraph_variable!` and `epigraph!`.
 - First-class linear constraints: `LinearFunction` and
   `add_linear_constraint!`.
-- Shared multi-output evaluation: `SharedEval`, a cached single evaluation
-  with exact gradient replay.
 - The chordal-decomposition machinery (`chordal_extension`, `chordal_transform`,
   `is_chordal`, …) moved to NonconvexSemidefinite.jl; Core no longer
   depends on AMD.jl.

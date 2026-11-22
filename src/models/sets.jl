@@ -1,13 +1,11 @@
-using Random: Random, AbstractRNG
 
 """
     abstract type AbstractSet end
 
 Abstract supertype of the constraint sets used in function-in-set constraints
 ([`FunctionInSet`](@ref)) and variable-in-set blocks ([`VariableInSet`](@ref)).
-Concrete sets, mirroring the MathOptInterface convention of "a function (or
-variable) constrained to lie in a set", are the [`VectorSet`](@ref) family,
-the semidefinite cone `PSDCone` (provided by NonconvexSemidefinite.jl) and
+Concrete sets — "a function (or variable) constrained to lie in a set" —
+are the [`VectorSet`](@ref) family, the semidefinite cone `PSDCone` and
 the product set [`SetProduct`](@ref).
 """
 abstract type AbstractSet end
@@ -86,7 +84,7 @@ struct Interval{T} <: VectorSet
     upper::T
     dim::Int
 end
-Interval(l::Real, u::Real) = Interval(l, u, 1)
+Interval(l::Real, u::Real) = Interval(promote(l, u)..., 1)
 function Interval(l::AbstractVector, u::AbstractVector)
     length(l) == length(u) || throw(
         DimensionMismatch(
@@ -94,7 +92,22 @@ function Interval(l::AbstractVector, u::AbstractVector)
             "$(length(l)) and $(length(u)).",
         ),
     )
-    return Interval(l, u, length(l))
+    l2, u2 = promote(l, u)
+    return Interval(l2, u2, length(l2))
+end
+
+"""
+    PSDCone(n)
+
+The cone of positive semidefinite `n × n` symmetric matrices. The function
+evaluated against it must return a matrix; a variable block registered with
+[`add_set_variable!`](@ref) is an `n × n` semidefinite matrix variable. The
+chordal-decomposition and semidefinite algorithms live in
+NonconvexSemidefinite.jl; the cone type itself is defined here so that all
+sets share one home.
+"""
+struct PSDCone <: AbstractSet
+    dim::Int
 end
 
 """
@@ -134,73 +147,73 @@ struct Simplex <: VectorSet
 end
 
 """
-    One()
+    Zero()
 
-A static, degenerate one-point "distribution": the single scenario
-`nothing`. Used as the distribution of a [`ChanceSet`](@ref) with
-`epsilon = 0` to express a **deterministic** constraint in probabilistic
-form — the function is evaluated exactly once with `ξ = nothing`, so the
-constraint machinery handles it like any other constraint.
+A special value for the probability input of a [`ChanceSet`](@ref): with
+`epsilon = Zero()` the constraint is deterministic — the function is
+evaluated exactly once with `ξ = nothing` and must lie in the inner set
+(probability one). The scenario batch is ignored.
 """
-struct One end
-Random.rand(::AbstractRNG, ::One) = nothing
+struct Zero end
 
 """
-    ChanceSet(set, dist; epsilon = 0.05, n_samples = 1000, seed = 1, kappa = 10.0)
+    ChanceSet(set, scenarios; epsilon = 0.05, kappa = 10.0)
 
-A probabilistic constraint set: a function `f(x, ξ)` lies in the inner `set`
-**with a certain probability** — `P_ξ[f(x, ξ) ∈ set] ≥ 1 - epsilon`, where
-`ξ` is drawn from the distribution `dist` (any object implementing `rand`).
-The `n_samples` Monte Carlo scenarios are fixed at construction with the
-given `seed`, so the constraint is deterministic in `x`; the exceedance
-probability is estimated by a smooth (tanh) sample average of the
-exceedance indicator with sharpness `kappa`, which is differentiable and
-exactly zero on feasible scenarios.
+A probabilistic constraint set: a function `f(x, ξ)` lies in the inner
+`set` **with a certain probability** — `P_ξ[f(x, ξ) ∈ set] ≥ 1 - epsilon`,
+where the exceedance probability is estimated by a smooth (tanh) sample
+average of the exceedance indicator with sharpness `kappa`, which is
+differentiable and exactly zero on feasible scenarios.
+
+The scenario batch `scenarios` (a vector of `ξ` values) is supplied by the
+caller: NonconvexCore defines the constraint and evaluates it over the
+given batch, it does not draw random scenarios — the RNG (and the seed)
+stays with the caller. With `epsilon = Zero()` the constraint is
+deterministic and `scenarios` is ignored (`f` is evaluated once with
+`ξ = nothing`).
 
 When the inner set is a [`SetProduct`](@ref), `epsilon` can be a vector of
 probabilities, one per output — each output lies in its own set with its
 own probability (`P[fⱼ(x, ξ) ∈ Sⱼ] ≥ 1 - εⱼ`), all sharing the same
 scenario batch.
 
-`epsilon = 0` together with the degenerate [`One`](@ref) distribution
-expresses a deterministic constraint: the single evaluation is exact (no
-smoothing).
+`epsilon = Zero()` expresses a deterministic constraint: the single
+evaluation is exact (no smoothing).
 
 Use it in the function-in-set form — the [`FunctionInSet`](@ref) evaluation
-draws the scenarios and returns the batch of inner-set values — or through
-[`add_chance_constraint!`](@ref):
+iterates the scenario batch and returns the batch of inner-set values — or
+through [`add_chance_constraint!`](@ref):
 
 ```julia
+ξs = [rand(StableRNG(1), dist) for _ in 1:1000]
 add_set_constraint!(m, FunctionInSet((x, ξ) -> x[1] + ξ,
-                                     ChanceSet(LessThan(1.0), dist; epsilon = 0.1)))
+                                     ChanceSet(LessThan(1.0), ξs; epsilon = 0.1)))
 ```
 """
-struct ChanceSet{S<:AbstractSet,D} <: AbstractSet
+struct ChanceSet{S<:AbstractSet,E} <: AbstractSet
     set::S
-    dist::D
-    epsilon::Union{Float64,Vector{Float64}}
+    epsilon::E
     kappa::Float64
     n_samples::Int
     scenarios::Vector
 end
-function ChanceSet(
-    set::AbstractSet, dist; epsilon=0.05, n_samples::Int=1000, seed::Integer=1, kappa=10.0
-)
-    if dist isa One
-        epsilon == 0 || throw(
-            ArgumentError(
-                "A deterministic (One()) chance constraint must have epsilon = 0, " *
-                "got epsilon = $epsilon.",
-            ),
-        )
-        return ChanceSet(
-            set, dist, _epsilon_vector(set, 0.0), Float64(kappa), 1, Any[nothing]
-        )
+function ChanceSet(set::AbstractSet, scenarios; epsilon=0.05, kappa=10.0)
+    if epsilon isa Zero
+        return ChanceSet(set, Zero(), Float64(kappa), 1, Any[nothing])
     end
-    rng = Random.MersenneTwister(seed)
-    scenarios = [rand(rng, dist) for _ in 1:n_samples]
+    scenarios isa AbstractVector || throw(
+        ArgumentError(
+            "The scenario batch of a chance constraint must be a vector of " *
+            "scenario values; draw it with the RNG of your choice (e.g. " *
+            "`[rand(StableRNG(1), dist) for _ in 1:n]`).",
+        ),
+    )
     return ChanceSet(
-        set, dist, _epsilon_vector(set, epsilon), Float64(kappa), n_samples, scenarios
+        set,
+        _epsilon_vector(set, epsilon),
+        Float64(kappa),
+        length(scenarios),
+        collect(scenarios),
     )
 end
 
@@ -251,7 +264,7 @@ single function evaluation.
 
 Components can be composed freely: `SetProduct(Simplex(4), Simplex(4))` is
 a pair of simplexes, and products may be nested. Semidefinite components
-(`PSDCone`, provided by the NonconvexSemidefinite.jl package) compose the
+(`PSDCone`) compose the
 same way.
 """
 struct SetProduct{S<:Tuple{Vararg{AbstractSet}}} <: AbstractSet
@@ -264,15 +277,15 @@ SetProduct(sets::AbstractVector{<:AbstractSet}) = SetProduct(sets...)
     getdim(s::AbstractSet)
 
 The dimension of a set: the number of scalar entries the function value
-contributes. Vector sets contribute their length, a semidefinite cone
-(`PSDCone(n)`, provided by NonconvexSemidefinite.jl) contributes `n²` (the
-entries of the matrix) and a product set contributes the sum over its
-components. This mirrors `MOI.dimension`.
+contributes. Vector sets contribute their length, a semidefinite cone (`PSDCone(n)`)
+contributes `n²` (the entries of the matrix) and a product set contributes
+the sum over its components.
 """
 getdim(s::EqualTo) = s.dim
 getdim(s::LessThan) = s.dim
 getdim(s::GreaterThan) = s.dim
 getdim(s::Interval) = s.dim
+getdim(s::PSDCone) = s.dim * s.dim
 getdim(s::Reals) = s.dim
 getdim(s::Nonnegatives) = s.dim
 getdim(s::Nonpositives) = s.dim
@@ -367,16 +380,26 @@ end
 
 _check_set_output(value, set::AbstractSet) = nothing
 
+function _check_set_output(value, s::PSDCone)
+    value isa AbstractMatrix && size(value) == (s.dim, s.dim) || throw(
+        ArgumentError(
+            "A function evaluated against PSDCone($(s.dim)) must return a " *
+            "$(s.dim)×$(s.dim) matrix, got $(typeof(value)).",
+        ),
+    )
+    return nothing
+end
+
 """
     FunctionInSet(f, set; flags = Set{Symbol}())
 
-A constraint of the form "the function `f` lies in the set `set`" — the
-MathOptInterface-style counterpart of `f(x) ∈ set`. `f` is evaluated once per
+A constraint of the form "the function `f` lies in the set `set`", i.e.
+`f(x) ∈ set`. `f` is evaluated once per
 call and its output is checked against `set`:
 
 - `EqualTo(value)`/`LessThan(upper)`/`GreaterThan(lower)`/`Interval(lo, up)`
   accept scalar or vector-valued `f`;
-- `PSDCone(n)` (provided by the NonconvexSemidefinite.jl package) accepts a
+- `PSDCone(n)` accepts a
   matrix-valued `f` (the matrix must be positive semidefinite);
 - `SetProduct(s₁, …, sₖ)` accepts a `k`-tuple output, routing each component
   to its own set — a single evaluation can therefore feed e.g. an inequality
@@ -412,22 +435,21 @@ function (c::FunctionInSet)(x)
 end
 
 """
-    chance(c::AbstractConstraint, dist; epsilon = 0.05, n_samples = 1000,
-           seed = 1, kappa = 10.0)
+    chance(c::AbstractConstraint, scenarios; epsilon = 0.05, kappa = 10.0)
 
 The probabilistic version of any existing constraint `c`: the
 [`FunctionInSet`](@ref) constraint
-`P_ξ[c.f(x, ξ) ∈ setof(c)] ≥ 1 - epsilon`, where the scenarios `ξ` are drawn
-from `dist` once with the fixed `seed` (see [`ChanceSet`](@ref)). The
-classical constraints — `IneqConstraint` (`f ≤ s`), `EqConstraint`
-(`f = s`), `SDConstraint` (`f ⪰ 0`) — as well as any `FunctionInSet` — can
-be turned probabilistic this way.
+`P_ξ[c.f(x, ξ) ∈ setof(c)] ≥ 1 - epsilon` over the user-supplied scenario
+batch `scenarios` (see [`ChanceSet`](@ref)). The classical constraints —
+`IneqConstraint` (`f ≤ s`), `EqConstraint` (`f = s`), `SDConstraint`
+(`f ⪰ 0`) — as well as any `FunctionInSet` — can be turned probabilistic
+this way.
 """
-function chance(c::AbstractConstraint, dist; kwargs...)
+function chance(c::AbstractConstraint, scenarios; kwargs...)
     f = getfunction(c)
     set = c isa FunctionInSet ? c.set : setof(c)
     flags = _flags(c)
-    return FunctionInSet(f, ChanceSet(set, dist; kwargs...), flags)
+    return FunctionInSet(f, ChanceSet(set, scenarios; kwargs...), flags)
 end
 
 _flags(c) = hasfield(typeof(c), :flags) ? c.flags : Set{Symbol}()
@@ -462,6 +484,10 @@ _component_violation(vi, s::GreaterThan) = _set_vec(max.(s.lower .- vi, 0.0))
 function _component_violation(vi, s::Interval)
     return _set_vec(max.(s.lower .- vi, vi .- s.upper, 0.0))
 end
+function _component_violation(vi, s::PSDCone)
+    λmin = minimum(eigvals(Symmetric(Matrix(vi))))
+    return [max(0.0, -λmin)]
+end
 _component_violation(vi, s::Nonnegatives) = _set_vec(max.(-vi, 0.0))
 _component_violation(vi, s::Nonpositives) = _set_vec(max.(vi, 0.0))
 _component_violation(vi, s::Zeros) = _set_vec(abs.(vi))
@@ -472,9 +498,10 @@ function _component_violation(batch, s::ChanceSet)
     # Per-output exceedance probabilities: for each inner output j, p̂ⱼ is the
     # (smoothly indicated) sample average of the largest j-th component
     # violation — each output lies in its own set with its own probability
-    # 1 - εⱼ. The deterministic (One) case uses exact indicators.
+    # 1 - εⱼ. The deterministic (epsilon = Zero()) case uses exact
+    # indicators.
     comps = components(s.set)
-    exact = s.dist isa One
+    exact = s.epsilon isa Zero
     return map(1:length(comps)) do j
         vs = map(batch) do b
             bj = if b isa Tuple
@@ -488,8 +515,8 @@ function _component_violation(batch, s::ChanceSet)
             return isempty(vj) ? 0.0 : maximum(vj)
         end
         p̂ = if exact
-            # Deterministic (One): the violation is the inner-set violation
-            # itself, exactly.
+            # Deterministic (epsilon = Zero()): the violation is the
+            # inner-set violation itself, exactly.
             maximum(vs)
         else
             sum(_soft_indicator(s.kappa * v) for v in vs) / length(vs)
@@ -522,14 +549,16 @@ end
 
 The constraint kinds a function-in-set constraint against `s` needs a solver
 to support, as a vector of the symbols `:eq` (EqualTo/Zeros), `:ineq`
-(LessThan/GreaterThan/Interval/Nonnegatives/Nonpositives), `:sd`
-(PSDCone, provided by NonconvexSemidefinite.jl), `:simplex` (Simplex) and
+(LessThan/GreaterThan/Interval/Nonnegatives/Nonpositives), `:sd` (PSDCone),
+`:simplex` (Simplex) and
 `:product` (SetProduct, recursing into its components). `Reals` constraints
 are vacuous (no kind). These map one-to-one to the granular `sets_*`
 capabilities of [`ConstraintCapabilities`](@ref).
 """
+
 set_kinds(s::Union{EqualTo,Zeros}) = [:eq]
 set_kinds(s::Union{LessThan,GreaterThan,Interval,Nonnegatives,Nonpositives}) = [:ineq]
+set_kinds(::PSDCone) = [:sd]
 set_kinds(::Simplex) = [:simplex]
 set_kinds(::ChanceSet) = [:chance]
 set_kinds(::Reals) = Symbol[]
@@ -542,16 +571,27 @@ function set_kinds(s::SetProduct)
 end
 
 """
+    has_psd_component(s::AbstractSet)
+
+Whether the set `s` has a semidefinite component ([`PSDCone`](@ref)),
+recursing into [`SetProduct`](@ref).
+"""
+has_psd_component(::PSDCone) = true
+has_psd_component(s::SetProduct) = any(has_psd_component, s.sets)
+has_psd_component(s::AbstractSet) = false
+
+"""
     variable_set_kinds(s::AbstractSet)
 
 The cone kinds of a variable block constrained to `s` that the box cannot
-express — `:sd` for a `PSDCone` block (provided by NonconvexSemidefinite.jl),
-`:simplex` for a `Simplex` block — recursing into [`SetProduct`](@ref)
+express — `:sd` for a `PSDCone` block, `:simplex` for a `Simplex` block —
+recursing into [`SetProduct`](@ref)
 components. Box-expressible sets (the order sets, sign cones, `Zeros`,
 `Reals`) contribute nothing: they are covered by the `box` capability. These
 map to the `variable_sets_*` capabilities of
 [`ConstraintCapabilities`](@ref).
 """
+variable_set_kinds(::PSDCone) = [:sd]
 variable_set_kinds(::Simplex) = [:simplex]
 variable_set_kinds(s::Union{EqualTo,LessThan,GreaterThan,Interval}) = Symbol[]
 variable_set_kinds(s::Union{Nonnegatives,Nonpositives,Zeros,Reals,ChanceSet}) = Symbol[]
@@ -564,72 +604,12 @@ function variable_set_kinds(s::SetProduct)
 end
 
 """
-    SharedEval(f)
-
-A callable that evaluates the multi-output function `f` once per distinct
-input, caching the value and its Zygote pullback so that several consumers
-of `f(x)` — e.g. the components of a [`SetProduct`](@ref) constraint, or a
-solver that reads each output separately — share one evaluation. The
-gradient of every consumer flows through the single cached tape, which keeps
-the caching exact: a hit replays the cached pullback, so the derivative is
-correct regardless of when and how often the consumers are called.
-
-Uses content-equality with an identity fast path (in-place mutations of the
-input invalidate the cache). Reverse-mode (Zygote) oriented; the cache is
-not thread-safe.
-"""
-mutable struct SharedEval{F}
-    f::F
-    lastx::Any
-    lastval::Any
-    back::Any
-end
-SharedEval(f) = SharedEval(f, nothing, nothing, nothing)
-
-function (e::SharedEval)(x)
-    if e.lastx === nothing || (e.lastx !== x && !_sameval(e.lastx, x))
-        val, back = Zygote.@ignore Zygote.pullback(e.f, x)
-        e.lastx = copy(x)
-        e.lastval = val
-        e.back = back
-    end
-    return e.lastval
-end
-
-# Content equality for plain arrays of reals only (tracked arrays must not
-# be compared element-wise).
-function _sameval(a, b)
-    return a isa AbstractArray{<:Real} &&
-           b isa AbstractArray{<:Real} &&
-           size(a) == size(b) &&
-           isequal(a, b)
-end
-
-function ChainRulesCore.rrule(e::SharedEval, x)
-    val = e(x)
-    proj = ChainRulesCore.ProjectTo(x)
-    back = e.back
-    function shared_pullback(Δ)
-        Δ = ChainRulesCore.unthunk(Δ)
-        # The cached Zygote tape of a tuple-valued function expects a plain
-        # tuple cotangent; unwrap Tangent wrappers over tuples.
-        if Δ isa ChainRulesCore.Tangent && ChainRulesCore.backing(Δ) isa Tuple
-            Δ = ChainRulesCore.backing(Δ)
-        end
-        x̄ = back(Δ)
-        x̄ isa Tuple && (x̄ = x̄[1])
-        return ChainRulesCore.NoTangent(), proj(x̄)
-    end
-    return val, shared_pullback
-end
-
-"""
     set_violation(c::FunctionInSet, x)
 
 The violation of a function-in-set constraint at `x`: a vector of nonnegative
 scalars, all zero exactly when `c(x)` lies in the set. Order-set components
 contribute one entry per output; each PSD component contributes
-`max(0, -λmin(P))` (the PSD cone is provided by NonconvexSemidefinite.jl).
+`max(0, -λmin(P))`.
 """
 function set_violation(c::FunctionInSet, x)
     v, comps = set_value(c, x), components(c.set)
@@ -647,7 +627,7 @@ end
 A block of decision variables constrained to lie in the set `set`: the
 entries of the (flattened) variable vector in `range` must form a value in
 `set`. Created by [`add_set_variable!`](@ref) and [`addvar!`](@ref); a
-`PSDCone(n)` block (provided by NonconvexSemidefinite.jl) is an `n × n`
+`PSDCone(n)` block is an `n × n`
 semidefinite matrix variable, a `Simplex(n)` block is a probability simplex
 variable, and the order sets give bounded or fixed variable blocks. `flags`
 labels the block for meta-algorithm selection.
@@ -673,9 +653,9 @@ _flags_set(f) = Set{Symbol}(Symbol.(collect(f)))
 
 The number of scalar decision variables a variable block constrained to
 `set` introduces: `dim` for the vector sets, `n²` for a semidefinite cone
-(`PSDCone(n)`, provided by NonconvexSemidefinite.jl), and the sum over the
-components of a [`SetProduct`](@ref).
+(`PSDCone(n)`), and the sum over the components of a [`SetProduct`](@ref).
 """
+variable_dim(s::PSDCone) = s.dim * s.dim
 variable_dim(s::SetProduct) = sum(variable_dim, s.sets; init=0)
 variable_dim(s::AbstractSet) = s.dim
 
@@ -700,6 +680,7 @@ variable_box(s::Nonnegatives) = (zeros(s.dim), fill(Inf, s.dim))
 variable_box(s::Nonpositives) = (fill(-Inf, s.dim), zeros(s.dim))
 variable_box(s::Zeros) = (zeros(s.dim), zeros(s.dim))
 variable_box(s::Simplex) = (zeros(s.dim), fill(Inf, s.dim))
+variable_box(s::PSDCone) = (fill(-Inf, s.dim^2), fill(Inf, s.dim^2))
 function variable_box(s::SetProduct)
     lbs = Float64[]
     ubs = Float64[]
@@ -731,6 +712,7 @@ variable_init(s::Nonnegatives) = ones(s.dim)
 variable_init(s::Nonpositives) = -ones(s.dim)
 variable_init(s::Zeros) = zeros(s.dim)
 variable_init(s::Simplex) = fill(1.0 / s.dim, s.dim)
+variable_init(s::PSDCone) = vec(Matrix{Float64}(I, s.dim, s.dim))
 function variable_init(s::SetProduct)
     out = Float64[]
     for c in s.sets
@@ -748,28 +730,11 @@ variable_box(s::Reals) = (fill(-Inf, s.dim), fill(Inf, s.dim))
 The set view of a classical constraint: the default set its syntax
 corresponds to — `InequalitySet(rhs)` for an [`IneqConstraint`](@ref),
 `EqualitySet(rhs)` for an [`EqConstraint`](@ref) and `PSDCone(dim)` for an
-[`SDConstraint`](@ref). The semidefinite cone lives in the
-NonconvexSemidefinite.jl package: `setof(::SDConstraint)` requires it to be
-loaded (the package specializes the `sd_setof` hook). See also
-[`tosetconstraint`](@ref).
+[`SDConstraint`](@ref). See also [`tosetconstraint`](@ref).
 """
 setof(c::IneqConstraint) = InequalitySet(c.rhs)
 setof(c::EqConstraint) = EqualitySet(c.rhs)
-setof(c::SDConstraint) = sd_setof(c)
-
-# The set view of an SDConstraint — the semidefinite cone PSDCone, which is
-# provided by NonconvexSemidefinite.jl. The generic fallback errors
-# informatively; NonconvexSemidefinite specializes the hook on its own
-# `SDConstraint` signature (more specific than the fallback).
-function sd_setof(c::AbstractConstraint)
-    return throw(
-        ArgumentError(
-            "The set view of an SDConstraint is the semidefinite cone PSDCone, " *
-            "provided by NonconvexSemidefinite.jl. Load it (`using " *
-            "NonconvexSemidefinite`) to use this conversion.",
-        ),
-    )
-end
+setof(c::SDConstraint) = PSDCone(c.dim)
 
 """
     tosetconstraint(c::AbstractConstraint)
@@ -781,15 +746,16 @@ upcoming NonconvexCore 3, where `add_ineq_constraint!(m, f, s)` stores
 """
 tosetconstraint(c::IneqConstraint) = FunctionInSet(c.f, setof(c), c.flags)
 tosetconstraint(c::EqConstraint) = FunctionInSet(c.f, setof(c), c.flags)
+tosetconstraint(c::SDConstraint) = FunctionInSet(c.f, setof(c))
 
 """
     variable_set_constraints(v::VariableInSet)
 
 The synthetic [`FunctionInSet`](@ref) constraints that encode the cone parts
-of a variable-in-set block that the box cannot express: the sum-to-one
-equality of a `Simplex` variable (its nonnegativity lives in the box), and —
-provided by NonconvexSemidefinite.jl — the PSD constraint on the matrix block
-of a `PSDCone` variable. Box-expressible sets produce no constraints.
+of a variable-in-set block that the box cannot express: the PSD constraint on the matrix block of a
+`PSDCone` variable and the sum-to-one equality of a `Simplex` variable (its
+nonnegativity lives in the box). Box-expressible sets produce no
+constraints.
 """
 function variable_set_constraints(v::VariableInSet)
     set = v.set

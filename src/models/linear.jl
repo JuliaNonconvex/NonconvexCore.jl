@@ -36,7 +36,7 @@ linear_offset(f::LinearFunction) = f.b === nothing ? zeros(eltype(f.A), size(f.A
 Adds the first-class linear constraint `LinearFunction(A, b) ∈ set` to the
 model `m` in place, e.g. `A x ≤ ub` with `LessThan(ub)`, `A x = rhs` with
 `EqualTo(rhs)` or `A x ⪰ 0` with `PSDCone(k)` (each row block of `A x`
-reshaped; `PSDCone` is provided by NonconvexSemidefinite.jl). `flags` labels
+reshaped). `flags` labels
 the constraint for meta-algorithm selection. See [`LinearFunction`](@ref).
 """
 function add_linear_constraint!(
