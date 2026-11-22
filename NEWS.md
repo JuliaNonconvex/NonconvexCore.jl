@@ -1,5 +1,8 @@
 # NEWS
 
+## 2.3.1
+
+- Docs: describe the package on the introduction page; drop the quick-start section from the README.
 
 ## 2.3.0
 
