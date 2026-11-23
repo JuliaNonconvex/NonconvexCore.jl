@@ -264,11 +264,14 @@ a pair of simplexes, and products may be nested. Semidefinite components
 (`PSDCone`) compose the
 same way.
 """
-struct SetProduct{S<:Tuple{Vararg{AbstractSet}}} <: AbstractSet
+struct SetProduct{S<:Union{Tuple{Vararg{AbstractSet}},AbstractVector{<:AbstractSet}}} <: AbstractSet
     sets::S
 end
 SetProduct(sets::AbstractSet...) = SetProduct(sets)
-SetProduct(sets::AbstractVector{<:AbstractSet}) = SetProduct(sets...)
+# Keep the vector AS a vector (no splatting): products of many components
+# (e.g. thousands of per-element PSDCone(8) components) must not be
+# expanded into a giant tuple type.
+SetProduct(sets::AbstractVector{<:AbstractSet}) = SetProduct{typeof(sets)}(sets)
 
 """
     getdim(s::AbstractSet)
@@ -295,7 +298,8 @@ getdim(s::SetProduct) = sum(getdim, s.sets; init=0)
     components(s::AbstractSet)
 
 The component sets of `s`: the set itself for an atomic set, the tuple of
-component sets for a [`SetProduct`](@ref).
+component sets for a [`SetProduct`](@ref) built from individual sets, or
+the vector when the product was built from a vector.
 """
 components(s::AbstractSet) = (s,)
 components(s::SetProduct) = s.sets
@@ -457,13 +461,16 @@ getfunction(c::FunctionInSet) = c.f
 # Evaluate the function of a set constraint once and split the output into
 # its components (always as a tuple, one entry per component set). A vector
 # output against a product of several sets is split into its entries.
+# NOTE: a vector output is kept AS a vector (no Tuple conversion): products
+# of many components (e.g. thousands of per-element PSDCone(8) components)
+# must not be expanded into a giant tuple type.
 function set_value(c::FunctionInSet, x)
     out = c(x)
     comps = components(c.set)
     if out isa Tuple
         return out
     elseif out isa AbstractVector && length(comps) > 1 && length(out) == length(comps)
-        return Tuple(out)
+        return out
     else
         return (out,)
     end
