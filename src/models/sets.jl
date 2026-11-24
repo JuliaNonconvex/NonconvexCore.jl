@@ -379,6 +379,12 @@ function check_set_output(value, set::AbstractSet)
     return nothing
 end
 
+# Output-shape validation is a shape assertion, not a computation: it must
+# never be differentiated. Without this rule, Zygote traces the per-component
+# loop of SetProducts with thousands of components (one node per element
+# block) inside every FunctionInSet evaluation.
+ChainRulesCore.@non_differentiable check_set_output(value, set::AbstractSet)
+
 _check_set_output(value, set::AbstractSet) = nothing
 
 function _check_set_output(value, s::PSDCone)
