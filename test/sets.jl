@@ -632,9 +632,7 @@ end
 @testitem "SetProduct of vectors (no giant tuples)" begin
     using NonconvexCore
     using NonconvexCore: components, getdim, set_value
-    comps = NonconvexCore.AbstractSet[
-        LessThan(0.0), Nonnegatives(3), LessThan(0.0),
-    ]
+    comps = NonconvexCore.AbstractSet[LessThan(0.0), Nonnegatives(3), LessThan(0.0)]
     sp = SetProduct(comps)
     @test sp.sets === comps               # the vector is kept AS a vector
     @test components(sp) === comps

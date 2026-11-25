@@ -264,7 +264,8 @@ a pair of simplexes, and products may be nested. Semidefinite components
 (`PSDCone`) compose the
 same way.
 """
-struct SetProduct{S<:Union{Tuple{Vararg{AbstractSet}},AbstractVector{<:AbstractSet}}} <: AbstractSet
+struct SetProduct{S<:Union{Tuple{Vararg{AbstractSet}},AbstractVector{<:AbstractSet}}} <:
+       AbstractSet
     sets::S
 end
 SetProduct(sets::AbstractSet...) = SetProduct(sets)
