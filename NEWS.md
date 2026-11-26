@@ -1,6 +1,6 @@
 # NEWS
 
-## Unreleased
+## 2.3.2
 
 - `SetProduct` accepts a vector of component sets and keeps it AS a vector
   (no splatting into a giant tuple type) — products with thousands of
