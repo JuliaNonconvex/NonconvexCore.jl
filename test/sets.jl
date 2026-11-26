@@ -628,3 +628,23 @@ end
     g2 = Zygote.gradient(x -> sum(TV.inverse(t, x)), x0)[1]
     @test all(isfinite, g2) && norm(g2) > 0
 end
+
+@testitem "SetProduct of vectors (no giant tuples)" begin
+    using NonconvexCore
+    using NonconvexCore: components, getdim, set_value
+    comps = NonconvexCore.AbstractSet[LessThan(0.0), Nonnegatives(3), LessThan(0.0)]
+    sp = SetProduct(comps)
+    @test sp.sets === comps               # the vector is kept AS a vector
+    @test components(sp) === comps
+    @test getdim(sp) == 5
+    # a vector-valued bundle stays a vector through set_value (no Tuple
+    # conversion that would materialize a giant tuple type)
+    c = FunctionInSet(x -> [x[1] - 1.0, x[2:4], x[1] - 2.0], sp)
+    v = set_value(c, [0.5, 0.0, 0.0, 0.0])
+    @test v isa AbstractVector
+    @test length(v) == 3
+    @test v[2] == [0.0, 0.0, 0.0]
+    # a wrong-shaped value is rejected
+    bad = FunctionInSet(x -> [x[1] - 1.0], sp)
+    @test_throws ArgumentError bad([0.5])
+end

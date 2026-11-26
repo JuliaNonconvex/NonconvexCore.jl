@@ -1,5 +1,14 @@
 # NEWS
 
+## Unreleased
+
+- `SetProduct` accepts a vector of component sets and keeps it AS a vector
+  (no splatting into a giant tuple type) — products with thousands of
+  components (e.g. per-element PSD cones) no longer blow up the type
+  system; `set_value` keeps vector-valued bundle outputs as vectors, and
+  `check_set_output` is marked non-differentiable (it is a shape
+  assertion, not a computation).
+
 ## 2.3.1
 
 - Docs: describe the package on the introduction page; drop the quick-start section from the README.
