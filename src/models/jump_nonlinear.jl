@@ -630,6 +630,44 @@ function jump_hessian_lagrangian!(m::JuMPEvaluator, vals, x, obj_factor, lambda)
     return vals
 end
 
+"""
+    jump_evaluator(model::VecModel)
+
+The shared [`JuMPEvaluator`](@ref) of a JuMP-converted model, or `nothing`
+when the model is not JuMP-converted (or mixes JuMP-converted functions
+with other functions). Solvers use it to read the model's derivatives —
+first and second order — from MathOptInterface's sparse reverse-mode
+evaluator instead of tracing the evaluator with generic AD backends.
+"""
+function jump_evaluator(model::VecModel)
+    obj = getobjective(model)
+    obj === nothing && return nothing
+    raw = _raw_jump_function(getfunction(obj))
+    raw isa JuMPModelObjective || return nothing
+    m = raw.m
+    for (cs, T, count) in (
+        (model.ineq_constraints, JuMPModelIneq, m.nineq),
+        (model.eq_constraints, JuMPModelEq, m.neq),
+    )
+        if count == 0
+            isempty(cs.fs) || return nothing
+        else
+            length(cs.fs) == 1 || return nothing
+            c = only(cs.fs)
+            f = _raw_jump_function(c.f)
+            (f isa T && f.m === m && getdim(c) == count && all(iszero, c.rhs)) ||
+                return nothing
+        end
+    end
+    return m
+end
+
+# Unwrap the function of a converted model through the FlattenedFunction and
+# FunctionWrapper layers to the underlying (JuMP-backed) raw function.
+_raw_jump_function(f) =
+    f isa FlattenedFunction ? _raw_jump_function(getrawfunction(f)) :
+    f isa FunctionWrapper ? _raw_jump_function(getfunction(f)) : f
+
 function jump_constraint_values!(m::JuMPEvaluator, g, x)
     if !isempty(m.myrow_of_evrow)
         MOI.eval_constraint(m.ev, m.g_buffer, x)
