@@ -665,8 +665,13 @@ end
 # Unwrap the function of a converted model through the FlattenedFunction and
 # FunctionWrapper layers to the underlying (JuMP-backed) raw function.
 _raw_jump_function(f) =
-    f isa FlattenedFunction ? _raw_jump_function(getrawfunction(f)) :
-    f isa FunctionWrapper ? _raw_jump_function(getfunction(f)) : f
+    if f isa FlattenedFunction
+        _raw_jump_function(getrawfunction(f))
+    elseif f isa FunctionWrapper
+        _raw_jump_function(getfunction(f))
+    else
+        f
+    end
 
 function jump_constraint_values!(m::JuMPEvaluator, g, x)
     if !isempty(m.myrow_of_evrow)
