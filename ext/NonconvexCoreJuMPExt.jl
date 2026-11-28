@@ -299,7 +299,13 @@ function _quadratic_objective(obj::QuadExpr, nvars)
     return c, sparse(II, JJ, V, nvars, nvars), obj_const
 end
 
-function NonconvexCore.DictModel(model::JuMP.Model)
+function NonconvexCore.DictModel(
+    model::JuMP.Model;
+    ineq_flags::Union{Symbol,AbstractVector{Symbol}}=Symbol[],
+    eq_flags::Union{Symbol,AbstractVector{Symbol}}=Symbol[],
+)
+    ineq_flags = ineq_flags isa Symbol ? Set([ineq_flags]) : Set(ineq_flags)
+    eq_flags = eq_flags isa Symbol ? Set([eq_flags]) : Set(eq_flags)
     lb, ub, inits, integer = get_variable_info(model)
     nvars = length(flatten(lb)[1])
     ks = collect(keys(inits))
@@ -310,8 +316,12 @@ function NonconvexCore.DictModel(model::JuMP.Model)
     if _has_nonlinear(model)
         # Uniform expression path: every objective and constraint is evaluated
         # through MathOptInterface's Nonlinear evaluator, whose direct
-        # derivatives apply to the whole model.
-        return _dict_model_from_jump_expressions(model, dict_model, ks, nvars)
+        # derivatives apply to the whole model. The whole inequality and
+        # equality blocks are each a single constraint, so each kind carries
+        # a single label set.
+        return _dict_model_from_jump_expressions(
+            model, dict_model, ks, nvars; ineq_flags=ineq_flags, eq_flags=eq_flags
+        )
     end
     Aineq, bineq, Aeq, beq = get_constraint_info(model, nvars)
     c, Q, obj_const = get_objective_info(model, nvars)
@@ -324,10 +334,12 @@ function NonconvexCore.DictModel(model::JuMP.Model)
         end
     )
     if length(bineq) > 0
-        add_ineq_constraint!(dict_model, x -> Aineq * flatten(x, ks)[1] - bineq)
+        add_ineq_constraint!(
+            dict_model, x -> Aineq * flatten(x, ks)[1] - bineq; flags=ineq_flags
+        )
     end
     if length(beq) > 0
-        add_eq_constraint!(dict_model, x -> Aeq * flatten(x, ks)[1] - beq)
+        add_eq_constraint!(dict_model, x -> Aeq * flatten(x, ks)[1] - beq; flags=eq_flags)
     end
     return dict_model
 end
@@ -376,7 +388,9 @@ function _has_nonlinear(model::JuMP.Model)
     end
 end
 
-function _dict_model_from_jump_expressions(model, dict_model, ks, nvars)
+function _dict_model_from_jump_expressions(
+    model, dict_model, ks, nvars; ineq_flags=Set{Symbol}(), eq_flags=Set{Symbol}()
+)
     vars = _ordered_jump_variables(model, ks)
     # One Nonlinear model for the nonlinear objective and constraint rows;
     # affine and quadratic rows (and an affine or quadratic objective) are
@@ -459,8 +473,10 @@ function _dict_model_from_jump_expressions(model, dict_model, ks, nvars)
     end
     je = JuMPEvaluator(nl, vars, obj_sign, rows, obj_closed)
     set_objective!(dict_model, JuMPModelObjective(je, ks))
-    je.nineq > 0 && add_ineq_constraint!(dict_model, JuMPModelIneq(je, ks))
-    je.neq > 0 && add_eq_constraint!(dict_model, JuMPModelEq(je, ks))
+    je.nineq > 0 &&
+        add_ineq_constraint!(dict_model, JuMPModelIneq(je, ks); flags=ineq_flags)
+    je.neq > 0 &&
+        add_eq_constraint!(dict_model, JuMPModelEq(je, ks); flags=eq_flags)
     return dict_model
 end
 
